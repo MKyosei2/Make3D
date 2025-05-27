@@ -1,0 +1,232 @@
+---------------FBXExporter.h---------------
+#pragma once
+#include "common.h"
+void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath = nullptr);
+---------------FBXExporter.cpp---------------
+#define FBXSDK_SHARED
+#include "FBXExporter.h"
+#include <fbxsdk.h>
+
+void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath) {
+    FbxManager* manager = FbxManager::Create();
+    FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
+    manager->SetIOSettings(ios);
+
+    FbxScene* scene = FbxScene::Create(manager, "Scene");
+    FbxNode* root = scene->GetRootNode();
+
+    FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
+
+    fbxMesh->InitControlPoints(mesh.vertices.size());
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+        auto& v = mesh.vertices[i];
+        fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
+    }
+
+    for (size_t i = 0; i < mesh.indices.size(); i += 3) {
+        fbxMesh->BeginPolygon();
+        fbxMesh->AddPolygon(mesh.indices[i]);
+        fbxMesh->AddPolygon(mesh.indices[i + 1]);
+        fbxMesh->AddPolygon(mesh.indices[i + 2]);
+        fbxMesh->EndPolygon();
+    }
+
+    FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
+    meshNode->SetNodeAttribute(fbxMesh);
+
+    if (texturePath) {
+        FbxSurfacePhong* material = FbxSurfacePhong::Create(scene, "mat");
+        FbxFileTexture* tex = FbxFileTexture::Create(scene, "tex");
+        tex->SetFileName(texturePath);
+        tex->SetMappingType(FbxTexture::eUV);
+        material->Diffuse.ConnectSrcObject(tex);
+        meshNode->AddMaterial(material);
+    }
+
+    root->AddChild(meshNode);
+    FbxExporter* exporter = FbxExporter::Create(manager, "");
+    exporter->Initialize(filename, -1, manager->GetIOSettings());
+    exporter->Export(scene);
+    exporter->Destroy();
+    manager->Destroy();
+}
+---------------ImageLoader.h---------------
+#pragma once
+#include <string>
+#include <vector>
+
+struct Image2D {
+    int width, height;
+    std::vector<uint8_t> pixels; // RGBA
+};
+
+class ImageLoader {
+public:
+    static Image2D Load(const std::string& filename);
+};
+---------------ImageLoader.cpp---------------
+#include "ImageLoader.h"
+#include <fstream>
+#include <stdexcept>
+#include <cstring>
+
+uint32_t ReadUint32(const uint8_t* data) {
+    return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+}
+
+Image2D ImageLoader::Load(const std::string& filename) {
+    std::ifstream file(filename, std::ios::binary);
+    if (!file) throw std::runtime_error("PNG file not found");
+    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), {});
+
+    if (data.size() < 8 || std::memcmp(data.data(), "\x89PNG\r\n\x1a\n", 8) != 0)
+        throw std::runtime_error("Invalid PNG signature");
+
+    // NOTE: ここでは実際のzlibデコードとチャンク解析は省略。IDAT処理を追加する必要あり。
+    throw std::runtime_error("PNG inflate not implemented");
+}
+---------------MeshBuilder.h---------------
+#pragma once
+#include "common.h"
+#include "VolumeBuilder.h"
+Mesh3D GenerateMesh(const Volume& vol, int targetPolygons);
+---------------MeshBuilder.cpp---------------
+#include "MeshBuilder.h"
+#include "MarchingCubesTables.h"
+
+static float isolevel = 127.5f;
+
+Vertex interpolateVertex(int x, int y, int z, int edge, const Volume& vol) {
+    return Vertex{ x + 0.5f, y + 0.5f, z + 0.5f, 0, 0, 1, 0, 0 };
+}
+
+Mesh3D GenerateMesh(const Volume& vol, int targetPolygons) {
+    Mesh3D mesh;
+    for (int z = 0; z < vol.depth - 1; ++z) {
+        for (int y = 0; y < vol.height - 1; ++y) {
+            for (int x = 0; x < vol.width - 1; ++x) {
+                int cubeIndex = 0;
+                for (int i = 0; i < 8; ++i) {
+                    int vx = x + DX[i], vy = y + DY[i], vz = z + DZ[i];
+                    int idx = vz * vol.width * vol.height + vy * vol.width + vx;
+                    if (vol.voxels[idx] > isolevel) cubeIndex |= (1 << i);
+                }
+                if (cubeIndex == 0 || cubeIndex == 255) continue;
+
+                for (int i = 0; MC_TRI_TABLE[cubeIndex][i] != -1; i += 3) {
+                    Vertex v0 = interpolateVertex(x, y, z, MC_TRI_TABLE[cubeIndex][i], vol);
+                    Vertex v1 = interpolateVertex(x, y, z, MC_TRI_TABLE[cubeIndex][i + 1], vol);
+                    Vertex v2 = interpolateVertex(x, y, z, MC_TRI_TABLE[cubeIndex][i + 2], vol);
+                    int base = mesh.vertices.size();
+                    mesh.vertices.push_back(v0);
+                    mesh.vertices.push_back(v1);
+                    mesh.vertices.push_back(v2);
+                    mesh.indices.push_back(base);
+                    mesh.indices.push_back(base + 1);
+                    mesh.indices.push_back(base + 2);
+                }
+            }
+        }
+    }
+    return mesh;
+}
+---------------PartClassifier.h---------------
+#pragma once
+enum class PartType { Head, Arm, Leg, Body };
+PartType ClassifyPart(int x, int y, int width, int height, int imageW, int imageH);
+---------------PartClassifier.cpp---------------
+#include "PartClassifier.h"
+
+PartType ClassifyPart(int x, int y, int w, int h, int imageW, int imageH) {
+    float cx = x + w / 2.0f;
+    float cy = y + h / 2.0f;
+
+    if (cy < imageH * 0.4 && h < w) return PartType::Head;
+    if (cy > imageH * 0.8 && h > w * 1.5) return PartType::Leg;
+    if (std::abs(cx - imageW / 2) > imageW * 0.25) return PartType::Arm;
+    return PartType::Body;
+}
+---------------PNGLoader.h---------------
+#pragma once
+#include "common.h"
+Image2D LoadPNG(const char* filename);
+---------------PNGLoader.cpp---------------
+#include "PNGLoader.h"
+#include <fstream>
+
+// 簡略化：zlib圧縮展開のための自作 inflate 実装（詳細省略、別途提供可能）
+
+Image2D LoadPNG(const char* filename) {
+    std::ifstream file(filename, std::ios::binary);
+    // PNGヘッダ確認・IHDR・IDAT抽出
+    // 独自inflate関数を呼んでピクセル展開
+    // フィルタ解除 → RGBA画像に整形
+    Image2D image;
+    // ここで image.width, height, pixels を構成
+    return image;
+}
+---------------VolumeBuilder.h---------------
+#pragma once
+#include "common.h"
+Volume BuildVolumeFromSilhouette(const Image2D& image, int depth);
+---------------VolumeBuilder.cpp---------------
+#include "VolumeBuilder.h"
+
+Volume BuildVolumeFromSilhouette(const Image2D& image, int depth) {
+    Volume vol{ image.width, image.height, depth };
+    vol.voxels.resize(vol.width * vol.height * vol.depth, 0);
+
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < image.height; ++y) {
+            for (int x = 0; x < image.width; ++x) {
+                int idx2D = (y * image.width + x) * 4;
+                unsigned char alpha = image.pixels[idx2D + 3];
+                int idx3D = z * vol.width * vol.height + y * vol.width + x;
+                vol.voxels[idx3D] = (alpha > 0) ? 255 : 0;
+            }
+        }
+    }
+    return vol;
+}
+---------------main.cpp---------------
+#include "PNGLoader.h"
+#include "VolumeBuilder.h"
+#include "MeshBuilder.h"
+#include "FBXExporter.h"
+
+int main(int argc, char** argv) {
+    if (argc < 3) {
+        printf("Usage: ImageTo3D <input.png> <output.fbx>\n");
+        return 1;
+    }
+
+    Image2D image = LoadPNG(argv[1]);
+    Volume volume = BuildVolumeFromSilhouette(image, 64);
+    Mesh3D mesh = GenerateMesh(volume, 5000);
+    ExportToFBX(mesh, argv[2], "assets/texture.png");
+
+    return 0;
+}
+---------------common.h---------------
+#pragma once
+
+struct Image2D {
+    int width, height;
+    std::vector<unsigned char> pixels; // RGBA or grayscale
+};
+
+struct Volume {
+    int width, height, depth;
+    std::vector<unsigned char> voxels; // 3Dボクセル濃度
+};
+
+struct Vertex {
+    float x, y, z;
+    float nx, ny, nz;
+    float u, v;
+};
+
+struct Mesh3D {
+    std::vector<Vertex> vertices;
+    std::vector<int> indices;
+};
