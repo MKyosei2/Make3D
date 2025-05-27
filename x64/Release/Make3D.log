@@ -1,107 +1,320 @@
-﻿libfbxsdk-md.lib(fbxmanager.cxx.obj) : error LNK2001: 外部シンボル xmlCleanupParser は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlStrcmp は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlStrcmp は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlNewDoc は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlNewDoc は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlNewDoc は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlNewDoc は未解決です
-libfbxsdk-md.lib(fbxreadercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlFreeDoc は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlFreeDoc は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlFreeDoc は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlFreeDoc は未解決です
-libfbxsdk-md.lib(fbxcontainertemplate.cxx.obj) : error LNK2001: 外部シンボル xmlFreeDoc は未解決です
-libfbxsdk-md.lib(fbxlocale.cxx.obj) : error LNK2001: 外部シンボル xmlFreeDoc は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlFreeDoc は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlNewProp は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlNewProp は未解決です
-libfbxsdk-md.lib(fbxcolladautils.cxx.obj) : error LNK2001: 外部シンボル xmlNewProp は未解決です
-libfbxsdk-md.lib(fbxcolladaanimationelement.cxx.obj) : error LNK2001: 外部シンボル xmlNewProp は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlNewNode は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlNewNode は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlNewTextChild は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlNewTextChild は未解決です
-libfbxsdk-md.lib(fbxreadercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlDocGetRootElement は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlDocGetRootElement は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlDocGetRootElement は未解決です
-libfbxsdk-md.lib(fbxcontainertemplate.cxx.obj) : error LNK2001: 外部シンボル xmlDocGetRootElement は未解決です
-libfbxsdk-md.lib(fbxlocale.cxx.obj) : error LNK2001: 外部シンボル xmlDocGetRootElement は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlDocGetRootElement は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlDocSetRootElement は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlDocSetRootElement は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlDocSetRootElement は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlAddChild は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlAddChild は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlAddChild は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxreadercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxcolladautils.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxcolladaelement.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxcolladaanimationelement.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxcontainertemplate.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxlocale.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlGetProp は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlSaveFormatFileEnc は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlSaveFormatFileEnc は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlSaveFormatFileEnc は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlParseFile は未解決です
-libfbxsdk-md.lib(fbxcontainertemplate.cxx.obj) : error LNK2001: 外部シンボル xmlParseFile は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlParseFile は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル __imp_RegCloseKey は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル __imp_RegConnectRegistryA は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル __imp_RegOpenKeyExA は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル __imp_RegQueryValueExW は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxreadercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxcolladautils.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxcolladaelement.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxcolladaanimationelement.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxiosettings.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxcontainertemplate.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxlocale.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlFree は未解決です
-libfbxsdk-md.lib(fbxio.cxx.obj) : error LNK2001: 外部シンボル adler32 は未解決です
-libfbxsdk-md.lib(fbxcontainertemplate.cxx.obj) : error LNK2001: 外部シンボル xmlNodeGetContent は未解決です
-libfbxsdk-md.lib(fbxreadercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlNodeGetContent は未解決です
-libfbxsdk-md.lib(fbxcolladaelement.cxx.obj) : error LNK2001: 外部シンボル xmlNodeGetContent は未解決です
-libfbxsdk-md.lib(fbxcolladaanimationelement.cxx.obj) : error LNK2001: 外部シンボル xmlNodeGetContent は未解決です
-libfbxsdk-md.lib(fbxlocale.cxx.obj) : error LNK2001: 外部シンボル xmlStrcasecmp は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlStrcasecmp は未解決です
-libfbxsdk-md.lib(fbxlocale.cxx.obj) : error LNK2001: 外部シンボル xmlReadFile は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlReadFile は未解決です
-libfbxsdk-md.lib(fbxreadercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlReadFile は未解決です
-libfbxsdk-md.lib(fbxiofieldzlib.cxx.obj) : error LNK2001: 外部シンボル deflate は未解決です
-libfbxsdk-md.lib(fbxiofieldzlib.cxx.obj) : error LNK2001: 外部シンボル deflateEnd は未解決です
-libfbxsdk-md.lib(fbxiofieldzlib.cxx.obj) : error LNK2001: 外部シンボル inflate は未解決です
-libfbxsdk-md.lib(unzip.cxx.obj) : error LNK2001: 外部シンボル inflate は未解決です
-libfbxsdk-md.lib(fbxiofieldzlib.cxx.obj) : error LNK2001: 外部シンボル inflateEnd は未解決です
-libfbxsdk-md.lib(unzip.cxx.obj) : error LNK2001: 外部シンボル inflateEnd は未解決です
-libfbxsdk-md.lib(fbxiofieldzlib.cxx.obj) : error LNK2001: 外部シンボル deflateInit_ は未解決です
-libfbxsdk-md.lib(fbxiofieldzlib.cxx.obj) : error LNK2001: 外部シンボル inflateInit_ は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlNewDocNode は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlNewDocNode は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlNewDocText は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlSetProp は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlSetProp は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlHasProp は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlEncodeEntitiesReentrant は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlReadDoc は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlCtxtReadDoc は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlCtxtReadFile は未解決です
-libfbxsdk-md.lib(xmlHelper.cxx.obj) : error LNK2001: 外部シンボル xmlIndentTreeOutput は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlIndentTreeOutput は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlNewChild は未解決です
-libfbxsdk-md.lib(fbxcolladautils.cxx.obj) : error LNK2001: 外部シンボル xmlNewChild は未解決です
-libfbxsdk-md.lib(fbxcolladaanimationelement.cxx.obj) : error LNK2001: 外部シンボル xmlNewChild は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlNewChild は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlAddNextSibling は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlUnlinkNode は未解決です
-libfbxsdk-md.lib(fbxwritercollada14.cxx.obj) : error LNK2001: 外部シンボル xmlFreeNode は未解決です
-libfbxsdk-md.lib(unzip.cxx.obj) : error LNK2001: 外部シンボル crc32 は未解決です
-libfbxsdk-md.lib(unzip.cxx.obj) : error LNK2001: 外部シンボル inflateInit2_ は未解決です
-libfbxsdk-md.lib(unzip.cxx.obj) : error LNK2001: 外部シンボル get_crc_table は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlNodeListGetString は未解決です
-libfbxsdk-md.lib(awCacheDescriptionIO.cpp.obj) : error LNK2001: 外部シンボル xmlSaveFormatFile は未解決です
-libfbxsdk-md.lib(awOSLocalFileTransport.cpp.obj) : error LNK2001: 外部シンボル __imp_LookupAccountSidA は未解決です
-libfbxsdk-md.lib(awOSLocalFileTransport.cpp.obj) : error LNK2001: 外部シンボル __imp_GetNamedSecurityInfoA は未解決です
-C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe : fatal error LNK1120: 48 件の未解決の外部参照
+﻿  FBXExporter.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\FBXExporter.cpp(15,50): warning C4267: '引数': 'size_t' から 'int' に変換しました。データが失われているかもしれません。
+C:\Users\kyose\source\repos\Make3D\Make3D\FBXExporter.cpp(18,63): warning C4267: '引数': 'size_t' から 'int' に変換しました。データが失われているかもしれません。
+  ImageLoader.cpp
+  main.cpp
+  MeshBuilder.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(186,5): error C2059: 構文エラー: '{'
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(186,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(186,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(186,30): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(187,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(187,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(187,30): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(188,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(188,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(188,39): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(189,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(189,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(189,31): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(190,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(190,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(190,40): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(191,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(191,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(191,40): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(192,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(192,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(192,51): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(193,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(193,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(193,29): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(194,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(194,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(194,38): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(195,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(195,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(195,38): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(196,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(196,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(196,47): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(197,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(197,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(197,31): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(198,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(198,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(198,40): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(199,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(199,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(199,40): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(200,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(200,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(200,51): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(201,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(201,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  PartClassifier.cpp
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(201,30): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(202,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(202,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(202,39): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(203,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(203,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(203,39): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(204,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(204,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(204,48): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(205,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(205,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(205,38): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(206,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(206,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(206,47): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(207,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(207,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(207,47): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(208,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(208,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(208,56): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(209,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(209,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(209,40): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(210,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(210,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(210,49): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(211,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(211,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(211,49): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(212,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(212,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(212,60): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(213,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(213,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(213,49): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(214,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(214,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(214,61): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(215,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(215,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(215,57): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(216,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(216,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(216,49): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(217,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(217,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(217,40): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(218,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(218,5): error C2447: '{': 対応する関数ヘッダーがありません (旧形式の仮引数リスト?)
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(218,49): error C2059: 構文エラー: ','
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(219,5): error C2143: 構文エラー: ';' が '{' の前にありません。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.h(219,5): error C1003: プログラム内のエラーが 100 個を超えました。コンパイルは中断されます。
+  (ソース ファイル 'Make3D/MeshBuilder.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\PartClassifier.cpp(9,14): error C2039: 'abs': 'std' のメンバーではありません
+      C:\Users\kyose\source\repos\Make3D\predefined C++ types (compiler internal)(357,11):
+      'std' の宣言を確認してください
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\PartClassifier.cpp(9,14): error C3861: 'abs': 識別子が見つかりませんでした
+  PNGLoader.cpp
+  VolumeBuilder.cpp

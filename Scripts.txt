@@ -203,12 +203,13 @@ int main(int argc, char** argv) {
     Image2D image = LoadPNG(argv[1]);
     Volume volume = BuildVolumeFromSilhouette(image, 64);
     Mesh3D mesh = GenerateMesh(volume, 5000);
-    ExportToFBX(mesh, argv[2], "assets/texture.png");
+    ExportToFBX(mesh, argv[2]);
 
     return 0;
 }
 ---------------common.h---------------
 #pragma once
+#include <vector>
 
 struct Image2D {
     int width, height;
