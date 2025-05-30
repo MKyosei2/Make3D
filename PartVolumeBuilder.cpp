@@ -1,4 +1,5 @@
 #include "PartVolumeBuilder.h"
+#include "VolumeBuilder.h"
 
 std::vector<PartVolume> BuildPartsFromImage(const Image2D& image, const std::vector<PartRegion>& regions, int depth) {
     std::vector<PartVolume> result;

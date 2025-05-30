@@ -1,6 +1,6 @@
 #define FBXSDK_SHARED
-#include "FBXExporter.h"
 #include <fbxsdk.h>
+#include "FBXExporter.h"
 
 void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath) {
     FbxManager* manager = FbxManager::Create();
@@ -11,13 +11,11 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePa
     FbxNode* root = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-
     fbxMesh->InitControlPoints(mesh.vertices.size());
     for (size_t i = 0; i < mesh.vertices.size(); ++i) {
         auto& v = mesh.vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
     }
-
     for (size_t i = 0; i < mesh.indices.size(); i += 3) {
         fbxMesh->BeginPolygon();
         fbxMesh->AddPolygon(mesh.indices[i]);

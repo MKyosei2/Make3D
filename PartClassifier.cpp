@@ -1,4 +1,5 @@
 #include "PartClassifier.h"
+#include <cmath>
 
 PartType ClassifyPart(int x, int y, int w, int h, int imageW, int imageH) {
     float cx = x + w / 2.0f;
@@ -9,4 +10,3 @@ PartType ClassifyPart(int x, int y, int w, int h, int imageW, int imageH) {
     if (std::abs(cx - imageW / 2) > imageW * 0.25) return PartType::Arm;
     return PartType::Body;
 }
-
