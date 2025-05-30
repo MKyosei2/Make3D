@@ -4,8 +4,8 @@
 void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath = nullptr);
 ---------------FBXExporter.cpp---------------
 #define FBXSDK_SHARED
-#include "FBXExporter.h"
 #include <fbxsdk.h>
+#include "FBXExporter.h"
 
 void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath) {
     FbxManager* manager = FbxManager::Create();
@@ -16,13 +16,11 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePa
     FbxNode* root = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-
     fbxMesh->InitControlPoints(mesh.vertices.size());
     for (size_t i = 0; i < mesh.vertices.size(); ++i) {
         auto& v = mesh.vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
     }
-
     for (size_t i = 0; i < mesh.indices.size(); i += 3) {
         fbxMesh->BeginPolygon();
         fbxMesh->AddPolygon(mesh.indices[i]);
@@ -93,6 +91,7 @@ Mesh3D GenerateMesh(const Volume& vol, int targetPolygons);
 ---------------MeshBuilder.cpp---------------
 #include "MeshBuilder.h"
 #include "MarchingCubesTables.h"
+#include <cmath>
 
 static float isolevel = 127.5f;
 
@@ -133,9 +132,10 @@ Mesh3D GenerateMesh(const Volume& vol, int targetPolygons) {
 ---------------PartClassifier.h---------------
 #pragma once
 enum class PartType { Head, Arm, Leg, Body };
-PartType ClassifyPart(int x, int y, int width, int height, int imageW, int imageH);
+PartType ClassifyPart(int x, int y, int width, int height, int imageW, int imageH); // 宣言だけ
 ---------------PartClassifier.cpp---------------
 #include "PartClassifier.h"
+#include <cmath>
 
 PartType ClassifyPart(int x, int y, int w, int h, int imageW, int imageH) {
     float cx = x + w / 2.0f;
@@ -153,17 +153,18 @@ Image2D LoadPNG(const char* filename);
 ---------------PNGLoader.cpp---------------
 #include "PNGLoader.h"
 #include <fstream>
-
-// 簡略化：zlib圧縮展開のための自作 inflate 実装（詳細省略、別途提供可能）
+#include <stdexcept>
+#include <cstring>
 
 Image2D LoadPNG(const char* filename) {
     std::ifstream file(filename, std::ios::binary);
-    // PNGヘッダ確認・IHDR・IDAT抽出
-    // 独自inflate関数を呼んでピクセル展開
-    // フィルタ解除 → RGBA画像に整形
-    Image2D image;
-    // ここで image.width, height, pixels を構成
-    return image;
+    if (!file) throw std::runtime_error("PNG file not found");
+    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), {});
+
+    if (data.size() < 8 || std::memcmp(data.data(), "\x89PNG\r\n\x1a\n", 8) != 0)
+        throw std::runtime_error("Invalid PNG signature");
+
+    throw std::runtime_error("PNG inflate not implemented");
 }
 ---------------VolumeBuilder.h---------------
 #pragma once
@@ -188,23 +189,153 @@ Volume BuildVolumeFromSilhouette(const Image2D& image, int depth) {
     }
     return vol;
 }
+---------------PartVolumeBuilder.h---------------
+#pragma once
+#include "common.h"
+#include "PartClassifier.h"
+
+struct PartRegion {
+    int x, y, width, height;
+};
+
+struct PartVolume {
+    PartType type;
+    Volume volume;
+};
+
+std::vector<PartVolume> BuildPartsFromImage(const Image2D& image, const std::vector<PartRegion>& regions, int depth);
+---------------PartVolumeBuilder.cpp---------------
+#include "PartVolumeBuilder.h"
+#include "VolumeBuilder.h"
+
+std::vector<PartVolume> BuildPartsFromImage(const Image2D& image, const std::vector<PartRegion>& regions, int depth) {
+    std::vector<PartVolume> result;
+
+    for (const auto& region : regions) {
+        // 切り抜き
+        Image2D cropped;
+        cropped.width = region.width;
+        cropped.height = region.height;
+        cropped.pixels.resize(region.width * region.height * 4);
+
+        for (int y = 0; y < region.height; ++y) {
+            for (int x = 0; x < region.width; ++x) {
+                int srcX = region.x + x;
+                int srcY = region.y + y;
+                if (srcX < 0 || srcX >= image.width || srcY < 0 || srcY >= image.height) continue;
+
+                int srcIdx = (srcY * image.width + srcX) * 4;
+                int dstIdx = (y * region.width + x) * 4;
+                std::copy_n(&image.pixels[srcIdx], 4, &cropped.pixels[dstIdx]);
+            }
+        }
+
+        // 分類
+        PartType type = ClassifyPart(region.x, region.y, region.width, region.height, image.width, image.height);
+
+        // Volume生成
+        Volume vol = BuildVolumeFromSilhouette(cropped, depth);
+
+        result.push_back({ type, vol });
+    }
+
+    return result;
+}
 ---------------main.cpp---------------
+#include <windows.h>
+#include <commdlg.h>
+#include <shlwapi.h>
+#include <string>
 #include "PNGLoader.h"
 #include "VolumeBuilder.h"
 #include "MeshBuilder.h"
 #include "FBXExporter.h"
 
-int main(int argc, char** argv) {
-    if (argc < 3) {
-        printf("Usage: ImageTo3D <input.png> <output.fbx>\n");
-        return 1;
+#pragma comment(lib, "Shlwapi.lib")
+
+char g_pngPath[MAX_PATH] = "";
+int g_polyCount = 5000;
+
+bool GenerateFBX(const char* pngPath, const char* fbxPath, int polyCount) {
+    try {
+        Image2D image = LoadPNG(pngPath);
+        Volume volume = BuildVolumeFromSilhouette(image, 64);
+        Mesh3D mesh = GenerateMesh(volume, polyCount);
+        ExportToFBX(mesh, fbxPath);
+        return true;
     }
+    catch (const std::exception& e) {
+        MessageBoxA(NULL, e.what(), "Error", MB_ICONERROR);
+        return false;
+    }
+}
 
-    Image2D image = LoadPNG(argv[1]);
-    Volume volume = BuildVolumeFromSilhouette(image, 64);
-    Mesh3D mesh = GenerateMesh(volume, 5000);
-    ExportToFBX(mesh, argv[2]);
+void BrowseForPNG(HWND hwnd) {
+    OPENFILENAMEA ofn = { sizeof(ofn) };
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFilter = "PNG Files\0*.png\0All Files\0*.*\0";
+    ofn.lpstrFile = g_pngPath;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_FILEMUSTEXIST;
+    if (GetOpenFileNameA(&ofn)) {
+        InvalidateRect(hwnd, NULL, TRUE);
+    }
+}
 
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_CREATE:
+        CreateWindowA("button", "選択", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 20, 60, 25, hwnd, (HMENU)1, NULL, NULL);
+        CreateWindowA("edit", g_pngPath, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 90, 20, 300, 25, hwnd, (HMENU)2, NULL, NULL);
+        CreateWindowA("static", "ポリゴン数:", WS_CHILD | WS_VISIBLE, 20, 60, 80, 25, hwnd, NULL, NULL, NULL);
+        CreateWindowA("edit", "5000", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 110, 60, 100, 25, hwnd, (HMENU)3, NULL, NULL);
+        CreateWindowA("button", "生成", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON, 230, 60, 80, 25, hwnd, (HMENU)4, NULL, NULL);
+        return 0;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == 1) BrowseForPNG(hwnd);
+        if (LOWORD(wParam) == 4) {
+            GetDlgItemTextA(hwnd, 2, g_pngPath, MAX_PATH);
+            char polyStr[16] = {};
+            GetDlgItemTextA(hwnd, 3, polyStr, 15);
+            g_polyCount = atoi(polyStr);
+            if (!PathFileExistsA(g_pngPath)) {
+                MessageBoxA(hwnd, "PNGファイルが見つかりません。", "エラー", MB_ICONERROR);
+                return 0;
+            }
+            char fbxPath[MAX_PATH];
+            strcpy_s(fbxPath, MAX_PATH, g_pngPath);
+            char* dot = strrchr(fbxPath, '.');
+            if (dot) strcpy_s(dot, MAX_PATH - (dot - fbxPath), ".fbx");
+
+            if (GenerateFBX(g_pngPath, fbxPath, g_polyCount)) {
+                MessageBoxA(hwnd, "FBXを出力しました。", "完了", MB_OK);
+            }
+        }
+        return 0;
+
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+    }
+    return DefWindowProcA(hwnd, msg, wParam, lParam);
+}
+
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
+    WNDCLASSA wc = {};
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInst;
+    wc.lpszClassName = "ImageTo3DWindow";
+    RegisterClassA(&wc);
+
+    HWND hwnd = CreateWindowA("ImageTo3DWindow", "ImageTo3D Converter", WS_OVERLAPPEDWINDOW ^ WS_THICKFRAME ^ WS_MAXIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 450, 150, NULL, NULL, hInst, NULL);
+    ShowWindow(hwnd, nCmdShow);
+
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
     return 0;
 }
 ---------------common.h---------------
@@ -231,3 +362,9 @@ struct Mesh3D {
     std::vector<Vertex> vertices;
     std::vector<int> indices;
 };
+---------------MarchingCubesTables.h---------------
+#pragma once
+extern const int MC_TRI_TABLE[256][16];
+static const int DX[8] = { 0,1,1,0,0,1,1,0 };
+static const int DY[8] = { 0,0,1,1,0,0,1,1 };
+static const int DZ[8] = { 0,0,0,0,1,1,1,1 };
