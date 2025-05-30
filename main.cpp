@@ -2,6 +2,10 @@
 #include <commdlg.h>
 #include <shlwapi.h>
 #include <string>
+#pragma comment(lib, "user32.lib")
+#pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "comdlg32.lib")
+#pragma comment(lib, "shlwapi.lib")
 #include "PNGLoader.h"
 #include "VolumeBuilder.h"
 #include "MeshBuilder.h"

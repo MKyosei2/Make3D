@@ -1,5 +1,9 @@
-C:\Users\kyose\source\repos\Make3D\BodyPartEstimator.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\BodyPartEstimator.obj
-C:\Users\kyose\source\repos\Make3D\FBXExporter.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\FBXExporter.obj
-C:\Users\kyose\source\repos\Make3D\ImageProcessor.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\ImageProcessor.obj
-C:\Users\kyose\source\repos\Make3D\main.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\main.obj
-C:\Users\kyose\source\repos\Make3D\MeshBuilder.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\MeshBuilder.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\FBXExporter.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\FBXExporter.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\ImageLoader.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\ImageLoader.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\main.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\main.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\MarchingCubesTables.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\MarchingCubesTables.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshBuilder.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\MeshBuilder.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\PartClassifier.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\PartClassifier.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\PartVolumeBuilder.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\PartVolumeBuilder.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\PNGLoader.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\PNGLoader.obj
+C:\Users\kyose\source\repos\Make3D\Make3D\VolumeBuilder.cpp;C:\Users\kyose\source\repos\Make3D\Make3D\x64\Release\VolumeBuilder.obj

@@ -1,46 +1,5 @@
-﻿  main.cpp
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxSurfacePhong * __cdecl fbxsdk::FbxSurfacePhong::Create(class fbxsdk::FbxObject *,char const *)" (__imp_?Create@FbxSurfacePhong@fbxsdk@@SAPEAV12@PEAVFbxObject@2@PEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: int __cdecl fbxsdk::FbxString::Compare(char const *)const " (__imp_?Compare@FbxString@fbxsdk@@QEBAHPEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: __cdecl fbxsdk::FbxString::operator char const *(void)const " (__imp_??BFbxString@fbxsdk@@QEBAPEBDXZ) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: __cdecl fbxsdk::FbxString::~FbxString(void)" (__imp_??1FbxString@fbxsdk@@QEAA@XZ) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: __cdecl fbxsdk::FbxString::FbxString(class fbxsdk::FbxString const &)" (__imp_??0FbxString@fbxsdk@@QEAA@AEBV01@@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: bool __cdecl fbxsdk::FbxProperty::ConnectSrcObject(class fbxsdk::FbxObject *,enum fbxsdk::FbxConnection::EType)" (__imp_?ConnectSrcObject@FbxProperty@fbxsdk@@QEAA_NPEAVFbxObject@2@W4EType@FbxConnection@2@@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: __cdecl fbxsdk::FbxVector4::FbxVector4(double,double,double,double)" (__imp_??0FbxVector4@fbxsdk@@QEAA@NNNN@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: class fbxsdk::FbxNode * __cdecl fbxsdk::FbxScene::GetRootNode(void)const " (__imp_?GetRootNode@FbxScene@fbxsdk@@QEBAPEAVFbxNode@2@XZ) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxScene * __cdecl fbxsdk::FbxScene::Create(class fbxsdk::FbxManager *,char const *)" (__imp_?Create@FbxScene@fbxsdk@@SAPEAV12@PEAVFbxManager@2@PEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void __cdecl fbxsdk::FbxTexture::SetMappingType(enum fbxsdk::FbxTexture::EMappingType)" (__imp_?SetMappingType@FbxTexture@fbxsdk@@QEAAXW4EMappingType@12@@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: bool __cdecl fbxsdk::FbxFileTexture::SetFileName(char const *)" (__imp_?SetFileName@FbxFileTexture@fbxsdk@@QEAA_NPEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxFileTexture * __cdecl fbxsdk::FbxFileTexture::Create(class fbxsdk::FbxObject *,char const *)" (__imp_?Create@FbxFileTexture@fbxsdk@@SAPEAV12@PEAVFbxObject@2@PEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void __cdecl fbxsdk::FbxMesh::EndPolygon(void)" (__imp_?EndPolygon@FbxMesh@fbxsdk@@QEAAXXZ) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void __cdecl fbxsdk::FbxMesh::AddPolygon(int,int)" (__imp_?AddPolygon@FbxMesh@fbxsdk@@QEAAXHH@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void __cdecl fbxsdk::FbxMesh::BeginPolygon(int,int,int,bool)" (__imp_?BeginPolygon@FbxMesh@fbxsdk@@QEAAXHHH_N@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxMesh * __cdecl fbxsdk::FbxMesh::Create(class fbxsdk::FbxObject *,char const *)" (__imp_?Create@FbxMesh@fbxsdk@@SAPEAV12@PEAVFbxObject@2@PEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxManager * __cdecl fbxsdk::FbxManager::Create(void)" (__imp_?Create@FbxManager@fbxsdk@@SAPEAV12@XZ) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxIOSettings * __cdecl fbxsdk::FbxIOSettings::Create(class fbxsdk::FbxManager *,char const *)" (__imp_?Create@FbxIOSettings@fbxsdk@@SAPEAV12@PEAVFbxManager@2@PEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: bool __cdecl fbxsdk::FbxExporter::Export(class fbxsdk::FbxDocument *,bool)" (__imp_?Export@FbxExporter@fbxsdk@@QEAA_NPEAVFbxDocument@2@_N@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxExporter * __cdecl fbxsdk::FbxExporter::Create(class fbxsdk::FbxManager *,char const *)" (__imp_?Create@FbxExporter@fbxsdk@@SAPEAV12@PEAVFbxManager@2@PEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: int __cdecl fbxsdk::FbxNode::AddMaterial(class fbxsdk::FbxSurfaceMaterial *)" (__imp_?AddMaterial@FbxNode@fbxsdk@@QEAAHPEAVFbxSurfaceMaterial@2@@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: class fbxsdk::FbxNodeAttribute * __cdecl fbxsdk::FbxNode::SetNodeAttribute(class fbxsdk::FbxNodeAttribute *)" (__imp_?SetNodeAttribute@FbxNode@fbxsdk@@QEAAPEAVFbxNodeAttribute@2@PEAV32@@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: bool __cdecl fbxsdk::FbxNode::AddChild(class fbxsdk::FbxNode *)" (__imp_?AddChild@FbxNode@fbxsdk@@QEAA_NPEAV12@@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: static class fbxsdk::FbxNode * __cdecl fbxsdk::FbxNode::Create(class fbxsdk::FbxObject *,char const *)" (__imp_?Create@FbxNode@fbxsdk@@SAPEAV12@PEAVFbxObject@2@PEBD@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void __cdecl fbxsdk::FbxObject::Destroy(bool)" (__imp_?Destroy@FbxObject@fbxsdk@@QEAAX_N@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: __cdecl fbxsdk::FbxVector4::~FbxVector4(void)" (__imp_??1FbxVector4@fbxsdk@@QEAA@XZ) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void __cdecl fbxsdk::FbxBaseAllocator::FreeMemory(void *)" (__imp_?FreeMemory@FbxBaseAllocator@fbxsdk@@QEAAXPEAX@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void * __cdecl fbxsdk::FbxBaseAllocator::AllocateRecords(unsigned __int64)" (__imp_?AllocateRecords@FbxBaseAllocator@fbxsdk@@QEAAPEAX_K@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: void __cdecl fbxsdk::FbxBaseAllocator::Reserve(unsigned __int64)" (__imp_?Reserve@FbxBaseAllocator@fbxsdk@@QEAAX_K@Z) は未解決です
-FBXExporter.obj : error LNK2001: 外部シンボル "__declspec(dllimport) public: __cdecl fbxsdk::FbxBaseAllocator::FbxBaseAllocator(unsigned __int64)" (__imp_??0FbxBaseAllocator@fbxsdk@@QEAA@_K@Z) は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_InvalidateRect は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_PostQuitMessage は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_GetOpenFileNameA は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_TranslateMessage は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_CreateWindowExA は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_DefWindowProcA は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_RegisterClassA は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_MessageBoxA は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_DispatchMessageW は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_GetDlgItemTextA は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_ShowWindow は未解決です
-main.obj : error LNK2001: 外部シンボル __imp_GetMessageW は未解決です
-MeshBuilder.obj : error LNK2001: 外部シンボル "int const (* MC_TRI_TABLE)[16]" (?MC_TRI_TABLE@@3QAY0BA@$$CBHA) は未解決です
-MSVCRT.lib(exe_main.obj) : error LNK2001: 外部シンボル main は未解決です
-C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe : fatal error LNK1120: 44 件の未解決の外部参照
+﻿  コード生成しています。
+  Previous IPDB not found, fall back to full compilation.
+  All 358 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  コード生成が終了しました。
+  Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
