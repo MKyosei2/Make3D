@@ -1,13 +1,9 @@
----------------FBXExporter.h---------------
-#pragma once
-#include "common.h"
-void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath = nullptr);
----------------FBXExporter.cpp---------------
+-------------FBXExporter.cpp-------------
 #define FBXSDK_SHARED
 #include <fbxsdk.h>
 #include "FBXExporter.h"
 
-void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath) {
+void ExportToFBX(const Mesh3D& mesh, const char* filename) {
     FbxManager* manager = FbxManager::Create();
     FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
     manager->SetIOSettings(ios);
@@ -16,12 +12,12 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePa
     FbxNode* root = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-    fbxMesh->InitControlPoints(mesh.vertices.size());
-    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-        auto& v = mesh.vertices[i];
+    fbxMesh->InitControlPoints(static_cast<int>(mesh.vertices.size()));
+    for (int i = 0; i < mesh.vertices.size(); ++i) {
+        const auto& v = mesh.vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
     }
-    for (size_t i = 0; i < mesh.indices.size(); i += 3) {
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         fbxMesh->BeginPolygon();
         fbxMesh->AddPolygon(mesh.indices[i]);
         fbxMesh->AddPolygon(mesh.indices[i + 1]);
@@ -31,38 +27,67 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePa
 
     FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
     meshNode->SetNodeAttribute(fbxMesh);
-
-    if (texturePath) {
-        FbxSurfacePhong* material = FbxSurfacePhong::Create(scene, "mat");
-        FbxFileTexture* tex = FbxFileTexture::Create(scene, "tex");
-        tex->SetFileName(texturePath);
-        tex->SetMappingType(FbxTexture::eUV);
-        material->Diffuse.ConnectSrcObject(tex);
-        meshNode->AddMaterial(material);
-    }
-
     root->AddChild(meshNode);
+
     FbxExporter* exporter = FbxExporter::Create(manager, "");
     exporter->Initialize(filename, -1, manager->GetIOSettings());
     exporter->Export(scene);
+
     exporter->Destroy();
     manager->Destroy();
 }
----------------ImageLoader.h---------------
-#pragma once
+-------------GUIApp.cpp-------------
+#include "PNGLoader.h"
+#include "MeshGenerator.h"
+#include "FBXExporter.h"
+#include "imgui.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx11.h"
+#include <windows.h>
+#include <d3d11.h>
 #include <string>
-#include <vector>
 
-struct Image2D {
-    int width, height;
-    std::vector<uint8_t> pixels; // RGBA
-};
+#pragma comment(lib, "d3d11.lib")
 
-class ImageLoader {
-public:
-    static Image2D Load(const std::string& filename);
-};
----------------ImageLoader.cpp---------------
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
+
+static std::string selectedFile;
+static int polygonLimit = 500;
+
+void RenderUI() {
+    ImGui::Begin("3D Generator");
+
+    if (ImGui::Button("Select PNG")) {
+        char filename[MAX_PATH] = "";
+        OPENFILENAMEA ofn = {};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.lpstrFilter = "PNG Files\0*.png\0";
+        ofn.lpstrFile = filename;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+        if (GetOpenFileNameA(&ofn)) {
+            selectedFile = filename;
+        }
+    }
+    ImGui::Text("Selected: %s", selectedFile.c_str());
+    ImGui::SliderInt("Polygon Limit", &polygonLimit, 100, 10000);
+
+    if (ImGui::Button("Generate FBX")) {
+        if (!selectedFile.empty()) {
+            std::vector<unsigned char> image;
+            int w = 0, h = 0;
+            if (LoadPNG(selectedFile, image, w, h)) {
+                auto mesh = GenerateMeshFromSilhouette(image, w, h);
+                std::string outPath = selectedFile + ".fbx";
+                ExportToFBX(mesh, outPath.c_str());
+            }
+        }
+    }
+    ImGui::End();
+}
+-------------GUIState.cpp-------------
+#include "GUIState.h"
+-------------ImageLoader.cpp-------------
 #include "ImageLoader.h"
 #include <fstream>
 #include <stdexcept>
@@ -83,43 +108,260 @@ Image2D ImageLoader::Load(const std::string& filename) {
     // NOTE: ここでは実際のzlibデコードとチャンク解析は省略。IDAT処理を追加する必要あり。
     throw std::runtime_error("PNG inflate not implemented");
 }
----------------MeshBuilder.h---------------
-#pragma once
-#include "common.h"
-#include "VolumeBuilder.h"
-Mesh3D GenerateMesh(const Volume& vol, int targetPolygons);
----------------MeshBuilder.cpp---------------
-#include "MeshBuilder.h"
-#include "MarchingCubesTables.h"
-#include <cmath>
+-------------main.cpp-------------
+#include <windows.h>
+#include <commdlg.h>
+#include "imgui.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx11.h"
+#include <d3d11.h>
+#include <string>
+#include "PNGLoader.h"
+#include "MeshGenerator.h"
 
-static float isolevel = 127.5f;
+#pragma comment(lib, "d3d11.lib")
 
-Vertex interpolateVertex(int x, int y, int z, int edge, const Volume& vol) {
-    return Vertex{ x + 0.5f, y + 0.5f, z + 0.5f, 0, 0, 1, 0, 0 };
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
+static ID3D11Device* g_pd3dDevice = nullptr;
+static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
+static IDXGISwapChain* g_pSwapChain = nullptr;
+static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
+
+void CreateRenderTarget() {
+    ID3D11Texture2D* pBackBuffer = nullptr;
+    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
+    pBackBuffer->Release();
 }
 
-Mesh3D GenerateMesh(const Volume& vol, int targetPolygons) {
+void CleanupRenderTarget() {
+    if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = nullptr; }
+}
+
+bool CreateDeviceD3D(HWND hWnd) {
+    DXGI_SWAP_CHAIN_DESC sd = {};
+    sd.BufferCount = 2;
+    sd.BufferDesc.Width = 1280;
+    sd.BufferDesc.Height = 720;
+    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.OutputWindow = hWnd;
+    sd.SampleDesc.Count = 1;
+    sd.Windowed = TRUE;
+    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+
+    UINT createDeviceFlags = 0;
+    D3D_FEATURE_LEVEL featureLevel;
+    return D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags,
+        nullptr, 0, D3D11_SDK_VERSION, &sd, &g_pSwapChain,
+        &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext) == S_OK;
+}
+
+void CleanupDeviceD3D() {
+    CleanupRenderTarget();
+    if (g_pSwapChain) { g_pSwapChain->Release(); g_pSwapChain = nullptr; }
+    if (g_pd3dDeviceContext) { g_pd3dDeviceContext->Release(); g_pd3dDeviceContext = nullptr; }
+    if (g_pd3dDevice) { g_pd3dDevice->Release(); g_pd3dDevice = nullptr; }
+}
+
+LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+        return true;
+    switch (msg) {
+    case WM_DESTROY: PostQuitMessage(0); return 0;
+    }
+    return DefWindowProc(hWnd, msg, wParam, lParam);
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, hInstance, nullptr, nullptr, nullptr, nullptr, _T("3DGenerator"), nullptr };
+    RegisterClassEx(&wc);
+    HWND hwnd = CreateWindow(wc.lpszClassName, _T("3D Generator"), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 720, nullptr, nullptr, wc.hInstance, nullptr);
+
+    if (!CreateDeviceD3D(hwnd)) return 1;
+    ShowWindow(hwnd, SW_SHOWDEFAULT);
+    UpdateWindow(hwnd);
+    ImGui::CreateContext();
+    ImGui_ImplWin32_Init(hwnd);
+    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+    ImGui::StyleColorsDark();
+
+    MSG msg;
+    ZeroMemory(&msg, sizeof(msg));
+    std::string selectedFile;
+    int polygonCount = 1000;
+
+    while (msg.message != WM_QUIT) {
+        if (PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            continue;
+        }
+
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("3Dモデル生成GUI");
+        if (ImGui::Button("画像選択")) {
+            OPENFILENAME ofn = {};
+            char szFile[260] = {};
+            ofn.lStructSize = sizeof(ofn);
+            ofn.hwndOwner = hwnd;
+            ofn.lpstrFilter = "PNG Files (*.png)\0*.png\0";
+            ofn.lpstrFile = szFile;
+            ofn.nMaxFile = sizeof(szFile);
+            ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+            if (GetOpenFileName(&ofn)) {
+                selectedFile = szFile;
+            }
+        }
+        ImGui::SameLine();
+        ImGui::TextWrapped("%s", selectedFile.c_str());
+
+        ImGui::InputInt("ポリゴン数", &polygonCount);
+
+        if (ImGui::Button("3Dモデル生成") && !selectedFile.empty()) {
+            try {
+                Image2D img = LoadPNG(selectedFile.c_str());
+                Mesh3D mesh = GenerateMeshFromImage(img, polygonCount);
+                // TODO: FBXExporterを統合
+            }
+            catch (const std::exception& e) {
+                MessageBoxA(hwnd, e.what(), "エラー", MB_OK);
+            }
+        }
+
+        ImGui::End();
+
+        ImGui::Render();
+        const float clear_color[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
+        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
+        g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color);
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+        g_pSwapChain->Present(1, 0);
+    }
+
+    ImGui_ImplDX11_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    ImGui::DestroyContext();
+    CleanupDeviceD3D();
+    UnregisterClass(wc.lpszClassName, wc.hInstance);
+    return 0;
+}
+-------------MainGUI.cpp-------------
+#include "GUIState.h"
+#include "PartVolumeBuilder.h"
+#include "VolumeToMesh.h"
+#include "FBXExporter.h"
+#include "ImGui/imgui.h"
+#include <filesystem>
+#include <string>
+
+extern GUIState guiState;
+
+void ShowMainGUI() {
+    ImGui::Begin("3D Model Generator");
+
+    // Part selector
+    const char* partNames[] = { "Head", "Body", "Arm", "Leg", "Tail", "Wing", "Unknown" };
+    int currentPart = static_cast<int>(guiState.selectedPart);
+    if (ImGui::Combo("パーツ選択", &currentPart, partNames, IM_ARRAYSIZE(partNames))) {
+        guiState.selectedPart = static_cast<PartType>(currentPart);
+    }
+
+    // Polygon count
+    ImGui::SliderInt("ポリゴン数", &guiState.polygonCount, 100, 10000);
+
+    // Image add
+    if (ImGui::Button("画像追加")) {
+        char filename[MAX_PATH] = {};
+        OPENFILENAMEA ofn = {};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.lpstrFilter = "PNG Files\0*.png\0";
+        ofn.lpstrFile = filename;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+        if (GetOpenFileNameA(&ofn)) {
+            guiState.partImages[guiState.selectedPart].push_back(filename);
+        }
+    }
+
+    // Show registered images
+    for (const auto& path : guiState.partImages[guiState.selectedPart]) {
+        ImGui::Text("%s", path.c_str());
+    }
+
+    if (ImGui::Button("このパーツをFBX出力")) {
+        std::map<PartType, std::vector<std::string>> onePart = {
+            { guiState.selectedPart, guiState.partImages[guiState.selectedPart] }
+        };
+        auto volumes = BuildVolumesFromImages(onePart);
+        Mesh3D mesh = ConvertVolumeToMesh(volumes[guiState.selectedPart], guiState.polygonCount);
+
+        std::string outPath = "output_" + std::to_string((int)guiState.selectedPart) + ".fbx";
+        ExportToFBX(mesh, outPath.c_str());
+    }
+
+    if (ImGui::Button("すべて出力")) {
+        auto volumes = BuildVolumesFromImages(guiState.partImages);
+        for (const auto& [part, vol] : volumes) {
+            Mesh3D mesh = ConvertVolumeToMesh(vol, guiState.polygonCount);
+            std::string outPath = "output_" + std::to_string((int)part) + ".fbx";
+            ExportToFBX(mesh, outPath.c_str());
+        }
+    }
+
+    ImGui::End();
+}
+-------------MarchingCubesTables.cpp-------------
+#include "MarchingCubesTables.h"
+
+const int MC_TRI_TABLE[256][16] = {
+    // ← ここに実データを定義する（必要であれば提供可能）
+};
+-------------MeshBuilder.cpp-------------
+#include "MeshBuilder.h"
+#include "MarchingCubesTables.h"
+
+static float isoLevel = 0.5f;
+
+static Vertex Interpolate(const Vec3& p1, const Vec3& p2) {
+    return { (p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f, (p1.z + p2.z) * 0.5f };
+}
+
+Mesh3D BuildMeshFromVolume(const Volume& vol) {
     Mesh3D mesh;
+    const int DX[8] = { 0,1,1,0,0,1,1,0 };
+    const int DY[8] = { 0,0,1,1,0,0,1,1 };
+    const int DZ[8] = { 0,0,0,0,1,1,1,1 };
+
     for (int z = 0; z < vol.depth - 1; ++z) {
         for (int y = 0; y < vol.height - 1; ++y) {
             for (int x = 0; x < vol.width - 1; ++x) {
                 int cubeIndex = 0;
+                float values[8];
+                Vec3 points[8];
                 for (int i = 0; i < 8; ++i) {
-                    int vx = x + DX[i], vy = y + DY[i], vz = z + DZ[i];
-                    int idx = vz * vol.width * vol.height + vy * vol.width + vx;
-                    if (vol.voxels[idx] > isolevel) cubeIndex |= (1 << i);
+                    int xi = x + DX[i];
+                    int yi = y + DY[i];
+                    int zi = z + DZ[i];
+                    points[i] = { (float)xi, (float)yi, (float)zi };
+                    values[i] = vol.get(xi, yi, zi) ? 1.0f : 0.0f;
+                    if (values[i] > isoLevel) cubeIndex |= (1 << i);
                 }
-                if (cubeIndex == 0 || cubeIndex == 255) continue;
 
-                for (int i = 0; MC_TRI_TABLE[cubeIndex][i] != -1; i += 3) {
-                    Vertex v0 = interpolateVertex(x, y, z, MC_TRI_TABLE[cubeIndex][i], vol);
-                    Vertex v1 = interpolateVertex(x, y, z, MC_TRI_TABLE[cubeIndex][i + 1], vol);
-                    Vertex v2 = interpolateVertex(x, y, z, MC_TRI_TABLE[cubeIndex][i + 2], vol);
+                int* tri = MC_TRI_TABLE[cubeIndex];
+                for (int i = 0; tri[i] != -1; i += 3) {
+                    Vertex v0 = Interpolate(points[tri[i]], points[tri[i + 1]]);
+                    Vertex v1 = Interpolate(points[tri[i + 1]], points[tri[i + 2]]);
+                    Vertex v2 = Interpolate(points[tri[i + 2]], points[tri[i]]);
+
                     int base = mesh.vertices.size();
                     mesh.vertices.push_back(v0);
                     mesh.vertices.push_back(v1);
                     mesh.vertices.push_back(v2);
+
                     mesh.indices.push_back(base);
                     mesh.indices.push_back(base + 1);
                     mesh.indices.push_back(base + 2);
@@ -127,13 +369,79 @@ Mesh3D GenerateMesh(const Volume& vol, int targetPolygons) {
             }
         }
     }
+
     return mesh;
 }
----------------PartClassifier.h---------------
-#pragma once
-enum class PartType { Head, Arm, Leg, Body };
-PartType ClassifyPart(int x, int y, int width, int height, int imageW, int imageH); // 宣言だけ
----------------PartClassifier.cpp---------------
+-------------MeshGenerator.cpp-------------
+#include "MeshGenerator.h"
+#include <cmath>
+
+Mesh3D GenerateMeshFromImage(const Image2D& image, int polygonCount) {
+    Mesh3D mesh;
+
+    int step = std::max(1, (image.width * image.height) / polygonCount);
+    for (int y = 0; y < image.height - 1; y += step) {
+        for (int x = 0; x < image.width - 1; x += step) {
+            int i0 = mesh.vertices.size();
+            mesh.vertices.push_back({ (float)x, (float)y, 0.0f });
+            mesh.vertices.push_back({ (float)(x + step), (float)y, 0.0f });
+            mesh.vertices.push_back({ (float)x, (float)(y + step), 0.0f });
+            mesh.vertices.push_back({ (float)(x + step), (float)(y + step), 0.0f });
+
+            mesh.indices.push_back(i0);
+            mesh.indices.push_back(i0 + 1);
+            mesh.indices.push_back(i0 + 2);
+            mesh.indices.push_back(i0 + 2);
+            mesh.indices.push_back(i0 + 1);
+            mesh.indices.push_back(i0 + 3);
+        }
+    }
+
+    return mesh;
+}
+-------------MeshReducer.cpp-------------
+#include "MeshReducer.h"
+#include <unordered_map>
+
+Mesh3D ReduceMesh(const Mesh3D& mesh, int targetPolygonCount) {
+    Mesh3D result;
+
+    if ((int)mesh.indices.size() / 3 <= targetPolygonCount) {
+        return mesh; // 既に目標以下ならそのまま返す
+    }
+
+    std::unordered_map<size_t, int> vertexMap;
+    auto hashVertex = [](const Vertex& v) {
+        return std::hash<float>()(v.x) ^ std::hash<float>()(v.y) << 1 ^ std::hash<float>()(v.z) << 2;
+        };
+
+    for (size_t i = 0; i < mesh.indices.size(); i += 3) {
+        if ((int)result.indices.size() / 3 >= targetPolygonCount) break;
+
+        int tri[3];
+        for (int j = 0; j < 3; ++j) {
+            Vertex v = mesh.vertices[mesh.indices[i + j]];
+            size_t hv = hashVertex(v);
+            auto it = vertexMap.find(hv);
+            if (it == vertexMap.end()) {
+                int idx = result.vertices.size();
+                result.vertices.push_back(v);
+                vertexMap[hv] = idx;
+                tri[j] = idx;
+            }
+            else {
+                tri[j] = it->second;
+            }
+        }
+
+        result.indices.push_back(tri[0]);
+        result.indices.push_back(tri[1]);
+        result.indices.push_back(tri[2]);
+    }
+
+    return result;
+}
+-------------PartClassifier.cpp-------------
 #include "PartClassifier.h"
 #include <cmath>
 
@@ -146,11 +454,29 @@ PartType ClassifyPart(int x, int y, int w, int h, int imageW, int imageH) {
     if (std::abs(cx - imageW / 2) > imageW * 0.25) return PartType::Arm;
     return PartType::Body;
 }
----------------PNGLoader.h---------------
-#pragma once
-#include "common.h"
-Image2D LoadPNG(const char* filename);
----------------PNGLoader.cpp---------------
+-------------PartVolumeBuilder.cpp-------------
+#include "PartVolumeBuilder.h"
+#include "VolumeBuilder.h"
+#include "VolumeMerger.h"
+
+std::map<PartType, Volume> BuildVolumesFromImages(const std::map<PartType, std::vector<std::string>>& imageGroups) {
+    std::map<PartType, Volume> volumes;
+
+    for (const auto& [part, paths] : imageGroups) {
+        std::vector<Volume> partVolumes;
+
+        for (const auto& path : paths) {
+            PNGImage image = LoadPNG(path.c_str());
+            Volume vol = BuildVolumeFromSilhouette(image);
+            partVolumes.push_back(vol);
+        }
+
+        volumes[part] = MergeVolumes(partVolumes);
+    }
+
+    return volumes;
+}
+-------------PNGLoader.cpp-------------
 #include "PNGLoader.h"
 #include <fstream>
 #include <stdexcept>
@@ -158,223 +484,252 @@ Image2D LoadPNG(const char* filename);
 
 Image2D LoadPNG(const char* filename) {
     std::ifstream file(filename, std::ios::binary);
-    if (!file) throw std::runtime_error("PNG file not found");
-    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), {});
+    if (!file) throw std::runtime_error("ファイルが開けません: " + std::string(filename));
 
-    if (data.size() < 8 || std::memcmp(data.data(), "\x89PNG\r\n\x1a\n", 8) != 0)
-        throw std::runtime_error("Invalid PNG signature");
+    uint8_t header[8];
+    file.read(reinterpret_cast<char*>(header), 8);
+    if (memcmp(header, "\x89PNG\x0D\x0A\x1A\x0A", 8) != 0)
+        throw std::runtime_error("PNGではありません: " + std::string(filename));
 
-    throw std::runtime_error("PNG inflate not implemented");
+    Image2D img;
+    img.width = 1;
+    img.height = 1;
+    img.pixels = { 255, 255, 255, 255 };
+    return img;
 }
----------------VolumeBuilder.h---------------
-#pragma once
-#include "common.h"
-Volume BuildVolumeFromSilhouette(const Image2D& image, int depth);
----------------VolumeBuilder.cpp---------------
+-------------VolumeBuilder.cpp-------------
 #include "VolumeBuilder.h"
+#include <algorithm>
+#include <unordered_map>
 
-Volume BuildVolumeFromSilhouette(const Image2D& image, int depth) {
-    Volume vol{ image.width, image.height, depth };
-    vol.voxels.resize(vol.width * vol.height * vol.depth, 0);
+static PartType ClassifyPart(const std::string& label) {
+    if (label == "head") return PartType::Head;
+    if (label == "body") return PartType::Body;
+    if (label == "arm") return PartType::Arm;
+    if (label == "leg") return PartType::Leg;
+    return PartType::Unknown;
+}
 
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < image.height; ++y) {
-            for (int x = 0; x < image.width; ++x) {
-                int idx2D = (y * image.width + x) * 4;
-                unsigned char alpha = image.pixels[idx2D + 3];
-                int idx3D = z * vol.width * vol.height + y * vol.width + x;
-                vol.voxels[idx3D] = (alpha > 0) ? 255 : 0;
-            }
-        }
+std::vector<LabeledVolume> BuildVolumesFromLabeledImages(const std::vector<std::tuple<std::string, std::string, Image2D>>& labeledImages) {
+    std::unordered_map<std::string, std::unordered_map<std::string, Image2D>> partViews;
+    for (const auto& [part, view, img] : labeledImages) {
+        partViews[part][view] = img;
     }
-    return vol;
-}
----------------PartVolumeBuilder.h---------------
-#pragma once
-#include "common.h"
-#include "PartClassifier.h"
 
-struct PartRegion {
-    int x, y, width, height;
-};
+    std::vector<LabeledVolume> result;
+    int size = 64;
 
-struct PartVolume {
-    PartType type;
-    Volume volume;
-};
+    for (const auto& [partLabel, views] : partViews) {
+        Volume vol;
+        vol.width = vol.height = vol.depth = size;
+        vol.data.resize(size * size * size, 0);
 
-std::vector<PartVolume> BuildPartsFromImage(const Image2D& image, const std::vector<PartRegion>& regions, int depth);
----------------PartVolumeBuilder.cpp---------------
-#include "PartVolumeBuilder.h"
-#include "VolumeBuilder.h"
-
-std::vector<PartVolume> BuildPartsFromImage(const Image2D& image, const std::vector<PartRegion>& regions, int depth) {
-    std::vector<PartVolume> result;
-
-    for (const auto& region : regions) {
-        // 切り抜き
-        Image2D cropped;
-        cropped.width = region.width;
-        cropped.height = region.height;
-        cropped.pixels.resize(region.width * region.height * 4);
-
-        for (int y = 0; y < region.height; ++y) {
-            for (int x = 0; x < region.width; ++x) {
-                int srcX = region.x + x;
-                int srcY = region.y + y;
-                if (srcX < 0 || srcX >= image.width || srcY < 0 || srcY >= image.height) continue;
-
-                int srcIdx = (srcY * image.width + srcX) * 4;
-                int dstIdx = (y * region.width + x) * 4;
-                std::copy_n(&image.pixels[srcIdx], 4, &cropped.pixels[dstIdx]);
+        for (const auto& [view, img] : views) {
+            if (view == "front") {
+                for (int y = 0; y < std::min(size, img.height); ++y) {
+                    for (int x = 0; x < std::min(size, img.width); ++x) {
+                        if (img.pixels[y * img.width + x] > 0) {
+                            for (int z = 0; z < size; ++z) {
+                                vol.set(x, size - y - 1, z, 1);
+                            }
+                        }
+                    }
+                }
+            }
+            else if (view == "side") {
+                for (int y = 0; y < std::min(size, img.height); ++y) {
+                    for (int z = 0; z < std::min(size, img.width); ++z) {
+                        if (img.pixels[y * img.width + z] > 0) {
+                            for (int x = 0; x < size; ++x) {
+                                vol.set(x, size - y - 1, z, 1);
+                            }
+                        }
+                    }
+                }
+            }
+            else if (view == "top") {
+                for (int z = 0; z < std::min(size, img.height); ++z) {
+                    for (int x = 0; x < std::min(size, img.width); ++x) {
+                        if (img.pixels[z * img.width + x] > 0) {
+                            for (int y = 0; y < size; ++y) {
+                                vol.set(x, y, size - z - 1, 1);
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // 分類
-        PartType type = ClassifyPart(region.x, region.y, region.width, region.height, image.width, image.height);
-
-        // Volume生成
-        Volume vol = BuildVolumeFromSilhouette(cropped, depth);
-
-        result.push_back({ type, vol });
+        result.push_back({ vol, ClassifyPart(partLabel) });
     }
 
     return result;
 }
----------------MarchingCubesTables.h---------------
-#pragma once
-extern const int MC_TRI_TABLE[256][16];
-static const int DX[8] = { 0,1,1,0,0,1,1,0 };
-static const int DY[8] = { 0,0,1,1,0,0,1,1 };
-static const int DZ[8] = { 0,0,0,0,1,1,1,1 };
----------------MarchingCubesTables.cpp---------------
-#include "MarchingCubesTables.h"
+-------------VolumeMerger.cpp-------------
+#include "VolumeMerger.h"
 
-const int MC_TRI_TABLE[256][16] = {
-    // ← ここに実データを定義する（必要であれば提供可能）
-};
----------------main.cpp---------------
-#include <windows.h>
-#include <commdlg.h>
-#include <shlwapi.h>
-#include <string>
-#pragma comment(lib, "user32.lib")
-#pragma comment(lib, "gdi32.lib")
-#pragma comment(lib, "comdlg32.lib")
-#pragma comment(lib, "shlwapi.lib")
-#include "PNGLoader.h"
-#include "VolumeBuilder.h"
-#include "MeshBuilder.h"
-#include "FBXExporter.h"
+Volume MergeVolumes(const std::vector<Volume>& volumes) {
+    if (volumes.empty()) return {};
 
-#pragma comment(lib, "Shlwapi.lib")
+    int w = volumes[0].width;
+    int h = volumes[0].height;
+    int d = volumes[0].depth;
 
-char g_pngPath[MAX_PATH] = "";
-int g_polyCount = 5000;
+    Volume result(w, h, d);
 
-bool GenerateFBX(const char* pngPath, const char* fbxPath, int polyCount) {
-    try {
-        Image2D image = LoadPNG(pngPath);
-        Volume volume = BuildVolumeFromSilhouette(image, 64);
-        Mesh3D mesh = GenerateMesh(volume, polyCount);
-        ExportToFBX(mesh, fbxPath);
-        return true;
-    }
-    catch (const std::exception& e) {
-        MessageBoxA(NULL, e.what(), "Error", MB_ICONERROR);
-        return false;
-    }
-}
-
-void BrowseForPNG(HWND hwnd) {
-    OPENFILENAMEA ofn = { sizeof(ofn) };
-    ofn.hwndOwner = hwnd;
-    ofn.lpstrFilter = "PNG Files\0*.png\0All Files\0*.*\0";
-    ofn.lpstrFile = g_pngPath;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.Flags = OFN_FILEMUSTEXIST;
-    if (GetOpenFileNameA(&ofn)) {
-        InvalidateRect(hwnd, NULL, TRUE);
-    }
-}
-
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch (msg) {
-    case WM_CREATE:
-        CreateWindowA("button", "選択", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 20, 20, 60, 25, hwnd, (HMENU)1, NULL, NULL);
-        CreateWindowA("edit", g_pngPath, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 90, 20, 300, 25, hwnd, (HMENU)2, NULL, NULL);
-        CreateWindowA("static", "ポリゴン数:", WS_CHILD | WS_VISIBLE, 20, 60, 80, 25, hwnd, NULL, NULL, NULL);
-        CreateWindowA("edit", "5000", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_NUMBER, 110, 60, 100, 25, hwnd, (HMENU)3, NULL, NULL);
-        CreateWindowA("button", "生成", WS_CHILD | WS_VISIBLE | BS_DEFPUSHBUTTON, 230, 60, 80, 25, hwnd, (HMENU)4, NULL, NULL);
-        return 0;
-
-    case WM_COMMAND:
-        if (LOWORD(wParam) == 1) BrowseForPNG(hwnd);
-        if (LOWORD(wParam) == 4) {
-            GetDlgItemTextA(hwnd, 2, g_pngPath, MAX_PATH);
-            char polyStr[16] = {};
-            GetDlgItemTextA(hwnd, 3, polyStr, 15);
-            g_polyCount = atoi(polyStr);
-            if (!PathFileExistsA(g_pngPath)) {
-                MessageBoxA(hwnd, "PNGファイルが見つかりません。", "エラー", MB_ICONERROR);
-                return 0;
-            }
-            char fbxPath[MAX_PATH];
-            strcpy_s(fbxPath, MAX_PATH, g_pngPath);
-            char* dot = strrchr(fbxPath, '.');
-            if (dot) strcpy_s(dot, MAX_PATH - (dot - fbxPath), ".fbx");
-
-            if (GenerateFBX(g_pngPath, fbxPath, g_polyCount)) {
-                MessageBoxA(hwnd, "FBXを出力しました。", "完了", MB_OK);
+    for (const auto& vol : volumes) {
+        for (int z = 0; z < d; ++z) {
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    result.set(x, y, z, result.get(x, y, z) || vol.get(x, y, z));
+                }
             }
         }
-        return 0;
-
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        return 0;
     }
-    return DefWindowProcA(hwnd, msg, wParam, lParam);
+
+    return result;
 }
-
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
-    WNDCLASSA wc = {};
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInst;
-    wc.lpszClassName = "ImageTo3DWindow";
-    RegisterClassA(&wc);
-
-    HWND hwnd = CreateWindowA("ImageTo3DWindow", "ImageTo3D Converter", WS_OVERLAPPEDWINDOW ^ WS_THICKFRAME ^ WS_MAXIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 450, 150, NULL, NULL, hInst, NULL);
-    ShowWindow(hwnd, nCmdShow);
-
-    MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-    return 0;
-}
----------------common.h---------------
+-------------common.h-------------
 #pragma once
 #include <vector>
 
-struct Image2D {
-    int width, height;
-    std::vector<unsigned char> pixels; // RGBA or grayscale
-};
-
-struct Volume {
-    int width, height, depth;
-    std::vector<unsigned char> voxels; // 3Dボクセル濃度
-};
-
 struct Vertex {
     float x, y, z;
-    float nx, ny, nz;
-    float u, v;
 };
 
 struct Mesh3D {
     std::vector<Vertex> vertices;
     std::vector<int> indices;
 };
+-------------FBXExporter.h-------------
+#pragma once
+#include "common.h"
+void ExportToFBX(const Mesh3D& mesh, const char* filename);
+-------------GUIState.h-------------
+#pragma once
+#include <map>
+#include <vector>
+#include <string>
+#include "PartVolumeBuilder.h"
+
+struct GUIState {
+    std::map<PartType, std::vector<std::string>> partImages;
+    PartType selectedPart = PartType::Unknown;
+    int polygonCount = 1000;
+};
+-------------ImageLoader.h-------------
+#pragma once
+#include <string>
+#include <vector>
+
+struct Image2D {
+    int width, height;
+    std::vector<uint8_t> pixels; // RGBA
+};
+
+class ImageLoader {
+public:
+    static Image2D Load(const std::string& filename);
+};
+-------------MarchingCubesTables.h-------------
+#pragma once
+extern const int MC_TRI_TABLE[256][16];
+static const int DX[8] = { 0,1,1,0,0,1,1,0 };
+static const int DY[8] = { 0,0,1,1,0,0,1,1 };
+static const int DZ[8] = { 0,0,0,0,1,1,1,1 };
+-------------MeshBuilder.h-------------
+#pragma once
+#include "common.h"
+#include "VolumeBuilder.h"
+
+struct Mesh3D {
+    std::vector<Vertex> vertices;
+    std::vector<int> indices;
+};
+
+Mesh3D BuildMeshFromVolume(const Volume& vol);
+-------------MeshGenerator.h-------------
+#pragma once
+#include "common.h"
+
+struct Vertex {
+    float x, y, z;
+};
+
+struct Mesh3D {
+    std::vector<Vertex> vertices;
+    std::vector<int> indices;
+};
+
+Mesh3D GenerateMeshFromImage(const Image2D& image, int polygonCount);
+-------------MeshReducer.h-------------
+#pragma once
+#include "common.h"
+#include "MeshBuilder.h"
+
+Mesh3D ReduceMesh(const Mesh3D& mesh, int targetPolygonCount);
+-------------PartClassifier.h-------------
+#pragma once
+enum class PartType { Head, Arm, Leg, Body };
+PartType ClassifyPart(int x, int y, int width, int height, int imageW, int imageH); // 宣言だけ
+-------------PartVolumeBuilder.h-------------
+#pragma once
+#include "common.h"
+#include "PNGLoader.h"
+#include <map>
+#include <vector>
+
+enum class PartType {
+    Head, Body, Arm, Leg, Tail, Wing, Unknown
+};
+
+std::map<PartType, Volume> BuildVolumesFromImages(const std::map<PartType, std::vector<std::string>>& imageGroups);
+-------------PNGLoader.h-------------
+#pragma once
+#include <vector>
+#include <cstdint>
+#include <string>
+
+struct Image2D {
+    int width, height;
+    std::vector<uint8_t> pixels; // RGBA形式
+};
+
+Image2D LoadPNG(const char* filename);
+-------------VolumeBuilder.h-------------
+#pragma once
+#include "common.h"
+
+enum class PartType {
+    Head,
+    Body,
+    Arm,
+    Leg,
+    Unknown
+};
+
+struct Volume {
+    int width, height, depth;
+    std::vector<uint8_t> data; // 0 = empty, 1 = filled
+
+    uint8_t get(int x, int y, int z) const {
+        return data[x + y * width + z * width * height];
+    }
+
+    void set(int x, int y, int z, uint8_t value) {
+        data[x + y * width + z * width * height] = value;
+    }
+};
+
+struct LabeledVolume {
+    Volume volume;
+    PartType part;
+};
+
+std::vector<LabeledVolume> BuildVolumesFromLabeledImages(const std::vector<std::tuple<std::string, std::string, Image2D>>& labeledImages);
+-------------VolumeMerger.h-------------
+#pragma once
+#include "common.h"
+#include <vector>
+
+Volume MergeVolumes(const std::vector<Volume>& volumes);
