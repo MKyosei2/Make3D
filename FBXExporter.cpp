@@ -2,7 +2,7 @@
 #include <fbxsdk.h>
 #include "FBXExporter.h"
 
-void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePath) {
+void ExportToFBX(const Mesh3D& mesh, const char* filename) {
     FbxManager* manager = FbxManager::Create();
     FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
     manager->SetIOSettings(ios);
@@ -11,12 +11,12 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePa
     FbxNode* root = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-    fbxMesh->InitControlPoints(mesh.vertices.size());
-    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-        auto& v = mesh.vertices[i];
+    fbxMesh->InitControlPoints(static_cast<int>(mesh.vertices.size()));
+    for (int i = 0; i < mesh.vertices.size(); ++i) {
+        const auto& v = mesh.vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
     }
-    for (size_t i = 0; i < mesh.indices.size(); i += 3) {
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         fbxMesh->BeginPolygon();
         fbxMesh->AddPolygon(mesh.indices[i]);
         fbxMesh->AddPolygon(mesh.indices[i + 1]);
@@ -26,20 +26,12 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename, const char* texturePa
 
     FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
     meshNode->SetNodeAttribute(fbxMesh);
-
-    if (texturePath) {
-        FbxSurfacePhong* material = FbxSurfacePhong::Create(scene, "mat");
-        FbxFileTexture* tex = FbxFileTexture::Create(scene, "tex");
-        tex->SetFileName(texturePath);
-        tex->SetMappingType(FbxTexture::eUV);
-        material->Diffuse.ConnectSrcObject(tex);
-        meshNode->AddMaterial(material);
-    }
-
     root->AddChild(meshNode);
+
     FbxExporter* exporter = FbxExporter::Create(manager, "");
     exporter->Initialize(filename, -1, manager->GetIOSettings());
     exporter->Export(scene);
+
     exporter->Destroy();
     manager->Destroy();
 }

@@ -1,14 +1,8 @@
 #pragma once
 #include "common.h"
-#include "PartClassifier.h"
+#include "PNGLoader.h"
+#include <map>
 
-struct PartRegion {
-    int x, y, width, height;
+enum class PartType {
+    Head, Body, Arm, Leg, Tail, Wing, Unknown
 };
-
-struct PartVolume {
-    PartType type;
-    Volume volume;
-};
-
-std::vector<PartVolume> BuildPartsFromImage(const Image2D& image, const std::vector<PartRegion>& regions, int depth);

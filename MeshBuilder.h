@@ -1,4 +1,10 @@
 #pragma once
 #include "common.h"
 #include "VolumeBuilder.h"
-Mesh3D GenerateMesh(const Volume& vol, int targetPolygons);
+
+struct Mesh3D {
+    std::vector<Vertex> vertices;
+    std::vector<int> indices;
+};
+
+Mesh3D BuildMeshFromVolume(const Volume& vol);

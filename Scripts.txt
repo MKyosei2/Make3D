@@ -241,11 +241,27 @@ std::vector<PartVolume> BuildPartsFromImage(const Image2D& image, const std::vec
 
     return result;
 }
+---------------MarchingCubesTables.h---------------
+#pragma once
+extern const int MC_TRI_TABLE[256][16];
+static const int DX[8] = { 0,1,1,0,0,1,1,0 };
+static const int DY[8] = { 0,0,1,1,0,0,1,1 };
+static const int DZ[8] = { 0,0,0,0,1,1,1,1 };
+---------------MarchingCubesTables.cpp---------------
+#include "MarchingCubesTables.h"
+
+const int MC_TRI_TABLE[256][16] = {
+    // ← ここに実データを定義する（必要であれば提供可能）
+};
 ---------------main.cpp---------------
 #include <windows.h>
 #include <commdlg.h>
 #include <shlwapi.h>
 #include <string>
+#pragma comment(lib, "user32.lib")
+#pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "comdlg32.lib")
+#pragma comment(lib, "shlwapi.lib")
 #include "PNGLoader.h"
 #include "VolumeBuilder.h"
 #include "MeshBuilder.h"
@@ -362,9 +378,3 @@ struct Mesh3D {
     std::vector<Vertex> vertices;
     std::vector<int> indices;
 };
----------------MarchingCubesTables.h---------------
-#pragma once
-extern const int MC_TRI_TABLE[256][16];
-static const int DX[8] = { 0,1,1,0,0,1,1,0 };
-static const int DY[8] = { 0,0,1,1,0,0,1,1 };
-static const int DZ[8] = { 0,0,0,0,1,1,1,1 };

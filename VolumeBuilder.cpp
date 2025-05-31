@@ -1,18 +1,67 @@
 #include "VolumeBuilder.h"
+#include <algorithm>
+#include <unordered_map>
 
-Volume BuildVolumeFromSilhouette(const Image2D& image, int depth) {
-    Volume vol{ image.width, image.height, depth };
-    vol.voxels.resize(vol.width * vol.height * vol.depth, 0);
+static PartType ClassifyPart(const std::string& label) {
+    if (label == "head") return PartType::Head;
+    if (label == "body") return PartType::Body;
+    if (label == "arm") return PartType::Arm;
+    if (label == "leg") return PartType::Leg;
+    return PartType::Unknown;
+}
 
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < image.height; ++y) {
-            for (int x = 0; x < image.width; ++x) {
-                int idx2D = (y * image.width + x) * 4;
-                unsigned char alpha = image.pixels[idx2D + 3];
-                int idx3D = z * vol.width * vol.height + y * vol.width + x;
-                vol.voxels[idx3D] = (alpha > 0) ? 255 : 0;
+std::vector<LabeledVolume> BuildVolumesFromLabeledImages(const std::vector<std::tuple<std::string, std::string, Image2D>>& labeledImages) {
+    std::unordered_map<std::string, std::unordered_map<std::string, Image2D>> partViews;
+    for (const auto& [part, view, img] : labeledImages) {
+        partViews[part][view] = img;
+    }
+
+    std::vector<LabeledVolume> result;
+    int size = 64;
+
+    for (const auto& [partLabel, views] : partViews) {
+        Volume vol;
+        vol.width = vol.height = vol.depth = size;
+        vol.data.resize(size * size * size, 0);
+
+        for (const auto& [view, img] : views) {
+            if (view == "front") {
+                for (int y = 0; y < std::min(size, img.height); ++y) {
+                    for (int x = 0; x < std::min(size, img.width); ++x) {
+                        if (img.pixels[y * img.width + x] > 0) {
+                            for (int z = 0; z < size; ++z) {
+                                vol.set(x, size - y - 1, z, 1);
+                            }
+                        }
+                    }
+                }
+            }
+            else if (view == "side") {
+                for (int y = 0; y < std::min(size, img.height); ++y) {
+                    for (int z = 0; z < std::min(size, img.width); ++z) {
+                        if (img.pixels[y * img.width + z] > 0) {
+                            for (int x = 0; x < size; ++x) {
+                                vol.set(x, size - y - 1, z, 1);
+                            }
+                        }
+                    }
+                }
+            }
+            else if (view == "top") {
+                for (int z = 0; z < std::min(size, img.height); ++z) {
+                    for (int x = 0; x < std::min(size, img.width); ++x) {
+                        if (img.pixels[z * img.width + x] > 0) {
+                            for (int y = 0; y < size; ++y) {
+                                vol.set(x, y, size - z - 1, 1);
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        result.push_back({ vol, ClassifyPart(partLabel) });
     }
-    return vol;
+
+    return result;
 }
