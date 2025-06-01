@@ -11,11 +11,14 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename) {
     FbxNode* root = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-    fbxMesh->InitControlPoints(static_cast<int>(mesh.vertices.size()));
-    for (int i = 0; i < mesh.vertices.size(); ++i) {
+    int vertexCount = static_cast<int>(mesh.vertices.size());
+    fbxMesh->InitControlPoints(vertexCount);
+
+    for (int i = 0; i < vertexCount; ++i) {
         const auto& v = mesh.vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
     }
+
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         fbxMesh->BeginPolygon();
         fbxMesh->AddPolygon(mesh.indices[i]);

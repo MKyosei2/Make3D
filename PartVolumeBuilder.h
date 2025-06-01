@@ -1,11 +1,14 @@
 #pragma once
 #include "common.h"
-#include "PNGLoader.h"
-#include <map>
+#include <string>
 #include <vector>
+#include <map>
 
-enum class PartType {
-    Head, Body, Arm, Leg, Tail, Wing, Unknown
+struct LabeledImage {
+    std::string part;
+    std::string view;
+    Image2D image;
 };
 
-std::map<PartType, Volume> BuildVolumesFromImages(const std::map<PartType, std::vector<std::string>>& imageGroups);
+std::map<PartType, Volume> BuildVolumesFromImages(
+    const std::map<PartType, std::map<ViewType, std::vector<std::string>>>& inputMap);
