@@ -1,23 +1,21 @@
-#include "FBXExporter.h"
+#include "GUIState.h"
 #include <fbxsdk.h>
 
 void ExportToFBX(const Mesh3D& mesh, const char* filename) {
-    FbxManager* manager = FbxManager::Create();
-    FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
-    manager->SetIOSettings(ios);
-
-    FbxScene* scene = FbxScene::Create(manager, "Scene");
+    FbxManager* mgr = FbxManager::Create();
+    FbxIOSettings* ios = FbxIOSettings::Create(mgr, IOSROOT);
+    mgr->SetIOSettings(ios);
+    FbxScene* scene = FbxScene::Create(mgr, "Scene");
     FbxNode* root = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-    fbxMesh->InitControlPoints(mesh.vertices.size());
-
+    fbxMesh->InitControlPoints((int)mesh.vertices.size());
     for (int i = 0; i < mesh.vertices.size(); ++i) {
-        auto v = mesh.vertices[i];
+        const auto& v = mesh.vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
     }
 
-    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+    for (int i = 0; i + 2 < mesh.indices.size(); i += 3) {
         fbxMesh->BeginPolygon();
         fbxMesh->AddPolygon(mesh.indices[i]);
         fbxMesh->AddPolygon(mesh.indices[i + 1]);
@@ -25,13 +23,13 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename) {
         fbxMesh->EndPolygon();
     }
 
-    FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
-    meshNode->SetNodeAttribute(fbxMesh);
-    root->AddChild(meshNode);
+    FbxNode* node = FbxNode::Create(scene, "Node");
+    node->SetNodeAttribute(fbxMesh);
+    root->AddChild(node);
 
-    FbxExporter* exporter = FbxExporter::Create(manager, "");
-    exporter->Initialize(filename, -1, manager->GetIOSettings());
+    FbxExporter* exporter = FbxExporter::Create(mgr, "");
+    exporter->Initialize(filename, -1, mgr->GetIOSettings());
     exporter->Export(scene);
     exporter->Destroy();
-    manager->Destroy();
+    mgr->Destroy();
 }

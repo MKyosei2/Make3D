@@ -1,47 +1,65 @@
-#include "PartVolumeBuilder.h"
-#include "VolumeBuilder.h"
-#include "PNGLoader.h"
-#include "VolumeMerger.h"
+#include "GUIState.h"
 
-static ViewType ViewFromString(const std::string& s) {
-    if (s == "Front") return ViewType::Front;
-    if (s == "Back") return ViewType::Back;
-    if (s == "Left") return ViewType::Left;
-    if (s == "Right") return ViewType::Right;
-    if (s == "Top") return ViewType::Top;
-    if (s == "Bottom") return ViewType::Bottom;
-    return ViewType::Front;
-}
+struct Volume {
+    int w = 0, h = 0, d = 0;
+    std::vector<uint8_t> voxels;
 
-static std::string ViewToString(ViewType v) {
-    static const char* names[] = { "Front", "Back", "Left", "Right", "Top", "Bottom" };
-    return names[(int)v];
-}
+    void Resize(int x, int y, int z) {
+        w = x; h = y; d = z;
+        voxels.resize(w * h * d, 0);
+    }
+    uint8_t& At(int x, int y, int z) {
+        return voxels[(z * h + y) * w + x];
+    }
+};
 
-static std::string PartToString(PartType p) {
-    static const char* names[] = { "Head", "Body", "Arm", "Leg", "Tail", "Wing", "Unknown" };
-    return names[(int)p];
-}
-
-std::map<PartType, Volume> BuildVolumesFromImages(
-    const std::map<PartType, std::map<ViewType, std::vector<std::string>>>& inputMap) {
-
-    std::map<PartType, Volume> result;
-
-    for (const auto& [part, viewMap] : inputMap) {
-        std::vector<Volume> partials;
-
-        for (const auto& [view, paths] : viewMap) {
-            for (const auto& path : paths) {
-                Image2D img = LoadPNG(path.c_str());
-                Volume vol = BuildVolumeFromSilhouette(img, view);
-                partials.push_back(vol);
+Volume BuildVolumeFromSilhouette(const Image2D& img, ViewType view) {
+    Volume vol;
+    const int depth = 32;
+    vol.Resize(img.width, img.height, depth);
+    for (int y = 0; y < img.height; ++y) {
+        for (int x = 0; x < img.width; ++x) {
+            if (!img.IsOpaque(x, y)) continue;
+            for (int z = 0; z < depth; ++z) {
+                vol.At(x, y, z) = 255;
             }
         }
+    }
+    return vol;
+}
 
-        Volume merged = MergeVolumes(partials);
+Mesh3D BuildMeshFromVolume(const Volume& vol) {
+    Mesh3D mesh;
+    // 仮実装：1枚板ポリゴンで代用
+    for (int y = 0; y < vol.h; ++y) {
+        for (int x = 0; x < vol.w; ++x) {
+            if (vol.At(x, y, vol.d / 2)) {
+                float fx = (float)x, fy = (float)y, fz = (float)(vol.d / 2);
+                int idx = (int)mesh.vertices.size();
+                mesh.vertices.push_back({ fx, fy, fz });
+                mesh.vertices.push_back({ fx + 1, fy, fz });
+                mesh.vertices.push_back({ fx + 1, fy + 1, fz });
+                mesh.vertices.push_back({ fx, fy + 1, fz });
+                mesh.indices.push_back(idx); mesh.indices.push_back(idx + 1); mesh.indices.push_back(idx + 2);
+                mesh.indices.push_back(idx); mesh.indices.push_back(idx + 2); mesh.indices.push_back(idx + 3);
+            }
+        }
+    }
+    return mesh;
+}
+
+std::map<PartType, Volume> BuildVolumesFromImages(const std::map<PartType, std::map<ViewType, std::vector<std::string>>>& inputMap) {
+    std::map<PartType, Volume> result;
+    for (const auto& [part, views] : inputMap) {
+        Volume merged;
+        for (const auto& [view, files] : views) {
+            for (const auto& f : files) {
+                Image2D img = LoadPNG(f.c_str());
+                Volume vol = BuildVolumeFromSilhouette(img, view);
+                merged = vol; // 簡略：最後の1枚のみ使用
+            }
+        }
         result[part] = merged;
     }
-
     return result;
 }

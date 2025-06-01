@@ -1,66 +1,113 @@
 #include <windows.h>
 #include <commdlg.h>
 #include <string>
+#include <map>
+#include <vector>
+#include <fstream>
+#include "GUIState.h"
 #include "PNGLoader.h"
-#include "MeshGenerator.h"
+#include "PartVolumeBuilder.h"
 #include "FBXExporter.h"
 
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    switch (message) {
-    case WM_DESTROY: PostQuitMessage(0); return 0;
+LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+GUIState guiState;
+
+void SaveProject(const char* path) {
+    std::ofstream ofs(path);
+    for (const auto& [part, views] : guiState.partViewImages) {
+        for (const auto& [view, paths] : views) {
+            for (const auto& p : paths) {
+                ofs << (int)part << " " << (int)view << " " << p << "\n";
+            }
+        }
     }
-    return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
-    const char* className = "ModelGenWindowClass";
-    WNDCLASS wc = {};
-    wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = className;
-    RegisterClass(&wc);
+void LoadProject(const char* path) {
+    std::ifstream ifs(path);
+    guiState.partViewImages.clear();
+    int part, view;
+    std::string line;
+    while (std::getline(ifs, line)) {
+        size_t p1 = line.find(' ');
+        size_t p2 = line.find(' ', p1 + 1);
+        part = std::stoi(line.substr(0, p1));
+        view = std::stoi(line.substr(p1 + 1, p2 - p1 - 1));
+        std::string file = line.substr(p2 + 1);
+        guiState.partViewImages[(PartType)part][(ViewType)view].push_back(file);
+    }
+}
 
-    HWND hWnd = CreateWindowEx(0, className, "3D Generator (No ImGui)", WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, 400, 200, nullptr, nullptr, hInstance, nullptr);
-    ShowWindow(hWnd, nCmdShow);
-
-    std::string pngPath;
-    int polygonCount = 1000;
-
-    while (true) {
-        MSG msg;
-        if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-            if (msg.message == WM_QUIT) break;
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+void ExportAllFBX(bool combine) {
+    auto volumes = BuildVolumesFromImages(guiState.partViewImages);
+    if (combine) {
+        Mesh3D combined;
+        for (auto& [part, vol] : volumes) {
+            Mesh3D mesh = BuildMeshFromVolume(vol);
+            AppendMesh(combined, mesh);
         }
-
-        int result = MessageBoxA(hWnd, "PNGを選択してFBX出力しますか？", "確認", MB_YESNOCANCEL);
-        if (result == IDCANCEL) break;
-        else if (result == IDYES) {
-            char filename[MAX_PATH] = {};
-            OPENFILENAMEA ofn = {};
-            ofn.lStructSize = sizeof(ofn);
-            ofn.lpstrFilter = "PNG Files\0*.png\0";
-            ofn.lpstrFile = filename;
-            ofn.nMaxFile = MAX_PATH;
-            ofn.Flags = OFN_FILEMUSTEXIST;
-            if (GetOpenFileNameA(&ofn)) {
-                pngPath = filename;
-            }
-
-            if (!pngPath.empty()) {
-                Image2D img = LoadPNG(pngPath.c_str());
-                Mesh3D mesh = GenerateMeshFromImage(img, polygonCount);
-                std::string out = pngPath + std::string(".fbx");
-                ExportToFBX(mesh, out.c_str());
-                MessageBoxA(hWnd, "FBX出力が完了しました", "成功", MB_OK);
-            }
+        ExportToFBX(combined, "combined_output.fbx");
+    }
+    else {
+        for (auto& [part, vol] : volumes) {
+            Mesh3D mesh = BuildMeshFromVolume(vol);
+            char filename[128];
+            sprintf_s(filename, "part_%d.fbx", (int)part);
+            ExportToFBX(mesh, filename);
         }
-        else {
-            polygonCount = (polygonCount >= 10000 ? 1000 : polygonCount + 1000);
-        }
+    }
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    HWND hwnd = CreateWindowEx(0, "STATIC", "3D Model Generator", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        100, 100, 640, 480, nullptr, nullptr, hInstance, nullptr);
+
+    if (!hwnd) return 1;
+
+    MSG msg = {};
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
 
     return 0;
+}
+
+void AddImageFile() {
+    char filename[MAX_PATH] = {};
+    OPENFILENAMEA ofn = { sizeof(ofn) };
+    ofn.lpstrFilter = "PNG Files\0*.png\0";
+    ofn.lpstrFile = filename;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_FILEMUSTEXIST;
+    if (GetOpenFileNameA(&ofn)) {
+        // 仮に Head/Front として追加（UIがないのでデフォルト）
+        guiState.partViewImages[PartType::Head][ViewType::Front].push_back(filename);
+    }
+}
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_CREATE:
+        CreateWindow("BUTTON", "画像追加", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            20, 20, 100, 30, hwnd, (HMENU)1, nullptr, nullptr);
+        CreateWindow("BUTTON", "保存", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            140, 20, 100, 30, hwnd, (HMENU)2, nullptr, nullptr);
+        CreateWindow("BUTTON", "読み込み", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            260, 20, 100, 30, hwnd, (HMENU)3, nullptr, nullptr);
+        CreateWindow("BUTTON", "FBX出力", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            380, 20, 100, 30, hwnd, (HMENU)4, nullptr, nullptr);
+        return 0;
+    case WM_COMMAND:
+        switch (LOWORD(wParam)) {
+        case 1: AddImageFile(); break;
+        case 2: SaveProject("project.txt"); break;
+        case 3: LoadProject("project.txt"); break;
+        case 4: ExportAllFBX(false); break;
+        }
+        return 0;
+    case WM_DESTROY: PostQuitMessage(0); return 0;
+    }
+    return DefWindowProc(hwnd, msg, wParam, lParam);
 }

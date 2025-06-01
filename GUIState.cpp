@@ -5,15 +5,19 @@
 
 enum class PartType { Head, Body, Arm, Leg, Tail, Wing, Unknown };
 enum class ViewType { Front, Back, Left, Right, Top, Bottom };
-enum class ExportScaleUnit { UnityMeters, MayaCentimeters };
 
 struct GUIState {
     std::map<PartType, std::map<ViewType, std::vector<std::string>>> partViewImages;
-    PartType selectedPart = PartType::Unknown;
-    ViewType selectedView = ViewType::Front;
-    int polygonCount = 1000;
-    bool exportCombined = false;
-    ExportScaleUnit scaleUnit = ExportScaleUnit::UnityMeters;
 };
 
-extern GUIState guiState;
+struct Vertex { float x, y, z; };
+struct Mesh3D {
+    std::vector<Vertex> vertices;
+    std::vector<int> indices;
+};
+
+inline void AppendMesh(Mesh3D& dst, const Mesh3D& src) {
+    int offset = (int)dst.vertices.size();
+    dst.vertices.insert(dst.vertices.end(), src.vertices.begin(), src.vertices.end());
+    for (int idx : src.indices) dst.indices.push_back(offset + idx);
+}
