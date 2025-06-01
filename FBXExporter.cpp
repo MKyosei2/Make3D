@@ -1,6 +1,5 @@
-#define FBXSDK_SHARED
-#include <fbxsdk.h>
 #include "FBXExporter.h"
+#include <fbxsdk.h>
 
 void ExportToFBX(const Mesh3D& mesh, const char* filename) {
     FbxManager* manager = FbxManager::Create();
@@ -11,11 +10,10 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename) {
     FbxNode* root = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-    int vertexCount = static_cast<int>(mesh.vertices.size());
-    fbxMesh->InitControlPoints(vertexCount);
+    fbxMesh->InitControlPoints(mesh.vertices.size());
 
-    for (int i = 0; i < vertexCount; ++i) {
-        const auto& v = mesh.vertices[i];
+    for (int i = 0; i < mesh.vertices.size(); ++i) {
+        auto v = mesh.vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
     }
 
@@ -34,7 +32,6 @@ void ExportToFBX(const Mesh3D& mesh, const char* filename) {
     FbxExporter* exporter = FbxExporter::Create(manager, "");
     exporter->Initialize(filename, -1, manager->GetIOSettings());
     exporter->Export(scene);
-
     exporter->Destroy();
     manager->Destroy();
 }

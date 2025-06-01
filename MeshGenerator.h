@@ -1,5 +1,5 @@
 #pragma once
-#include "common.h"
+#include "PNGLoader.h"
 
 struct Vertex {
     float x, y, z;
@@ -10,4 +10,4 @@ struct Mesh3D {
     std::vector<int> indices;
 };
 
-Mesh3D GenerateMeshFromImage(const Image2D& image, int polygonCount);
+Mesh3D GenerateMeshFromImage(const Image2D& img, int polygonCount);
