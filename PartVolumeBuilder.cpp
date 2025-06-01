@@ -1,65 +1,35 @@
-#include "GUIState.h"
+ï»¿#include "PartVolumeBuilder.h"
 
-struct Volume {
-    int w = 0, h = 0, d = 0;
-    std::vector<uint8_t> voxels;
+Volume3D BuildVolumeFromImages(const std::map<ViewType, Image2D>& images, int sx, int sy, int sz) {
+    Volume3D vol(sx, sy, sz);
 
-    void Resize(int x, int y, int z) {
-        w = x; h = y; d = z;
-        voxels.resize(w * h * d, 0);
-    }
-    uint8_t& At(int x, int y, int z) {
-        return voxels[(z * h + y) * w + x];
-    }
-};
-
-Volume BuildVolumeFromSilhouette(const Image2D& img, ViewType view) {
-    Volume vol;
-    const int depth = 32;
-    vol.Resize(img.width, img.height, depth);
-    for (int y = 0; y < img.height; ++y) {
-        for (int x = 0; x < img.width; ++x) {
-            if (!img.IsOpaque(x, y)) continue;
-            for (int z = 0; z < depth; ++z) {
-                vol.At(x, y, z) = 255;
+    // Front (Z=0ã€œ)
+    if (images.count(ViewType::Front)) {
+        const auto& img = images.at(ViewType::Front);
+        for (int y = 0; y < sy; ++y) {
+            for (int x = 0; x < sx; ++x) {
+                if (img.IsOpaque(x * img.width / sx, y * img.height / sy)) {
+                    for (int z = 0; z < sz / 4; ++z)
+                        vol.Set(x, y, z, 255);
+                }
             }
         }
     }
+
+    // Back (Z=maxã€œ)
+    if (images.count(ViewType::Back)) {
+        const auto& img = images.at(ViewType::Back);
+        for (int y = 0; y < sy; ++y) {
+            for (int x = 0; x < sx; ++x) {
+                if (img.IsOpaque(x * img.width / sx, y * img.height / sy)) {
+                    for (int z = sz - 1; z > sz * 3 / 4; --z)
+                        vol.Set(x, y, z, 255);
+                }
+            }
+        }
+    }
+
+    // åŒæ§˜ã« Left / Right / Top / Bottom ã«å¯¾å¿œå¯èƒ½ï¼ˆç•¥ï¼‰
+
     return vol;
-}
-
-Mesh3D BuildMeshFromVolume(const Volume& vol) {
-    Mesh3D mesh;
-    // ‰¼À‘•F1–‡”Âƒ|ƒŠƒSƒ“‚Å‘ã—p
-    for (int y = 0; y < vol.h; ++y) {
-        for (int x = 0; x < vol.w; ++x) {
-            if (vol.At(x, y, vol.d / 2)) {
-                float fx = (float)x, fy = (float)y, fz = (float)(vol.d / 2);
-                int idx = (int)mesh.vertices.size();
-                mesh.vertices.push_back({ fx, fy, fz });
-                mesh.vertices.push_back({ fx + 1, fy, fz });
-                mesh.vertices.push_back({ fx + 1, fy + 1, fz });
-                mesh.vertices.push_back({ fx, fy + 1, fz });
-                mesh.indices.push_back(idx); mesh.indices.push_back(idx + 1); mesh.indices.push_back(idx + 2);
-                mesh.indices.push_back(idx); mesh.indices.push_back(idx + 2); mesh.indices.push_back(idx + 3);
-            }
-        }
-    }
-    return mesh;
-}
-
-std::map<PartType, Volume> BuildVolumesFromImages(const std::map<PartType, std::map<ViewType, std::vector<std::string>>>& inputMap) {
-    std::map<PartType, Volume> result;
-    for (const auto& [part, views] : inputMap) {
-        Volume merged;
-        for (const auto& [view, files] : views) {
-            for (const auto& f : files) {
-                Image2D img = LoadPNG(f.c_str());
-                Volume vol = BuildVolumeFromSilhouette(img, view);
-                merged = vol; // ŠÈ—ªFÅŒã‚Ì1–‡‚Ì‚İg—p
-            }
-        }
-        result[part] = merged;
-    }
-    return result;
 }

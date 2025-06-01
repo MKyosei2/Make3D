@@ -1,14 +1,13 @@
 #include "VolumeMerger.h"
 
-Volume MergeVolumes(const std::vector<Volume>& volumes) {
-    if (volumes.empty()) return Volume();
+Volume3D MergeVolumes(const std::vector<Volume3D>& volumes) {
+    if (volumes.empty()) return Volume3D();
 
     int w = volumes[0].width;
     int h = volumes[0].height;
     int d = volumes[0].depth;
 
-    Volume result;
-    result.Resize(w, h, d);
+    Volume3D result(w, h, d);
 
     for (const auto& v : volumes) {
         for (int z = 0; z < d; ++z)

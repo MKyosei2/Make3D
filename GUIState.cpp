@@ -1,23 +1,32 @@
 #pragma once
+#include <string>
 #include <map>
 #include <vector>
-#include <string>
-
-enum class PartType { Head, Body, Arm, Leg, Tail, Wing, Unknown };
-enum class ViewType { Front, Back, Left, Right, Top, Bottom };
+#include "PartTypes.h"
 
 struct GUIState {
-    std::map<PartType, std::map<ViewType, std::vector<std::string>>> partViewImages;
+    std::map<PartType, std::map<ViewType, std::string>> imagePaths;
+    PartType selectedPart = PartType::Head;
+    ViewType selectedView = ViewType::Front;
+    int polygonCount = 1000;
+    bool exportCombined = true;
 };
 
-struct Vertex { float x, y, z; };
+struct Vertex {
+    float x, y, z;
+};
+
 struct Mesh3D {
     std::vector<Vertex> vertices;
     std::vector<int> indices;
 };
 
-inline void AppendMesh(Mesh3D& dst, const Mesh3D& src) {
-    int offset = (int)dst.vertices.size();
-    dst.vertices.insert(dst.vertices.end(), src.vertices.begin(), src.vertices.end());
-    for (int idx : src.indices) dst.indices.push_back(offset + idx);
-}
+struct Image2D {
+    int width = 0;
+    int height = 0;
+    std::vector<unsigned char> pixels; // RGBA
+
+    bool IsOpaque(int x, int y) const {
+        return pixels[(y * width + x) * 4 + 3] > 128;
+    }
+};
