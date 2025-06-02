@@ -1,13 +1,16 @@
 #pragma once
-#include <string>
 #include <vector>
+#include "PNGLoader.h"
 
 struct Image2D {
-    int width, height;
-    std::vector<uint8_t> pixels; // RGBA
+    int width = 0;
+    int height = 0;
+    std::vector<unsigned char> data;
+
+    bool IsOpaque(int x, int y) const {
+        if (x < 0 || y < 0 || x >= width || y >= height) return false;
+        return data[y * width + x] > 128;
+    }
 };
 
-class ImageLoader {
-public:
-    static Image2D Load(const std::string& filename);
-};
+Image2D ConvertToImage2D(const PNGImage& png);

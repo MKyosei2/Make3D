@@ -1,48 +1,55 @@
-#include "PNGLoader.h"
-#include "MeshGenerator.h"
-#include "FBXExporter.h"
-#include "imgui.h"
-#include "imgui_impl_win32.h"
-#include "imgui_impl_dx11.h"
 #include <windows.h>
-#include <d3d11.h>
-#include <string>
+#include "GUIState.h"
+#include "PartVolumeBuilder.h"
+#include "MeshBuilder.h"
+#include "MeshReducer.h"
+#include "FBXExporter.h"
 
-#pragma comment(lib, "d3d11.lib")
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    static GUIState state;
+    switch (msg) {
+    case WM_CREATE:
+        CreateWindow("button", "èoóÕ",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            20, 20, 100, 30, hwnd, (HMENU)1, NULL, NULL);
+        return 0;
 
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
-
-static std::string selectedFile;
-static int polygonLimit = 500;
-
-void RenderUI() {
-    ImGui::Begin("3D Generator");
-
-    if (ImGui::Button("Select PNG")) {
-        char filename[MAX_PATH] = "";
-        OPENFILENAMEA ofn = {};
-        ofn.lStructSize = sizeof(ofn);
-        ofn.lpstrFilter = "PNG Files\0*.png\0";
-        ofn.lpstrFile = filename;
-        ofn.nMaxFile = MAX_PATH;
-        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
-        if (GetOpenFileNameA(&ofn)) {
-            selectedFile = filename;
+    case WM_COMMAND:
+        if (LOWORD(wParam) == 1) {
+            auto images = state.imagePaths[state.selectedPart];
+            Volume3D vol = BuildVolumeFromImages(images);
+            Mesh3D mesh = BuildMeshFromVolume(vol);
+            Mesh3D reduced = ReduceMesh(mesh, state.polygonCount);
+            ExportMeshToFBX(reduced, "output.fbx", state.scaleUnit);
+            MessageBox(hwnd, L"FBXèoóÕäÆóπ", L"ê¨å˜", MB_OK);
         }
-    }
-    ImGui::Text("Selected: %s", selectedFile.c_str());
-    ImGui::SliderInt("Polygon Limit", &polygonLimit, 100, 10000);
+        return 0;
 
-    if (ImGui::Button("Generate FBX")) {
-        if (!selectedFile.empty()) {
-            std::vector<unsigned char> image;
-            int w = 0, h = 0;
-            if (LoadPNG(selectedFile, image, w, h)) {
-                auto mesh = GenerateMeshFromSilhouette(image, w, h);
-                std::string outPath = selectedFile + ".fbx";
-                ExportToFBX(mesh, outPath.c_str());
-            }
-        }
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
     }
-    ImGui::End();
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
+    WNDCLASS wc = {};
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = L"Make3DApp";
+    RegisterClass(&wc);
+
+    HWND hwnd = CreateWindow(wc.lpszClassName, L"Make3D",
+        WS_OVERLAPPEDWINDOW ^ WS_THICKFRAME,
+        CW_USEDEFAULT, CW_USEDEFAULT, 640, 480,
+        nullptr, nullptr, hInstance, nullptr);
+
+    ShowWindow(hwnd, nCmdShow);
+
+    MSG msg = {};
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    return 0;
 }

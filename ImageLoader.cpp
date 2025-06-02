@@ -1,20 +1,16 @@
-#include "ImageLoader.h"
-#include <fstream>
-#include <stdexcept>
-#include <cstring>
+#pragma once
+#include <vector>
+#include "PNGLoader.h"
 
-uint32_t ReadUint32(const uint8_t* data) {
-    return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
-}
+struct Image2D {
+    int width = 0;
+    int height = 0;
+    std::vector<unsigned char> data;
 
-Image2D ImageLoader::Load(const std::string& filename) {
-    std::ifstream file(filename, std::ios::binary);
-    if (!file) throw std::runtime_error("PNG file not found");
-    std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), {});
+    bool IsOpaque(int x, int y) const {
+        if (x < 0 || y < 0 || x >= width || y >= height) return false;
+        return data[y * width + x] > 128;
+    }
+};
 
-    if (data.size() < 8 || std::memcmp(data.data(), "\x89PNG\r\n\x1a\n", 8) != 0)
-        throw std::runtime_error("Invalid PNG signature");
-
-    // NOTE: ここでは実際のzlibデコードとチャンク解析は省略。IDAT処理を追加する必要あり。
-    throw std::runtime_error("PNG inflate not implemented");
-}
+Image2D ConvertToImage2D(const PNGImage& png);

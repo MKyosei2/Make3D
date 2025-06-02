@@ -1,4 +1,8 @@
 #pragma once
-#include "GUIState.h"
+struct PNGImage {
+    int width;
+    int height;
+    std::vector<unsigned char> pixels;
+};
 
-Image2D LoadPNG(const char* path);
+bool LoadPNG(const char* filename, PNGImage& outImage);
