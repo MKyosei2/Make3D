@@ -1,5 +1,4 @@
 #include "BuildVolumeFromImages.h"
-#include "ImageLoader.h"
 
 Volume3D BuildVolumeFromImages(const std::map<ViewType, Image2D>& images) {
     if (images.find(ViewType::Front) == images.end()) return Volume3D();

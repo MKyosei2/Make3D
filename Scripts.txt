@@ -1,0 +1,645 @@
+---------------AppMain.cpp---------------
+#include <windows.h>
+#include "AppState.h"
+#include "VolumeUtils.h"
+#include "ImageUtils.h"
+#include "MeshUtils.h"
+#include "PartProcessor.h"
+#include "FBXExporter.h"
+
+// --- ウィンドウプロシージャ（最小限） ---
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    switch (msg) {
+    case WM_DESTROY: PostQuitMessage(0); return 0;
+    default: return DefWindowProc(hwnd, msg, wp, lp);
+    }
+}
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    WNDCLASS wc = {};
+    wc.lpfnWndProc = WndProc;
+    wc.hInstance = hInstance;
+    wc.lpszClassName = L"Make3DClass";
+    RegisterClass(&wc);
+    HWND hwnd = CreateWindow(wc.lpszClassName, L"Make3D", WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, nullptr, nullptr, hInstance, nullptr);
+    ShowWindow(hwnd, SW_SHOW);
+
+    // --- 初期化と仮GUI処理（本格UIはWin32で後日実装） ---
+    GUIState state;
+    state.polygonCount = 1000;
+    state.exportCombined = true;
+    state.scaleUnit = ExportScaleUnit::Unity;
+
+    // 仮ロード（正面画像だけ）
+    Image2D frontImg;
+    LoadPNG("front.png", frontImg);
+    state.partViewImages[PartType::Body][ViewType::Front] = "front.png";
+
+    // --- 3D構築処理 ---
+    auto volumes = BuildPartVolumes({
+        { PartType::Body, {{ ViewType::Front, frontImg }} }
+        });
+
+    std::vector<Mesh3D> meshes;
+    for (const auto& [part, vol] : volumes) {
+        Mesh3D mesh = BuildMeshFromVolume(vol);
+        mesh = ReduceMesh(mesh, state.polygonCount);
+        meshes.push_back(mesh);
+    }
+
+    // --- FBX出力 ---
+    ExportToFBX("output.fbx", meshes);
+
+    // --- メッセージループ ---
+    MSG msg = {};
+    while (GetMessage(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    return 0;
+}
+---------------AppState.cpp---------------
+#include "AppState.h"
+#include <fstream>
+
+bool SaveProject(const char* path, const GUIState& state) {
+    std::ofstream ofs(path, std::ios::binary);
+    if (!ofs) return false;
+
+    int partCount = (int)state.partViewImages.size();
+    ofs.write((char*)&partCount, sizeof(int));
+    for (const auto& part : state.partViewImages) {
+        int p = (int)part.first;
+        ofs.write((char*)&p, sizeof(int));
+        int viewCount = (int)part.second.size();
+        ofs.write((char*)&viewCount, sizeof(int));
+        for (const auto& view : part.second) {
+            int v = (int)view.first;
+            ofs.write((char*)&v, sizeof(int));
+            int len = (int)view.second.size();
+            ofs.write((char*)&len, sizeof(int));
+            ofs.write(view.second.c_str(), len);
+        }
+    }
+    ofs.write((char*)&state.polygonCount, sizeof(int));
+    ofs.write((char*)&state.exportCombined, sizeof(bool));
+    int su = (int)state.scaleUnit;
+    ofs.write((char*)&su, sizeof(int));
+    return true;
+}
+
+bool LoadProject(const char* path, GUIState& state) {
+    std::ifstream ifs(path, std::ios::binary);
+    if (!ifs) return false;
+    int partCount = 0;
+    ifs.read((char*)&partCount, sizeof(int));
+    for (int i = 0; i < partCount; ++i) {
+        int p = 0, viewCount = 0;
+        ifs.read((char*)&p, sizeof(int));
+        ifs.read((char*)&viewCount, sizeof(int));
+        for (int j = 0; j < viewCount; ++j) {
+            int v = 0, len = 0;
+            ifs.read((char*)&v, sizeof(int));
+            ifs.read((char*)&len, sizeof(int));
+            std::string path(len, '\0');
+            ifs.read(&path[0], len);
+            state.partViewImages[(PartType)p][(ViewType)v] = path;
+        }
+    }
+    ifs.read((char*)&state.polygonCount, sizeof(int));
+    ifs.read((char*)&state.exportCombined, sizeof(bool));
+    int su = 0;
+    ifs.read((char*)&su, sizeof(int));
+    state.scaleUnit = (ExportScaleUnit)su;
+    return true;
+}
+---------------BuildVolumeFromImages.cpp---------------
+#include "BuildVolumeFromImages.h"
+#include "ImageLoader.h"
+
+Volume3D BuildVolumeFromImages(const std::map<ViewType, Image2D>& images) {
+    if (images.find(ViewType::Front) == images.end()) return Volume3D();
+    int width = images.at(ViewType::Front).width;
+    int height = images.at(ViewType::Front).height;
+    int depth = width;  // 深さ＝横幅で初期化（立方体ベース）
+
+    Volume3D vol;
+    vol.Resize(width, height, depth);
+
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                bool solid = false;
+
+                // 正面（Z正方向）
+                auto it = images.find(ViewType::Front);
+                if (it != images.end()) {
+                    const auto& img = it->second;
+                    if (img.IsOpaque(x, y)) solid = true;
+                }
+
+                // 背面（Z負方向）
+                it = images.find(ViewType::Back);
+                if (it != images.end()) {
+                    const auto& img = it->second;
+                    if (img.IsOpaque(width - 1 - x, y)) solid = solid && true;  // ANDで削る方式
+                }
+
+                // 左（X負方向）
+                it = images.find(ViewType::Left);
+                if (it != images.end()) {
+                    const auto& img = it->second;
+                    if (!img.IsOpaque(z, y)) solid = false;
+                }
+
+                // 右（X正方向）
+                it = images.find(ViewType::Right);
+                if (it != images.end()) {
+                    const auto& img = it->second;
+                    if (!img.IsOpaque(depth - 1 - z, y)) solid = false;
+                }
+
+                // 上（Y負方向）
+                it = images.find(ViewType::Top);
+                if (it != images.end()) {
+                    const auto& img = it->second;
+                    if (!img.IsOpaque(x, depth - 1 - z)) solid = false;
+                }
+
+                // 下（Y正方向）
+                it = images.find(ViewType::Bottom);
+                if (it != images.end()) {
+                    const auto& img = it->second;
+                    if (!img.IsOpaque(x, z)) solid = false;
+                }
+
+                if (solid) vol.Set(x, y, z, true);
+            }
+        }
+    }
+
+    return vol;
+}
+---------------FBXExporter.cpp---------------
+#include "FBXExporter.h"
+#include <fbxsdk.h>
+
+bool ExportToFBX(const std::string& path, const std::vector<Mesh3D>& meshes) {
+    FbxManager* manager = FbxManager::Create();
+    FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
+    manager->SetIOSettings(ios);
+
+    FbxScene* scene = FbxScene::Create(manager, "Scene");
+
+    for (const auto& mesh : meshes) {
+        FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
+
+        int vertCount = (int)mesh.vertices.size();
+        fbxMesh->InitControlPoints(vertCount);
+        for (int i = 0; i < vertCount; ++i) {
+            const Vec3& v = mesh.vertices[i];
+            fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
+        }
+
+        int polyCount = (int)mesh.triangles.size();
+        for (int i = 0; i < polyCount; i += 3) {
+            fbxMesh->BeginPolygon();
+            fbxMesh->AddPolygon(mesh.triangles[i]);
+            fbxMesh->AddPolygon(mesh.triangles[i + 1]);
+            fbxMesh->AddPolygon(mesh.triangles[i + 2]);
+            fbxMesh->EndPolygon();
+        }
+
+        FbxNode* node = FbxNode::Create(scene, "Node");
+        node->SetNodeAttribute(fbxMesh);
+        scene->GetRootNode()->AddChild(node);
+    }
+
+    FbxExporter* exporter = FbxExporter::Create(manager, "");
+    bool ok = exporter->Initialize(path.c_str(), -1, manager->GetIOSettings());
+    if (!ok) return false;
+    exporter->Export(scene);
+
+    exporter->Destroy();
+    scene->Destroy();
+    ios->Destroy();
+    manager->Destroy();
+    return true;
+}
+---------------ImageUtils.cpp---------------
+#include "ImageUtils.h"
+#include <fstream>
+#include <vector>
+#include <cstdint>
+#include <string.h>
+
+bool LoadPNG(const char* filename, Image2D& outImage) {
+    std::ifstream file(filename, std::ios::binary);
+    if (!file) return false;
+
+    std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(file)), {});
+    if (buffer.size() < 8 || memcmp(&buffer[1], "PNG", 3) != 0) return false;
+
+    // 非圧縮の32bit RGBAのみ対応（自作簡易PNGデコーダ）
+    int width = 0, height = 0;
+    for (size_t i = 8; i < buffer.size();) {
+        uint32_t length = (buffer[i] << 24) | (buffer[i + 1] << 16) | (buffer[i + 2] << 8) | buffer[i + 3];
+        const char* type = reinterpret_cast<const char*>(&buffer[i + 4]);
+
+        if (memcmp(type, "IHDR", 4) == 0) {
+            width = (buffer[i + 8] << 24) | (buffer[i + 9] << 16) | (buffer[i + 10] << 8) | buffer[i + 11];
+            height = (buffer[i + 12] << 24) | (buffer[i + 13] << 16) | (buffer[i + 14] << 8) | buffer[i + 15];
+        }
+        if (memcmp(type, "IDAT", 4) == 0) {
+            // 今回は zlib inflate 未対応のためエラーとする（PNG簡易対応）
+            return false;
+        }
+        if (memcmp(type, "IEND", 4) == 0) break;
+        i += 12 + length;
+    }
+
+    if (width == 0 || height == 0) return false;
+    outImage.width = width;
+    outImage.height = height;
+    outImage.pixels.assign(width * height, 0xFFFFFFFF); // 仮: 全ピクセル不透明白
+
+    return true;
+}
+
+bool Image2D::IsOpaque(int x, int y) const {
+    if (x < 0 || x >= width || y < 0 || y >= height) return false;
+    uint32_t px = pixels[y * width + x];
+    return ((px >> 24) & 0xFF) > 0; // αチャンネルチェック
+}
+---------------MeshGenerator.cpp---------------
+#include "MeshGenerator.h"
+Mesh3D GenerateMeshFromVolume(const Volume3D& vol, int polygonCount) {
+    Mesh3D mesh;
+    mesh.vertices.push_back({ 0, 0, 0 });
+    mesh.vertices.push_back({ 1, 0, 0 });
+    mesh.vertices.push_back({ 0, 1, 0 });
+    mesh.indices = { 0, 1, 2 };
+    return mesh;
+}
+---------------MushUtils.cpp---------------
+#include "MeshUtils.h"
+
+// 単純なメッシュ生成（仮実装）
+Mesh3D BuildMeshFromVolume(const Volume& vol) {
+    Mesh3D mesh;
+    int w = vol.width;
+    int h = vol.height;
+    int d = vol.depth;
+
+    // 各ボクセルを立方体として追加（最小構成）
+    for (int z = 0; z < d; ++z) {
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                if (vol.At(x, y, z)) {
+                    // 原点に1頂点（簡略化）
+                    mesh.vertices.push_back({ float(x), float(y), float(z) });
+                    mesh.triangles.push_back((int)mesh.vertices.size() - 1);
+                }
+            }
+        }
+    }
+    return mesh;
+}
+
+// ポリゴン数の削減（ランダム間引き）
+Mesh3D ReduceMesh(const Mesh3D& mesh, int targetTriangles) {
+    Mesh3D result;
+    int step = std::max(1, (int)mesh.triangles.size() / std::max(1, targetTriangles));
+
+    for (size_t i = 0; i < mesh.triangles.size(); i += step) {
+        int idx = mesh.triangles[i];
+        result.triangles.push_back((int)result.vertices.size());
+        result.vertices.push_back(mesh.vertices[idx]);
+    }
+    return result;
+}
+---------------PartProcessor.cpp---------------
+#include "PartProcessor.h"
+
+std::vector<std::string> GetPartNames() {
+    return {
+        "Head",
+        "Body",
+        "ArmL",
+        "ArmR",
+        "LegL",
+        "LegR"
+    };
+}
+
+std::vector<std::string> GetAvailableViews() {
+    return {
+        "Front",
+        "Back",
+        "Left",
+        "Right",
+        "Top",
+        "Bottom"
+    };
+}
+
+std::map<PartType, Volume> BuildPartVolumes(
+    const std::map<PartType, std::map<ViewType, Image2D>>& allImages)
+{
+    std::map<PartType, Volume> result;
+    for (const auto& [part, views] : allImages) {
+        Volume vol = BuildVolumeFromImages(views);
+        result[part] = vol;
+    }
+    return result;
+}
+---------------PreviwRenderer.cpp---------------
+#include "PreviewRenderer.h"
+#include <cmath>
+
+void RenderPreview() {
+    // この関数は今後 WinAPI で描画するためのプレースホルダです
+}
+---------------VolumeUtils.cpp---------------
+#include "VolumeUtils.h"
+
+// 正面・背面・側面などの複数画像から Volume を構築する
+Volume BuildVolumeFromImages(const std::map<ViewType, Image2D>& images) {
+    if (images.empty()) return Volume();
+
+    // 基準サイズを取得（正面画像）
+    auto it = images.find(ViewType::Front);
+    if (it == images.end()) return Volume();
+    const Image2D& front = it->second;
+    int sx = front.width;
+    int sy = front.height;
+    int sz = (sx + sy) / 2; // 仮深度（後で改善可）
+
+    Volume vol;
+    vol.Resize(sx, sy, sz);
+
+    // Front画像 → Z軸奥行き方向に投影
+    for (int y = 0; y < sy; ++y) {
+        for (int x = 0; x < sx; ++x) {
+            if (front.At(x, y)) {
+                for (int z = 0; z < sz; ++z) {
+                    vol.At(x, y, z) = true;
+                }
+            }
+        }
+    }
+
+    // 他の視点補完（Back, Left, Right, Top, Bottom）
+    for (const auto& [view, img] : images) {
+        if (view == ViewType::Front) continue;
+        int w = img.width;
+        int h = img.height;
+
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                if (!img.At(x, y)) continue;
+
+                switch (view) {
+                case ViewType::Back:
+                    if (x < sx && y < sy)
+                        for (int z = 0; z < sz; ++z)
+                            vol.At(sx - 1 - x, y, sz - 1 - z) = true;
+                    break;
+                case ViewType::Left:
+                    if (z < sz && y < sy)
+                        for (int x_ = 0; x_ < sx; ++x_)
+                            vol.At(x_, y, z) = true;
+                    break;
+                case ViewType::Right:
+                    if (z < sz && y < sy)
+                        for (int x_ = 0; x_ < sx; ++x_)
+                            vol.At(x_, y, sz - 1 - z) = true;
+                    break;
+                case ViewType::Top:
+                    if (x < sx && z < sz)
+                        for (int y_ = 0; y_ < sy; ++y_)
+                            vol.At(x, y_, z) = true;
+                    break;
+                case ViewType::Bottom:
+                    if (x < sx && z < sz)
+                        for (int y_ = 0; y_ < sy; ++y_)
+                            vol.At(x, sy - 1 - y_, z) = true;
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+    }
+
+    return vol;
+}
+
+// 複数の Volume を1つに統合する
+Volume MergeVolumes(const std::vector<Volume>& volumes) {
+    if (volumes.empty()) return Volume();
+
+    int w = volumes[0].width;
+    int h = volumes[0].height;
+    int d = volumes[0].depth;
+
+    Volume result;
+    result.Resize(w, h, d);
+
+    for (const auto& v : volumes) {
+        for (int z = 0; z < d; ++z)
+            for (int y = 0; y < h; ++y)
+                for (int x = 0; x < w; ++x)
+                    result.At(x, y, z) |= v.At(x, y, z);
+    }
+
+    return result;
+}
+---------------BuildVolumeFromImage.h---------------
+#pragma once
+#include <map>
+#include "common.h"
+
+enum class ViewType {
+    Front,
+    Back,
+    Left,
+    Right,
+    Top,
+    Bottom
+};
+
+Volume3D BuildVolumeFromImages(const std::map<ViewType, Image2D>& images);
+---------------common.h---------------
+#pragma once
+#include <vector>
+#include <map>
+
+// 汎用ベクトル
+struct Vec3 {
+    float x, y, z;
+};
+
+struct Vertex {
+    float x, y, z;
+};
+
+// Image2D: PNG画像構造
+struct Image2D {
+    int width;
+    int height;
+    std::vector<unsigned char> pixels; // RGBA
+    bool IsOpaque(int x, int y) const {
+        int idx = (y * width + x) * 4;
+        return (idx + 3 < pixels.size()) ? pixels[idx + 3] > 128 : false;
+    }
+};
+
+// Volume3D: ボクセル構造
+struct Volume3D {
+    int width = 0, height = 0, depth = 0;
+    std::vector<bool> data;
+    void Resize(int w, int h, int d) {
+        width = w; height = h; depth = d;
+        data.resize(w * h * d);
+    }
+    void Set(int x, int y, int z, bool val) {
+        data[x + y * width + z * width * height] = val;
+    }
+    bool At(int x, int y, int z) const {
+        return data[x + y * width + z * width * height];
+    }
+};
+
+// メッシュ構造体
+struct Mesh3D {
+    std::vector<Vec3> vertices;
+    std::vector<unsigned int> indices;
+};
+
+// パーツ種別
+enum class PartType {
+    Body,
+    Head,
+    Arm,
+    Leg,
+    Tail,
+    Other
+};
+
+// 視点種別
+enum class ViewType {
+    Front,
+    Back,
+    Left,
+    Right,
+    Top,
+    Bottom
+};
+
+// FBX出力単位
+enum class ExportScaleUnit {
+    Centimeter,
+    Meter
+};
+---------------FBXExporter.h---------------
+#pragma once
+
+#include <vector>
+#include <string>
+#include "common.h"
+
+// メッシュをFBX形式で出力する
+bool ExportToFBX(const std::string& path, const std::vector<Mesh3D>& meshes);
+---------------GUIState.h---------------
+#pragma once
+#include <map>
+#include <string>
+#include "PartTypes.h"
+#include "common.h"
+
+struct GUIState {
+    std::map<PartType, std::map<ViewType, std::string>> imagePaths;
+    PartType selectedPart = PartType::Head;
+    ViewType selectedView = ViewType::Front;
+    int polygonCount = 1000;
+    bool exportCombined = true;
+    ExportScaleUnit scaleUnit = ExportScaleUnit::UnityMeters;
+};
+---------------ImageUtils.h---------------
+#pragma once
+#include <vector>
+
+struct Image2D {
+    int width = 0;
+    int height = 0;
+    std::vector<unsigned char> data;
+
+    bool IsOpaque(int x, int y) const {
+        if (x < 0 || y < 0 || x >= width || y >= height) return false;
+        return data[y * width + x] > 128;
+    }
+};
+---------------MeshGenerator.h---------------
+#pragma once
+#include "common.h"
+Mesh3D GenerateMeshFromVolume(const Volume3D& vol, int polygonCount);
+---------------MeshUtils.h---------------
+#pragma once
+
+#include "common.h"
+
+// ボクセルからメッシュを構築する
+Mesh3D BuildMeshFromVolume(const Volume& vol);
+
+// ポリゴン数を間引いて縮小する
+Mesh3D ReduceMesh(const Mesh3D& mesh, int targetTriangles);
+---------------PartProcessor.h---------------
+#pragma once
+
+#include <map>
+#include <string>
+#include "common.h"
+
+// パーツ名一覧
+std::vector<std::string> GetPartNames();
+
+// 視点名一覧
+std::vector<std::string> GetAvailableViews();
+
+// パーツ別のVolume構築
+std::map<PartType, Volume> BuildPartVolumes(
+    const std::map<PartType, std::map<ViewType, Image2D>>& allImages);
+---------------PartTypes.h---------------
+#pragma once
+
+enum class PartType {
+    Head, Body, Arm, Leg, Other
+};
+
+enum class ViewType {
+    Front, Back, Left, Right, Top, Bottom
+};
+
+enum class ExportScaleUnit {
+    UnityMeters,
+    MayaCentimeters
+};
+---------------PreviewRenderer.h---------------
+#pragma once
+#include "common.h"
+#include <vector>
+
+void RenderPreviewWindow(const std::vector<Mesh3D>& meshes);
+---------------VolumeUtils.h---------------
+#pragma once
+
+#include <map>
+#include "common.h"
+
+// ボリューム構築
+Volume BuildVolumeFromImages(const std::map<ViewType, Image2D>& images);
+
+// ボリューム合成
+Volume MergeVolumes(const std::vector<Volume>& volumes);

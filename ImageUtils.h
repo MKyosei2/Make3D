@@ -1,6 +1,5 @@
 #pragma once
 #include <vector>
-#include "PNGLoader.h"
 
 struct Image2D {
     int width = 0;
@@ -12,5 +11,3 @@ struct Image2D {
         return data[y * width + x] > 128;
     }
 };
-
-Image2D ConvertToImage2D(const PNGImage& png);
