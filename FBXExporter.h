@@ -1,3 +1,8 @@
 #pragma once
+
+#include <vector>
+#include <string>
 #include "common.h"
-void ExportToFBX(const Mesh3D& mesh, const char* filename);
+
+// メッシュをFBX形式で出力する
+bool ExportToFBX(const std::string& path, const std::vector<Mesh3D>& meshes);

@@ -1,51 +1,71 @@
 #pragma once
 #include <vector>
-#include <string>
-#include <cstdint>
+#include <map>
 
+// 汎用ベクトル
 struct Vec3 {
     float x, y, z;
-    Vec3() : x(0), y(0), z(0) {}
-    Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 };
 
 struct Vertex {
     float x, y, z;
 };
 
-struct Mesh3D {
-    std::vector<Vertex> vertices;
-    std::vector<int> indices;
-};
-
+// Image2D: PNG画像構造
 struct Image2D {
-    int width = 0, height = 0;
-    std::vector<uint8_t> pixels; // RGBA (4バイト/ピクセル)
-
-    bool IsOpaque(int x, int y, uint8_t threshold = 128) const {
-        if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        return pixels[(y * width + x) * 4 + 3] > threshold; // Aチャンネル
+    int width;
+    int height;
+    std::vector<unsigned char> pixels; // RGBA
+    bool IsOpaque(int x, int y) const {
+        int idx = (y * width + x) * 4;
+        return (idx + 3 < pixels.size()) ? pixels[idx + 3] > 128 : false;
     }
 };
 
-struct Volume {
+// Volume3D: ボクセル構造
+struct Volume3D {
     int width = 0, height = 0, depth = 0;
-    std::vector<uint8_t> voxels;
-
+    std::vector<bool> data;
     void Resize(int w, int h, int d) {
-        width = w;
-        height = h;
-        depth = d;
-        voxels.resize(w * h * d);
+        width = w; height = h; depth = d;
+        data.resize(w * h * d);
     }
-
-    uint8_t& At(int x, int y, int z) {
-        return voxels[(z * height + y) * width + x];
+    void Set(int x, int y, int z, bool val) {
+        data[x + y * width + z * width * height] = val;
     }
-
-    const uint8_t& At(int x, int y, int z) const {
-        return voxels[(z * height + y) * width + x];
+    bool At(int x, int y, int z) const {
+        return data[x + y * width + z * width * height];
     }
 };
 
-using Volume3D = Volume;
+// メッシュ構造体
+struct Mesh3D {
+    std::vector<Vec3> vertices;
+    std::vector<unsigned int> indices;
+};
+
+// パーツ種別
+enum class PartType {
+    Body,
+    Head,
+    Arm,
+    Leg,
+    Tail,
+    Other
+};
+
+// 視点種別
+enum class ViewType {
+    Front,
+    Back,
+    Left,
+    Right,
+    Top,
+    Bottom
+};
+
+// FBX出力単位
+enum class ExportScaleUnit {
+    Centimeter,
+    Meter
+};
