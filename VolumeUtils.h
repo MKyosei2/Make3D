@@ -1,10 +1,6 @@
 #pragma once
 
-#include <map>
 #include "common.h"
 
-// ボリューム構築
-Volume BuildVolumeFromImages(const std::map<ViewType, Image2D>& images);
-
-// ボリューム合成
-Volume MergeVolumes(const std::vector<Volume>& volumes);
+// 単純な球形ボクセル生成（デバッグ用）
+void generateVoxelSphere(VolumeData& volume, float radius);

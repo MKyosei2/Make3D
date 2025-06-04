@@ -1,5 +1,6 @@
 #pragma once
-#include "common.h"
-#include <vector>
 
-void RenderPreviewWindow(const std::vector<Mesh3D>& meshes);
+#include <windows.h>
+
+// メインの描画処理（画像／メッシュ）
+void renderPreview(HDC hdc, RECT clientRect);

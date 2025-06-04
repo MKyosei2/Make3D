@@ -1,54 +1,66 @@
 #include "AppState.h"
-#include <fstream>
+#include "BuildVolumeFromImages.h"
+#include "ImageUtils.h"
+#include "MeshGenerator.h"
+#include "PartProcessor.h"
+#include "FBXExporter.h"
+#include "GUIState.h"
 
-bool SaveProject(const char* path, const GUIState& state) {
-    std::ofstream ofs(path, std::ios::binary);
-    if (!ofs) return false;
+#include <iostream>
+#include <map>
 
-    int partCount = (int)state.partViewImages.size();
-    ofs.write((char*)&partCount, sizeof(int));
-    for (const auto& part : state.partViewImages) {
-        int p = (int)part.first;
-        ofs.write((char*)&p, sizeof(int));
-        int viewCount = (int)part.second.size();
-        ofs.write((char*)&viewCount, sizeof(int));
-        for (const auto& view : part.second) {
-            int v = (int)view.first;
-            ofs.write((char*)&v, sizeof(int));
-            int len = (int)view.second.size();
-            ofs.write((char*)&len, sizeof(int));
-            ofs.write(view.second.c_str(), len);
-        }
-    }
-    ofs.write((char*)&state.polygonCount, sizeof(int));
-    ofs.write((char*)&state.exportCombined, sizeof(bool));
-    int su = (int)state.scaleUnit;
-    ofs.write((char*)&su, sizeof(int));
-    return true;
+extern GUIState guiState;
+
+AppState::AppState() {
+    volumeData = nullptr;
+    meshData = nullptr;
 }
 
-bool LoadProject(const char* path, GUIState& state) {
-    std::ifstream ifs(path, std::ios::binary);
-    if (!ifs) return false;
-    int partCount = 0;
-    ifs.read((char*)&partCount, sizeof(int));
-    for (int i = 0; i < partCount; ++i) {
-        int p = 0, viewCount = 0;
-        ifs.read((char*)&p, sizeof(int));
-        ifs.read((char*)&viewCount, sizeof(int));
-        for (int j = 0; j < viewCount; ++j) {
-            int v = 0, len = 0;
-            ifs.read((char*)&v, sizeof(int));
-            ifs.read((char*)&len, sizeof(int));
-            std::string path(len, '\0');
-            ifs.read(&path[0], len);
-            state.partViewImages[(PartType)p][(ViewType)v] = path;
+AppState::~AppState() {
+    delete volumeData;
+    delete meshData;
+}
+
+void AppState::generateVolumeFromImages() {
+    if (!guiState.viewImages.empty()) {
+        std::map<ViewDirection, ImageData> inputImages;
+        for (const auto& [dir, imgData] : guiState.viewImages) {
+            if (imgData.pixels && imgData.width > 0 && imgData.height > 0) {
+                inputImages[dir] = imgData;
+            }
+        }
+
+        if (!inputImages.empty()) {
+            delete volumeData;
+            volumeData = BuildVolumeFromImages::buildVolumeFromMultipleImages(inputImages);
         }
     }
-    ifs.read((char*)&state.polygonCount, sizeof(int));
-    ifs.read((char*)&state.exportCombined, sizeof(bool));
-    int su = 0;
-    ifs.read((char*)&su, sizeof(int));
-    state.scaleUnit = (ExportScaleUnit)su;
-    return true;
+}
+
+void AppState::processParts() {
+    if (!volumeData) return;
+
+    PartProcessor processor;
+    processor.setSelectionRegions(guiState.partSelectionRegions);
+    volumeData = processor.process(volumeData);
+}
+
+void AppState::generateMesh() {
+    if (!volumeData) return;
+
+    MeshGenerator generator;
+    generator.setTargetPolygonCount(guiState.polygonCount);
+    delete meshData;
+    meshData = generator.generate(volumeData);
+
+    // プレビュー用にも共有
+    guiState.previewMesh = meshData;
+    guiState.enablePreview = true;
+}
+
+void AppState::exportToFBX(const std::string& filename) {
+    if (!meshData) return;
+
+    FBXExporter exporter;
+    exporter.exportMeshToFBX(*meshData, filename);
 }

@@ -1,13 +1,10 @@
 #pragma once
-#include <vector>
 
-struct Image2D {
-    int width = 0;
-    int height = 0;
-    std::vector<unsigned char> data;
+#include <string>
+#include "GUIState.h"
 
-    bool IsOpaque(int x, int y) const {
-        if (x < 0 || y < 0 || x >= width || y >= height) return false;
-        return data[y * width + x] > 128;
-    }
-};
+// PNG‰æ‘œ‚ğ“Ç‚İ‚Ş
+bool loadPNGImage(const std::wstring& filename, ImageData& outImage);
+
+// ƒƒ‚ƒŠ‚ğ‰ğ•ú‚·‚é
+void freeImage(ImageData& image);

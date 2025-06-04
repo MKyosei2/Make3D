@@ -1,45 +1,42 @@
 #include "FBXExporter.h"
 #include <fbxsdk.h>
 
-bool ExportToFBX(const std::string& path, const std::vector<Mesh3D>& meshes) {
-    FbxManager* manager = FbxManager::Create();
-    FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
+FBXExporter::FBXExporter() {
+    manager = fbxsdk::FbxManager::Create();
+    ios = fbxsdk::FbxIOSettings::Create(manager, IOSROOT);
     manager->SetIOSettings(ios);
+}
 
-    FbxScene* scene = FbxScene::Create(manager, "Scene");
+FBXExporter::~FBXExporter() {
+    if (manager) manager->Destroy();
+}
 
-    for (const auto& mesh : meshes) {
-        FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
+void FBXExporter::exportMeshToFBX(const MeshData& mesh, const std::string& filename) {
+    fbxsdk::FbxScene* scene = fbxsdk::FbxScene::Create(manager, "Scene");
+    fbxsdk::FbxNode* rootNode = scene->GetRootNode();
+    fbxsdk::FbxMesh* fbxMesh = fbxsdk::FbxMesh::Create(scene, "Mesh");
 
-        int vertCount = (int)mesh.vertices.size();
-        fbxMesh->InitControlPoints(vertCount);
-        for (int i = 0; i < vertCount; ++i) {
-            const Vec3& v = mesh.vertices[i];
-            fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
-        }
-
-        int polyCount = (int)mesh.triangles.size();
-        for (int i = 0; i < polyCount; i += 3) {
-            fbxMesh->BeginPolygon();
-            fbxMesh->AddPolygon(mesh.triangles[i]);
-            fbxMesh->AddPolygon(mesh.triangles[i + 1]);
-            fbxMesh->AddPolygon(mesh.triangles[i + 2]);
-            fbxMesh->EndPolygon();
-        }
-
-        FbxNode* node = FbxNode::Create(scene, "Node");
-        node->SetNodeAttribute(fbxMesh);
-        scene->GetRootNode()->AddChild(node);
+    fbxMesh->InitControlPoints((int)mesh.vertices.size());
+    for (int i = 0; i < (int)mesh.vertices.size(); ++i) {
+        const auto& v = mesh.vertices[i];
+        fbxMesh->SetControlPointAt(fbxsdk::FbxVector4(v.x, v.y, v.z), i);
     }
 
-    FbxExporter* exporter = FbxExporter::Create(manager, "");
-    bool ok = exporter->Initialize(path.c_str(), -1, manager->GetIOSettings());
-    if (!ok) return false;
-    exporter->Export(scene);
+    for (const auto& tri : mesh.triangles) {
+        fbxMesh->BeginPolygon();
+        fbxMesh->AddPolygon(tri.v0);
+        fbxMesh->AddPolygon(tri.v1);
+        fbxMesh->AddPolygon(tri.v2);
+        fbxMesh->EndPolygon();
+    }
 
+    fbxsdk::FbxNode* meshNode = fbxsdk::FbxNode::Create(scene, "MeshNode");
+    meshNode->SetNodeAttribute(fbxMesh);
+    rootNode->AddChild(meshNode);
+
+    fbxsdk::FbxExporter* exporter = fbxsdk::FbxExporter::Create(manager, "");
+    if (exporter->Initialize(filename.c_str(), -1, manager->GetIOSettings())) {
+        exporter->Export(scene);
+    }
     exporter->Destroy();
-    scene->Destroy();
-    ios->Destroy();
-    manager->Destroy();
-    return true;
 }

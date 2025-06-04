@@ -1,14 +1,11 @@
 #pragma once
 
+// 将来的なパーツ分類のための列挙（未使用）
 enum class PartType {
-    Head, Body, Arm, Leg, Other
-};
-
-enum class ViewType {
-    Front, Back, Left, Right, Top, Bottom
-};
-
-enum class ExportScaleUnit {
-    UnityMeters,
-    MayaCentimeters
+    Head,
+    Body,
+    Arm,
+    Leg,
+    Wing,
+    Tail
 };

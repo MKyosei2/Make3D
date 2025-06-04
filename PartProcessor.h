@@ -1,15 +1,18 @@
 #pragma once
 
-#include <map>
-#include <string>
-#include "common.h"
+#include "VolumeUtils.h"
+#include "GUIState.h"
+#include <vector>
 
-// パーツ名一覧
-std::vector<std::string> GetPartNames();
+class PartProcessor {
+public:
+    PartProcessor();
 
-// 視点名一覧
-std::vector<std::string> GetAvailableViews();
+    void setSelectionRegions(const std::vector<SelectionRegion>& regions);
 
-// パーツ別のVolume構築
-std::map<PartType, Volume> BuildPartVolumes(
-    const std::map<PartType, std::map<ViewType, Image2D>>& allImages);
+    // 指定されたパーツ領域だけを抽出した VolumeData を返す
+    VolumeData* process(VolumeData* inputVolume);
+
+private:
+    std::vector<SelectionRegion> regions;
+};

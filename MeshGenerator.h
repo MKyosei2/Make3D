@@ -1,3 +1,16 @@
 #pragma once
-#include "common.h"
-Mesh3D GenerateMeshFromVolume(const Volume3D& vol, int polygonCount);
+
+#include "VolumeUtils.h"
+#include "MeshUtils.h"
+
+class MeshGenerator {
+public:
+    MeshGenerator();
+
+    void setTargetPolygonCount(int count);
+
+    MeshData* generate(const VolumeData* volume);
+
+private:
+    int targetPolygonCount;
+};

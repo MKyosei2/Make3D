@@ -1,1 +1,61 @@
-﻿
+﻿  AppMain.cpp
+  AppState.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\AppMain.cpp(51,5): error C2360: 'hdc' の初期化が 'case' ラベルによって行われませんでした。
+      C:\Users\kyose\source\repos\Make3D\Make3D\AppMain.cpp(46,13):
+      'hdc' の宣言を確認してください
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\AppState.cpp(27,27): error C2429: 言語機能 '構造化バインディング' にはコンパイラ フラグ '/std:c++17' が必要です
+  BuildVolumeFromImages.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(28,27): error C2429: 言語機能 '構造化バインディング' にはコンパイラ フラグ '/std:c++17' が必要です
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(37,33): error C2050: switch 式の結果は、整数値になりませんでした。
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(38,45): error C2440: '型キャスト': 'ViewDirection' から 'int' に変換できません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(38,45):
+      この変換には明示的なキャスト (static_cast、C スタイル キャスト、またはかっこで囲まれた関数スタイル キャスト) が必要です
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(38,25): error C2046: 'case' が正しくありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(42,45): error C2440: '型キャスト': 'ViewDirection' から 'int' に変換できません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(42,45):
+      この変換には明示的なキャスト (static_cast、C スタイル キャスト、またはかっこで囲まれた関数スタイル キャスト) が必要です
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(42,25): error C2046: 'case' が正しくありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(46,45): error C2440: '型キャスト': 'ViewDirection' から 'int' に変換できません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(46,45):
+      この変換には明示的なキャスト (static_cast、C スタイル キャスト、またはかっこで囲まれた関数スタイル キャスト) が必要です
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(46,25): error C2046: 'case' が正しくありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(50,45): error C2440: '型キャスト': 'ViewDirection' から 'int' に変換できません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(50,45):
+      この変換には明示的なキャスト (static_cast、C スタイル キャスト、またはかっこで囲まれた関数スタイル キャスト) が必要です
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(50,25): error C2046: 'case' が正しくありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(54,45): error C2440: '型キャスト': 'ViewDirection' から 'int' に変換できません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(54,45):
+      この変換には明示的なキャスト (static_cast、C スタイル キャスト、またはかっこで囲まれた関数スタイル キャスト) が必要です
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(54,25): error C2046: 'case' が正しくありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(58,45): error C2440: '型キャスト': 'ViewDirection' から 'int' に変換できません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(58,45):
+      この変換には明示的なキャスト (static_cast、C スタイル キャスト、またはかっこで囲まれた関数スタイル キャスト) が必要です
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(58,25): error C2046: 'case' が正しくありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\BuildVolumeFromImages.cpp(62,25): warning C4060: switch ステートメントに 'case' または 'default' ラベルがありません。
+  FBXExporter.cpp
+  ImageUtils.cpp
+  MeshGenerator.cpp
+  MeshUtils.cpp
+  PartProcessor.cpp
+  PreviewRenderer.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\PreviewRenderer.cpp(38,23): error C2429: 言語機能 '構造化バインディング' にはコンパイラ フラグ '/std:c++17' が必要です
+C:\Users\kyose\source\repos\Make3D\Make3D\PreviewRenderer.cpp(42,26): error C2660: 'SelectObject': 関数に 1 個の引数を指定できません。
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\wingdi.h(4663,27):
+      'SelectObject' の宣言を確認してください
+      C:\Users\kyose\source\repos\Make3D\Make3D\PreviewRenderer.cpp(42,26):
+      引数リスト '(HDC)' を一致させようとしているとき
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\PreviewRenderer.cpp(43,9): error C2660: 'StretchBlt': 関数に 9 個の引数を指定できません。
+      C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\wingdi.h(4703,25):
+      'StretchBlt' の宣言を確認してください
+      C:\Users\kyose\source\repos\Make3D\Make3D\PreviewRenderer.cpp(43,9):
+      引数リスト '(HDC, int, int, const int, const int, HDC, int, int, DWORD)' を一致させようとしているとき
+  
+  VolumeUtils.cpp

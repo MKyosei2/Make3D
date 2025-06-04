@@ -1,65 +1,79 @@
 #include "BuildVolumeFromImages.h"
+#include "ImageUtils.h"
+#include "common.h"
 
-Volume3D BuildVolumeFromImages(const std::map<ViewType, Image2D>& images) {
-    if (images.find(ViewType::Front) == images.end()) return Volume3D();
-    int width = images.at(ViewType::Front).width;
-    int height = images.at(ViewType::Front).height;
-    int depth = width;  // 深さ＝横幅で初期化（立方体ベース）
+#include <map>
+#include <algorithm>
+#include <cstring>
 
-    Volume3D vol;
-    vol.Resize(width, height, depth);
+namespace BuildVolumeFromImages {
 
-    for (int z = 0; z < depth; ++z) {
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
-                bool solid = false;
+    VolumeData* buildVolumeFromMultipleImages(const std::map<ViewDirection, ImageData>& images) {
+        const int sizeX = 128;
+        const int sizeY = 128;
+        const int sizeZ = 128;
 
-                // 正面（Z正方向）
-                auto it = images.find(ViewType::Front);
-                if (it != images.end()) {
-                    const auto& img = it->second;
-                    if (img.IsOpaque(x, y)) solid = true;
+        VolumeData* volume = new VolumeData(sizeX, sizeY, sizeZ);
+
+        // 初期化（全ボクセルを true に）
+        for (int z = 0; z < sizeZ; ++z) {
+            for (int y = 0; y < sizeY; ++y) {
+                for (int x = 0; x < sizeX; ++x) {
+                    volume->set(x, y, z, true);
                 }
-
-                // 背面（Z負方向）
-                it = images.find(ViewType::Back);
-                if (it != images.end()) {
-                    const auto& img = it->second;
-                    if (img.IsOpaque(width - 1 - x, y)) solid = solid && true;  // ANDで削る方式
-                }
-
-                // 左（X負方向）
-                it = images.find(ViewType::Left);
-                if (it != images.end()) {
-                    const auto& img = it->second;
-                    if (!img.IsOpaque(z, y)) solid = false;
-                }
-
-                // 右（X正方向）
-                it = images.find(ViewType::Right);
-                if (it != images.end()) {
-                    const auto& img = it->second;
-                    if (!img.IsOpaque(depth - 1 - z, y)) solid = false;
-                }
-
-                // 上（Y負方向）
-                it = images.find(ViewType::Top);
-                if (it != images.end()) {
-                    const auto& img = it->second;
-                    if (!img.IsOpaque(x, depth - 1 - z)) solid = false;
-                }
-
-                // 下（Y正方向）
-                it = images.find(ViewType::Bottom);
-                if (it != images.end()) {
-                    const auto& img = it->second;
-                    if (!img.IsOpaque(x, z)) solid = false;
-                }
-
-                if (solid) vol.Set(x, y, z, true);
             }
         }
+
+        // 各視点画像を使ってボクセルを絞り込む（AND演算）
+        for (const auto& [dir, img] : images) {
+            if (!img.pixels || img.width <= 0 || img.height <= 0) continue;
+
+            for (int z = 0; z < sizeZ; ++z) {
+                for (int y = 0; y < sizeY; ++y) {
+                    for (int x = 0; x < sizeX; ++x) {
+                        // 各視点ごとの射影処理
+                        int u = 0, v = 0;
+
+                        switch (dir) {
+                        case ViewDirection::Front:
+                            u = x * img.width / sizeX;
+                            v = y * img.height / sizeY;
+                            break;
+                        case ViewDirection::Back:
+                            u = (sizeX - 1 - x) * img.width / sizeX;
+                            v = y * img.height / sizeY;
+                            break;
+                        case ViewDirection::Left:
+                            u = z * img.width / sizeZ;
+                            v = y * img.height / sizeY;
+                            break;
+                        case ViewDirection::Right:
+                            u = (sizeZ - 1 - z) * img.width / sizeZ;
+                            v = y * img.height / sizeY;
+                            break;
+                        case ViewDirection::Top:
+                            u = x * img.width / sizeX;
+                            v = (sizeZ - 1 - z) * img.height / sizeZ;
+                            break;
+                        case ViewDirection::Bottom:
+                            u = x * img.width / sizeX;
+                            v = z * img.height / sizeZ;
+                            break;
+                        }
+
+                        int pixelIndex = (v * img.width + u) * 4;
+                        unsigned char alpha = img.pixels[pixelIndex + 3];
+                        bool isSilhouette = (alpha > 128);
+
+                        if (!isSilhouette) {
+                            volume->set(x, y, z, false);  // この視点から見えない → ボクセル除去
+                        }
+                    }
+                }
+            }
+        }
+
+        return volume;
     }
 
-    return vol;
-}
+} // namespace BuildVolumeFromImages

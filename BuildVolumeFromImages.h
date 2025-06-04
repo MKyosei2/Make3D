@@ -1,14 +1,12 @@
 #pragma once
+
+#include "VolumeUtils.h"
+#include "GUIState.h"
 #include <map>
-#include "common.h"
 
-enum class ViewType {
-    Front,
-    Back,
-    Left,
-    Right,
-    Top,
-    Bottom
-};
+namespace BuildVolumeFromImages {
 
-Volume3D BuildVolumeFromImages(const std::map<ViewType, Image2D>& images);
+	// 複数視点画像を使って3Dボリュームを構築する
+	VolumeData* buildVolumeFromMultipleImages(const std::map<ViewDirection, ImageData>& images);
+
+} // namespace BuildVolumeFromImages

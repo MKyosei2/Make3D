@@ -1,8 +1,17 @@
 #pragma once
+#include <fbxsdk.h>
 
-#include <vector>
+#include "MeshUtils.h"
 #include <string>
-#include "common.h"
 
-// メッシュをFBX形式で出力する
-bool ExportToFBX(const std::string& path, const std::vector<Mesh3D>& meshes);
+class FBXExporter {
+public:
+    FBXExporter();
+    ~FBXExporter();
+
+    void exportMeshToFBX(const MeshData& mesh, const std::string& filename);
+
+private:
+    fbxsdk::FbxManager* manager = nullptr;
+    fbxsdk::FbxIOSettings* ios = nullptr;
+};

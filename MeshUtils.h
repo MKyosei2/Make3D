@@ -1,9 +1,23 @@
 #pragma once
 
-#include "common.h"
+#include <vector>
+#include <windows.h>
 
-// ボクセルからメッシュを構築する
-Mesh3D BuildMeshFromVolume(const Volume& vol);
+struct Vertex {
+    float x, y, z;
+};
 
-// ポリゴン数を間引いて縮小する
-Mesh3D ReduceMesh(const Mesh3D& mesh, int targetTriangles);
+struct Triangle {
+    int v0, v1, v2;
+};
+
+struct MeshData {
+    std::vector<Vertex> vertices;
+    std::vector<Triangle> triangles;
+};
+
+// メッシュを描画（簡易プレビュー用）
+void renderMeshToHDC(HDC hdc, RECT rect, const MeshData& mesh, float rotX, float rotY);
+
+// メッシュ生成（外部で実装）
+void generateMeshFromVolume(const class VolumeData& volume, MeshData& mesh, int targetPolygons);
