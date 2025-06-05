@@ -41,12 +41,13 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
-    case WM_PAINT:
+    case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hwnd, &ps);
         renderPreview(hdc, ps.rcPaint);
         EndPaint(hwnd, &ps);
         return 0;
+    }
 
     case WM_DESTROY:
         PostQuitMessage(0);

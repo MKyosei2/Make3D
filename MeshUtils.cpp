@@ -1,4 +1,5 @@
 #include "MeshUtils.h"
+#include "VolumeUtils.h"
 #include <windows.h>
 #include <cmath>
 
@@ -40,4 +41,33 @@ void renderMeshToHDC(HDC hdc, RECT rect, const MeshData& mesh, float rotX, float
 
     SelectObject(hdc, oldPen);
     DeleteObject(pen);
+}
+
+void generateMeshFromVolume(const VolumeData& volume, MeshData& mesh, int targetPolygons) {
+    // 簡易な立方体メッシュを生成する仮実装（デバッグ用）
+
+    mesh.vertices.clear();
+    mesh.triangles.clear();
+
+    // 1つだけ原点に立方体を作成
+    float size = 10.0f;
+    mesh.vertices = {
+        { -size, -size, -size },
+        {  size, -size, -size },
+        {  size,  size, -size },
+        { -size,  size, -size },
+        { -size, -size,  size },
+        {  size, -size,  size },
+        {  size,  size,  size },
+        { -size,  size,  size }
+    };
+
+    mesh.triangles = {
+        { 0, 1, 2 }, { 0, 2, 3 },
+        { 4, 5, 6 }, { 4, 6, 7 },
+        { 0, 1, 5 }, { 0, 5, 4 },
+        { 2, 3, 7 }, { 2, 7, 6 },
+        { 1, 2, 6 }, { 1, 6, 5 },
+        { 0, 3, 7 }, { 0, 7, 4 }
+    };
 }

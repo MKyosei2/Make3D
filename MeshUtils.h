@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <windows.h>
+#include "VolumeUtils.h"  // ★ VolumeData が必要なため
+#include "common.h"       // ★ 念のため（VolumeDataの定義場所）
 
 struct Vertex {
     float x, y, z;
@@ -19,5 +21,5 @@ struct MeshData {
 // メッシュを描画（簡易プレビュー用）
 void renderMeshToHDC(HDC hdc, RECT rect, const MeshData& mesh, float rotX, float rotY);
 
-// メッシュ生成（外部で実装）
-void generateMeshFromVolume(const class VolumeData& volume, MeshData& mesh, int targetPolygons);
+// ★★ 修正ここ：戻り値 void を明示 ★★
+void generateMeshFromVolume(const VolumeData& volume, MeshData& mesh, int targetPolygons);
