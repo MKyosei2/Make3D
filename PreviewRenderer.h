@@ -1,6 +1,15 @@
 #pragma once
-
 #include <windows.h>
+#include "common.h"
 
-// メインの描画処理（画像／メッシュ）
-void renderPreview(HDC hdc, RECT clientRect);
+class PreviewRenderer {
+public:
+    PreviewRenderer();
+    ~PreviewRenderer();
+
+    void render(HDC hdc, const RECT& rect);
+    void setViewDirection(ViewDirection dir);
+
+private:
+    ViewDirection currentDirection;
+};

@@ -1,20 +1,19 @@
 #pragma once
-#include <string> 
+
+#include <windows.h>
+#include <vector>
+#include <string>
+#include "ImageUtils.h"
 #include "common.h"
-#include "MeshUtils.h"
 
-// アプリケーション全体の状態を保持・処理するクラス
-class AppState {
-public:
-    AppState();
-    ~AppState();
+// アプリ全体の状態
+struct AppState {
+    HBITMAP images[(int)ViewDirection::Count];
+    AlignmentParams alignments[(int)ViewDirection::Count];
 
-    void generateVolumeFromImages();
-    void processParts();
-    void generateMesh();
-    void exportToFBX(const std::string& filename);
+    int voxelResolution = 128;
+    int polygonCount = 10000;
 
-private:
-    VolumeData* volumeData;
-    MeshData* meshData;
+    bool loadImages(const std::wstring& directory);
+    void clearImages();
 };

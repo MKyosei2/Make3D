@@ -1,12 +1,11 @@
 #pragma once
 
-#include "VolumeUtils.h"
-#include "GUIState.h"
-#include <map>
+#include "common.h"
+#include "AppState.h"
 
-namespace BuildVolumeFromImages {
+struct MaskImage {
+    std::vector<std::vector<bool>> pixels;
+    int width, height;
+};
 
-	// 複数視点画像を使って3Dボリュームを構築する
-	VolumeData* buildVolumeFromMultipleImages(const std::map<ViewDirection, ImageData>& images);
-
-} // namespace BuildVolumeFromImages
+bool generateVolumeFromImages(const AppState& appState, VolumeData& volume);

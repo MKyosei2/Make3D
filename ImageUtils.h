@@ -1,10 +1,18 @@
 #pragma once
+#include <windows.h>
+#include <vector>
 
-#include <string>
-#include "GUIState.h"
+struct AlignmentParams {
+    POINT center;
+    SIZE size;
+    bool valid;
+};
 
-// PNG画像を読み込む
-bool loadPNGImage(const std::wstring& filename, ImageData& outImage);
+// マスク自動抽出（α付き or αなし画像に対応）
+HBITMAP ExtractMaskFromBitmap(HBITMAP hSrcBitmap);
 
-// メモリを解放する
-void freeImage(ImageData& image);
+// マスク領域の整合補正用
+AlignmentParams computeAlignmentParams(const HBITMAP hBitmap);
+
+// 内部ユーティリティ
+bool GetMaskBoundingBox(HBITMAP hBitmap, RECT& outBoundingBox);

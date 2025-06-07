@@ -1,5 +1,4 @@
 #pragma once
-
 #include "VolumeUtils.h"
 #include "MeshUtils.h"
 
@@ -8,8 +7,7 @@ public:
     MeshGenerator();
 
     void setTargetPolygonCount(int count);
-
-    MeshData* generate(const VolumeData* volume);
+    Mesh generate(const VolumeData& volume);
 
 private:
     int targetPolygonCount;

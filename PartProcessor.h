@@ -1,18 +1,10 @@
 #pragma once
-
-#include "VolumeUtils.h"
-#include "GUIState.h"
+#include <windows.h>
 #include <vector>
+#include "PartTypes.h"
 
-class PartProcessor {
-public:
-    PartProcessor();
+// 1画像から複数の PartRegion を抽出する
+std::vector<PartRegion> extractRegionsFromMask(HBITMAP hBitmap);
 
-    void setSelectionRegions(const std::vector<SelectionRegion>& regions);
-
-    // 指定されたパーツ領域だけを抽出した VolumeData を返す
-    VolumeData* process(VolumeData* inputVolume);
-
-private:
-    std::vector<SelectionRegion> regions;
-};
+// 指定領域に矩形枠を描画する
+void drawRegionsToHDC(HDC hdc, const std::vector<PartRegion>& regions);

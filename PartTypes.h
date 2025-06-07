@@ -1,11 +1,9 @@
 #pragma once
+#include <windows.h>
+#include <vector>
 
-// 将来的なパーツ分類のための列挙（未使用）
-enum class PartType {
-    Head,
-    Body,
-    Arm,
-    Leg,
-    Wing,
-    Tail
+struct PartRegion {
+    std::vector<POINT> outline;
+    RECT boundingBox;
+    int label = 0;
 };

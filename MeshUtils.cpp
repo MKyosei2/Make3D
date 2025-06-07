@@ -1,73 +1,76 @@
 #include "MeshUtils.h"
-#include "VolumeUtils.h"
-#include <windows.h>
+#include <unordered_map>
 #include <cmath>
+#include <algorithm>
 
-void renderMeshToHDC(HDC hdc, RECT rect, const MeshData& mesh, float rotX, float rotY) {
-    const int w = rect.right - rect.left;
-    const int h = rect.bottom - rect.top;
+static int addMidpoint(std::unordered_map<uint64_t, int>& cache,
+    std::vector<Vertex>& vertices,
+    int i0, int i1,
+    const Vertex& v0, const Vertex& v1) {
+    uint64_t key = ((uint64_t)std::min(i0, i1) << 32) | std::max(i0, i1);
+    auto it = cache.find(key);
+    if (it != cache.end()) return it->second;
 
-    auto project = [&](float x, float y, float z) -> POINT {
-        // 回転
-        float cx = cosf(rotY), sx = sinf(rotY);
-        float cy = cosf(rotX), sy = sinf(rotX);
-        float tx = x * cx + z * sx;
-        float ty = y * cy - (x * sx - z * cx) * sy;
-        float tz = y * sy + (x * sx - z * cx) * cy;
-
-        float scale = 100.0f / (tz + 200.0f);
-        int px = static_cast<int>(tx * scale + w / 2 + rect.left);
-        int py = static_cast<int>(-ty * scale + h / 2 + rect.top);
-        return { px, py };
-        };
-
-    HPEN pen = CreatePen(PS_SOLID, 1, RGB(50, 50, 255));
-    HPEN oldPen = (HPEN)SelectObject(hdc, pen);
-
-    for (const auto& tri : mesh.triangles) {
-        const auto& v0 = mesh.vertices[tri.v0];
-        const auto& v1 = mesh.vertices[tri.v1];
-        const auto& v2 = mesh.vertices[tri.v2];
-
-        POINT p0 = project(v0.x, v0.y, v0.z);
-        POINT p1 = project(v1.x, v1.y, v1.z);
-        POINT p2 = project(v2.x, v2.y, v2.z);
-
-        MoveToEx(hdc, p0.x, p0.y, nullptr);
-        LineTo(hdc, p1.x, p1.y);
-        LineTo(hdc, p2.x, p2.y);
-        LineTo(hdc, p0.x, p0.y);
-    }
-
-    SelectObject(hdc, oldPen);
-    DeleteObject(pen);
+    Vertex mid = {
+        (v0.x + v1.x) * 0.5f,
+        (v0.y + v1.y) * 0.5f,
+        (v0.z + v1.z) * 0.5f
+    };
+    int newIndex = (int)vertices.size();
+    vertices.push_back(mid);
+    cache[key] = newIndex;
+    return newIndex;
 }
 
-void generateMeshFromVolume(const VolumeData& volume, MeshData& mesh, int targetPolygons) {
-    // 簡易な立方体メッシュを生成する仮実装（デバッグ用）
+Mesh subdivideMesh(const Mesh& input, int iterations) {
+    Mesh current = input;
+    for (int iter = 0; iter < iterations; ++iter) {
+        std::unordered_map<uint64_t, int> cache;
+        std::vector<Triangle> newTris;
 
-    mesh.vertices.clear();
-    mesh.triangles.clear();
+        for (auto& tri : current.triangles) {
+            int a = tri.v0, b = tri.v1, c = tri.v2;
+            int ab = addMidpoint(cache, current.vertices, a, b, current.vertices[a], current.vertices[b]);
+            int bc = addMidpoint(cache, current.vertices, b, c, current.vertices[b], current.vertices[c]);
+            int ca = addMidpoint(cache, current.vertices, c, a, current.vertices[c], current.vertices[a]);
 
-    // 1つだけ原点に立方体を作成
-    float size = 10.0f;
-    mesh.vertices = {
-        { -size, -size, -size },
-        {  size, -size, -size },
-        {  size,  size, -size },
-        { -size,  size, -size },
-        { -size, -size,  size },
-        {  size, -size,  size },
-        {  size,  size,  size },
-        { -size,  size,  size }
-    };
+            newTris.push_back({ a, ab, ca });
+            newTris.push_back({ b, bc, ab });
+            newTris.push_back({ c, ca, bc });
+            newTris.push_back({ ab, bc, ca });
+        }
 
-    mesh.triangles = {
-        { 0, 1, 2 }, { 0, 2, 3 },
-        { 4, 5, 6 }, { 4, 6, 7 },
-        { 0, 1, 5 }, { 0, 5, 4 },
-        { 2, 3, 7 }, { 2, 7, 6 },
-        { 1, 2, 6 }, { 1, 6, 5 },
-        { 0, 3, 7 }, { 0, 7, 4 }
-    };
+        current.triangles = std::move(newTris);
+    }
+    return current;
+}
+
+void smoothMesh(Mesh& mesh, int iterations) {
+    for (int it = 0; it < iterations; ++it) {
+        std::vector<Vertex> newVerts = mesh.vertices;
+        std::vector<int> counts(mesh.vertices.size(), 0);
+
+        for (auto& tri : mesh.triangles) {
+            int v[3] = { tri.v0, tri.v1, tri.v2 };
+            for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                    if (i == j) continue;
+                    newVerts[v[i]].x += mesh.vertices[v[j]].x;
+                    newVerts[v[i]].y += mesh.vertices[v[j]].y;
+                    newVerts[v[i]].z += mesh.vertices[v[j]].z;
+                    counts[v[i]]++;
+                }
+            }
+        }
+
+        for (size_t i = 0; i < newVerts.size(); ++i) {
+            if (counts[i] > 0) {
+                newVerts[i].x /= (counts[i] + 1);
+                newVerts[i].y /= (counts[i] + 1);
+                newVerts[i].z /= (counts[i] + 1);
+            }
+        }
+
+        mesh.vertices = std::move(newVerts);
+    }
 }

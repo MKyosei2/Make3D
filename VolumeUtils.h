@@ -1,5 +1,4 @@
 #pragma once
-
 #include "common.h"
 
 // 単純な球形ボクセル生成（デバッグ用）

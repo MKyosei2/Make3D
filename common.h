@@ -1,8 +1,20 @@
 #pragma once
-
 #include <vector>
+#include <algorithm>
+#include <cmath>
 
-// 単純な3Dボクセル構造（bool格納）
+// グローバル列挙型: 複数視点の定義
+enum class ViewDirection {
+    Front,
+    Back,
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Count
+};
+
+// ボクセルボリュームデータ構造
 class VolumeData {
 public:
     VolumeData(int x, int y, int z)
@@ -25,3 +37,9 @@ private:
     int sizeX, sizeY, sizeZ;
     std::vector<bool> data;
 };
+
+// ユーティリティ関数
+inline float clamp(float x, float a, float b) {
+    return (x < a) ? a : (x > b) ? b : x;
+}
+

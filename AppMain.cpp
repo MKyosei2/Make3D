@@ -1,84 +1,91 @@
-#include "AppState.h"
-#include "GUIState.h"
-#include "PreviewRenderer.h"
-
 #include <windows.h>
+#include "AppState.h"
+#include "BuildVolumeFromImages.h"
+#include <commctrl.h>
 
-AppState appState;
-GUIState guiState;
+#pragma comment(lib, "Comctl32.lib")
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    static bool mouseDown = false;
+AppState g_state;
+HWND g_hPolygonInput = nullptr;
+HWND g_hResolutionInput = nullptr;
 
-    switch (msg) {
-    case WM_LBUTTONDOWN:
-        guiState.drawingRegion = true;
-        guiState.dragStart.x = LOWORD(lParam);
-        guiState.dragStart.y = HIWORD(lParam);
-        guiState.currentDragRect.left = guiState.dragStart.x;
-        guiState.currentDragRect.top = guiState.dragStart.y;
-        return 0;
+void CreateControlUI(HWND hWnd) {
+    CreateWindowW(L"STATIC", L"Polygon Count:",
+        WS_VISIBLE | WS_CHILD,
+        10, 10, 100, 20,
+        hWnd, nullptr, nullptr, nullptr);
 
-    case WM_MOUSEMOVE:
-        if (guiState.drawingRegion) {
-            guiState.currentDragRect.right = LOWORD(lParam);
-            guiState.currentDragRect.bottom = HIWORD(lParam);
-            InvalidateRect(hwnd, nullptr, FALSE);
-        }
-        return 0;
+    g_hPolygonInput = CreateWindowW(L"EDIT", L"10000",
+        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
+        120, 10, 80, 20,
+        hWnd, nullptr, nullptr, nullptr);
 
-    case WM_LBUTTONUP:
-        if (guiState.drawingRegion) {
-            guiState.drawingRegion = false;
-            RECT r = guiState.currentDragRect;
-            SelectionRegion region;
-            region.x = min(r.left, r.right);
-            region.y = min(r.top, r.bottom);
-            region.width = abs(r.right - r.left);
-            region.height = abs(r.bottom - r.top);
-            guiState.partSelectionRegions.push_back(region);
-            InvalidateRect(hwnd, nullptr, FALSE);
-        }
-        return 0;
+    CreateWindowW(L"STATIC", L"Resolution:",
+        WS_VISIBLE | WS_CHILD,
+        10, 40, 100, 20,
+        hWnd, nullptr, nullptr, nullptr);
 
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-        renderPreview(hdc, ps.rcPaint);
-        EndPaint(hwnd, &ps);
-        return 0;
+    g_hResolutionInput = CreateWindowW(L"EDIT", L"128",
+        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
+        120, 40, 80, 20,
+        hWnd, nullptr, nullptr, nullptr);
+}
+
+void UpdateAppStateFromUI() {
+    wchar_t buf[32] = {};
+
+    if (g_hPolygonInput) {
+        GetWindowTextW(g_hPolygonInput, buf, 31);
+        g_state.polygonCount = _wtoi(buf);
     }
+    if (g_hResolutionInput) {
+        GetWindowTextW(g_hResolutionInput, buf, 31);
+        int res = _wtoi(buf);
+        if (res >= 16 && res <= 1024)
+            g_state.voxelResolution = res;
+    }
+}
+
+LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    switch (msg) {
+    case WM_CREATE:
+        InitCommonControls();
+        CreateControlUI(hWnd);
+        return 0;
+
+    case WM_COMMAND:
+        UpdateAppStateFromUI();
+        return 0;
 
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
     }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+
+    return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
-    const wchar_t CLASS_NAME[] = L"3DModelerWindow";
-
-    WNDCLASS wc = {};
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
+    WNDCLASSW wc = {};
     wc.lpfnWndProc = WndProc;
-    wc.hInstance = hInstance;
-    wc.lpszClassName = CLASS_NAME;
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hInstance = hInst;
+    wc.lpszClassName = L"My3DApp";
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
 
-    RegisterClass(&wc);
+    RegisterClassW(&wc);
 
-    HWND hwnd = CreateWindowEx(0, CLASS_NAME, L"3D Modeler",
-        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
-        nullptr, nullptr, hInstance, nullptr);
+    HWND hWnd = CreateWindowW(L"My3DApp", L"3D Builder",
+        WS_OVERLAPPEDWINDOW,
+        100, 100, 640, 480,
+        nullptr, nullptr, hInst, nullptr);
 
-    ShowWindow(hwnd, nCmdShow);
-    UpdateWindow(hwnd);
+    ShowWindow(hWnd, nCmdShow);
+    UpdateWindow(hWnd);
 
     MSG msg = {};
-    while (GetMessage(&msg, nullptr, 0, 0)) {
+    while (GetMessageW(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        DispatchMessageW(&msg);
     }
-
     return 0;
 }
