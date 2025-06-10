@@ -7,6 +7,7 @@ struct Vertex {
 
 struct Triangle {
     int v0, v1, v2;
+    Vertex vertices[3];
 };
 
 struct Mesh {

@@ -1,9 +1,11 @@
 #include <windows.h>
+#include <commctrl.h>
+#include <shlobj.h> // フォルダ選択用
 #include "AppState.h"
 #include "BuildVolumeFromImages.h"
-#include <commctrl.h>
 
 #pragma comment(lib, "Comctl32.lib")
+#pragma comment(lib, "Shell32.lib")
 
 AppState g_state;
 HWND g_hPolygonInput = nullptr;
@@ -29,6 +31,12 @@ void CreateControlUI(HWND hWnd) {
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
         120, 40, 80, 20,
         hWnd, nullptr, nullptr, nullptr);
+
+    // Load Images ボタン追加
+    CreateWindowW(L"BUTTON", L"Load Images",
+        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        10, 70, 120, 25,
+        hWnd, (HMENU)1, nullptr, nullptr);
 }
 
 void UpdateAppStateFromUI() {
@@ -55,6 +63,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
     case WM_COMMAND:
         UpdateAppStateFromUI();
+        if (LOWORD(wParam) == 1) { // Load Images ボタン
+            wchar_t folderPath[MAX_PATH] = {};
+            BROWSEINFOW bi = { 0 };
+            bi.lpszTitle = L"画像フォルダを選択してください";
+            bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+            LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+            if (pidl && SHGetPathFromIDListW(pidl, folderPath)) {
+                if (!g_state.loadImages(folderPath)) {
+                    MessageBoxW(hWnd, L"画像の読み込みに失敗しました。", L"エラー", MB_ICONERROR);
+                }
+                else {
+                    MessageBoxW(hWnd, L"画像の読み込みに成功しました。", L"成功", MB_OK);
+                }
+            }
+        }
         return 0;
 
     case WM_DESTROY:

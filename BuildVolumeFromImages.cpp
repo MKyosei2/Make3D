@@ -1,5 +1,23 @@
 ﻿#include "BuildVolumeFromImages.h"
 #include <windows.h>
+#include "VolumeUtils.h" 
+
+VolumeData BuildVolumeFromSingleImage(const Image& img) {
+    int depth = 64;
+    VolumeData volume(img.width, img.height, depth);
+
+    for (int y = 0; y < img.height; ++y) {
+        for (int x = 0; x < img.width; ++x) {
+            if (IsSilhouette(img.getPixel(x, y))) {
+                for (int z = 0; z < depth; ++z) {
+                    volume.set(x, y, z, true);
+                }
+            }
+        }
+    }
+
+    return volume;
+}
 
 bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
     int sizeX = volume.getSizeX();

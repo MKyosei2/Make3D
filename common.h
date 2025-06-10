@@ -21,6 +21,10 @@ public:
         : sizeX(x), sizeY(y), sizeZ(z), data(x* y* z, false) {
     }
 
+    VolumeData toVolumeData() const {
+        return VolumeData(*this);
+    }
+
     bool get(int x, int y, int z) const {
         return data[(z * sizeY + y) * sizeX + x];
     }
@@ -43,3 +47,7 @@ inline float clamp(float x, float a, float b) {
     return (x < a) ? a : (x > b) ? b : x;
 }
 
+struct Volume {
+    int width, height, depth;
+    std::vector<bool> voxels;
+};

@@ -1,23 +1,51 @@
 ﻿#include "MeshGenerator.h"
 #include "MeshUtils.h"
 #include "BuildVolumeFromImages.h"
+#include "VolumeUtils.h" 
+#include "common.h"
 #include <cmath>
 
-// 頂点構造体
-struct XYZ {
-    float x, y, z;
-};
+GRIDCELL ConvertCubeToGridCell(const Cube& cube) {
+    GRIDCELL gridCell;
+    for (int i = 0; i < 8; ++i) {
+        gridCell.p[i] = cube.position[i];
+        gridCell.val[i] = cube.value[i];
+    }
+    return gridCell;
+}
 
-// 三角形構造体
-struct TRIANGLE {
-    XYZ p[3];
-};
+Cube SampleCube(const VolumeData& volume, int x, int y, int z) {
+    Cube cube;
+    return cube;
+}
 
-// ボクセルセル構造体（8点の座標と値）
-struct GRIDCELL {
-    XYZ p[8];
-    double val[8];
-};
+int CalculateCubeIndex(const Cube& cube, float isoLevel) {
+    int index = 0;
+    return index;
+}
+
+std::vector<Triangle> Polygonise(const GRIDCELL& grid, float isoLevel) {
+    std::vector<Triangle> triangles;
+    return triangles;
+}
+
+std::vector<Triangle> GenerateMeshWithMarchingCubes(const VolumeData& volume, float isoLevel) {
+    std::vector<Triangle> result;
+
+    for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
+        for (int y = 0; y < volume.getSizeY() - 1; ++y) {
+            for (int x = 0; x < volume.getSizeX() - 1; ++x) {
+                Cube cube = SampleCube(volume, x, y, z);
+                int index = CalculateCubeIndex(cube, isoLevel);
+                GRIDCELL gridCell = ConvertCubeToGridCell(cube);
+                auto triangles = Polygonise(gridCell, isoLevel);
+                result.insert(result.end(), triangles.begin(), triangles.end());
+            }
+        }
+    }
+
+    return result;
+}
 
 // 補間関数（isolevel を元に補間点を求める）
 XYZ VertexInterp(double isolevel, XYZ p1, XYZ p2, double valp1, double valp2) {

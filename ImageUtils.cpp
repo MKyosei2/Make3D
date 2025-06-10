@@ -2,6 +2,10 @@
 #include <windows.h>
 #include <cmath>
 
+bool IsSilhouette(const Pixel& pixel) {
+    return (pixel.r + pixel.g + pixel.b) < 128 * 3;  // 黒っぽいものをシルエットと判定
+}
+
 bool GetMaskBoundingBox(HBITMAP hBitmap, RECT& outBox) {
     BITMAP bmp = {};
     GetObject(hBitmap, sizeof(BITMAP), &bmp);

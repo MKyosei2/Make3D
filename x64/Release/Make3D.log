@@ -1,13 +1,14 @@
 ﻿  AppMain.cpp
   AppState.cpp
   BuildVolumeFromImages.cpp
+  ImageUtils.cpp
   MeshGenerator.cpp
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(30,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(31,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(32,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(58,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(59,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(60,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
   コード生成しています。
-  0 of 65 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+  0 of 141 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
+    19 functions had inline decision re-evaluated but remain unchanged
   コード生成が終了しました。
   Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
