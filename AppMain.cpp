@@ -64,13 +64,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_COMMAND:
         UpdateAppStateFromUI();
         if (LOWORD(wParam) == 1) { // Load Images ボタン
-            wchar_t folderPath[MAX_PATH] = {};
-            BROWSEINFOW bi = { 0 };
-            bi.lpszTitle = L"画像フォルダを選択してください";
-            bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
-            LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
-            if (pidl && SHGetPathFromIDListW(pidl, folderPath)) {
-                if (!g_state.loadImages(folderPath)) {
+            OPENFILENAME ofn = { 0 };
+            wchar_t filePath[MAX_PATH] = {};
+            ofn.lStructSize = sizeof(ofn);
+            ofn.hwndOwner = hWnd;
+            ofn.lpstrFilter = L"PNG ファイル (*.png)\0*.png\0JPEG ファイル (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0すべてのファイル (*.*)\0*.*\0";
+            ofn.lpstrFile = filePath;
+            ofn.nMaxFile = MAX_PATH;
+            ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+
+            if (GetOpenFileName(&ofn)) {
+                if (!g_state.loadImages(filePath)) {
                     MessageBoxW(hWnd, L"画像の読み込みに失敗しました。", L"エラー", MB_ICONERROR);
                 }
                 else {
