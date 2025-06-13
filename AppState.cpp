@@ -32,3 +32,12 @@ void AppState::clearImages() {
         }
     }
 }
+
+bool AppState::loadImageForView(ViewDirection view, const std::wstring& path) {
+    HBITMAP hBitmap = (HBITMAP)LoadImageW(NULL, path.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+    if (hBitmap) {
+        images[(int)view] = hBitmap;
+        return true;
+    }
+    return false;
+}

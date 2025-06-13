@@ -16,4 +16,5 @@ struct AppState {
 
     bool loadImages(const std::wstring& directory);
     void clearImages();
+    bool loadImageForView(ViewDirection view, const std::wstring& path);
 };

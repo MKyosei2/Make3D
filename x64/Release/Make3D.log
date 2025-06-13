@@ -1,15 +1,11 @@
 ﻿  AppMain.cpp
-  AppState.cpp
-  BuildVolumeFromImages.cpp
-  ImageUtils.cpp
-  MeshGenerator.cpp
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(58,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(59,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(60,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
-  PreviewRenderer.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\AppMain.cpp(25,30): warning C4312: '型キャスト': 'int' からより大きいサイズの 'HMENU' へ変換します。
   コード生成しています。
-  2 of 141 functions ( 1.4%) were compiled, the rest were copied from previous compilation.
+  56 of 115 functions (48.7%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
+    3 functions had inline decision re-evaluated but remain unchanged
   コード生成が終了しました。
+MeshUtils.obj : warning LNK4099: PDB 'vc143.pdb' が 'MeshUtils.obj' で、または 'C:\Users\kyose\source\repos\Make3D\x64\Release\vc143.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
+PartProcessor.obj : warning LNK4099: PDB 'vc143.pdb' が 'PartProcessor.obj' で、または 'C:\Users\kyose\source\repos\Make3D\x64\Release\vc143.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
+PreviewRenderer.obj : warning LNK4099: PDB 'vc143.pdb' が 'PreviewRenderer.obj' で、または 'C:\Users\kyose\source\repos\Make3D\x64\Release\vc143.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
   Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe

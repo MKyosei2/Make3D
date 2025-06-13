@@ -10,33 +10,24 @@
 AppState g_state;
 HWND g_hPolygonInput = nullptr;
 HWND g_hResolutionInput = nullptr;
+HWND g_hImageButtons[(int)ViewDirection::Count];
 
 void CreateControlUI(HWND hWnd) {
-    CreateWindowW(L"STATIC", L"Polygon Count:",
-        WS_VISIBLE | WS_CHILD,
-        10, 10, 100, 20,
-        hWnd, nullptr, nullptr, nullptr);
+    CreateWindowW(L"STATIC", L"Polygon Count", WS_VISIBLE | WS_CHILD,
+        10, 10, 100, 20, hWnd, nullptr, nullptr, nullptr);
+    g_hPolygonInput = CreateWindowW(L"EDIT", L"10000", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
+        120, 10, 100, 20, hWnd, nullptr, nullptr, nullptr);
 
-    g_hPolygonInput = CreateWindowW(L"EDIT", L"10000",
-        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
-        120, 10, 80, 20,
-        hWnd, nullptr, nullptr, nullptr);
+    const wchar_t* labels[] = { L"Front", L"Back", L"Left", L"Right", L"Top", L"Bottom" };
+    for (int i = 0; i < (int)ViewDirection::Count; ++i) {
+        CreateWindowW(L"STATIC", labels[i], WS_VISIBLE | WS_CHILD,
+            10, 40 + i * 30, 100, 20, hWnd, nullptr, nullptr, nullptr);
+        g_hImageButtons[i] = CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+            120, 40 + i * 30, 80, 25, hWnd, (HMENU)(100 + i), nullptr, nullptr);
+    }
 
-    CreateWindowW(L"STATIC", L"Resolution:",
-        WS_VISIBLE | WS_CHILD,
-        10, 40, 100, 20,
-        hWnd, nullptr, nullptr, nullptr);
-
-    g_hResolutionInput = CreateWindowW(L"EDIT", L"128",
-        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
-        120, 40, 80, 20,
-        hWnd, nullptr, nullptr, nullptr);
-
-    // Load Images ボタン追加
-    CreateWindowW(L"BUTTON", L"Load Images",
-        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        10, 70, 120, 25,
-        hWnd, (HMENU)1, nullptr, nullptr);
+    CreateWindowW(L"BUTTON", L"Load All Images", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        10, 230, 190, 30, hWnd, (HMENU)200, nullptr, nullptr);
 }
 
 void UpdateAppStateFromUI() {
@@ -62,27 +53,31 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
 
     case WM_COMMAND:
-        UpdateAppStateFromUI();
-        if (LOWORD(wParam) == 1) { // Load Images ボタン
+        if (LOWORD(wParam) >= 100 && LOWORD(wParam) < 100 + (int)ViewDirection::Count) {
+            int viewIndex = LOWORD(wParam) - 100;
             OPENFILENAME ofn = { 0 };
             wchar_t filePath[MAX_PATH] = {};
             ofn.lStructSize = sizeof(ofn);
             ofn.hwndOwner = hWnd;
-            ofn.lpstrFilter = L"PNG ファイル (*.png)\0*.png\0JPEG ファイル (*.jpg;*.jpeg)\0*.jpg;*.jpeg\0すべてのファイル (*.*)\0*.*\0";
+            ofn.lpstrFilter = L"画像ファイル (*.png;*.bmp;*.jpg)\0*.png;*.bmp;*.jpg\0";
             ofn.lpstrFile = filePath;
             ofn.nMaxFile = MAX_PATH;
             ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 
             if (GetOpenFileName(&ofn)) {
-                if (!g_state.loadImages(filePath)) {
+                if (!g_state.loadImageForView((ViewDirection)viewIndex, filePath)) {
                     MessageBoxW(hWnd, L"画像の読み込みに失敗しました。", L"エラー", MB_ICONERROR);
                 }
                 else {
-                    MessageBoxW(hWnd, L"画像の読み込みに成功しました。", L"成功", MB_OK);
+                    MessageBoxW(hWnd, L"画像を読み込みました。", L"成功", MB_OK);
                 }
             }
         }
-        return 0;
+        else if (LOWORD(wParam) == 200) {
+            // ここでFBX出力処理を呼び出す（仮）
+            MessageBoxW(hWnd, L"画像を読み込みました。FBX出力処理をここに追加してください。", L"成功", MB_OK);
+        }
+        break;
 
     case WM_DESTROY:
         PostQuitMessage(0);
