@@ -4,7 +4,60 @@
 #include "VolumeUtils.h" 
 #include "common.h"
 #include <cmath>
+MeshGenerator::MeshGenerator() {
+    targetPolygonCount = 10000;
+}
 
+void MeshGenerator::setTargetPolygonCount(int count) {
+    targetPolygonCount = count;
+}
+
+Mesh MeshGenerator::generate(const VolumeData& volume) {
+    Mesh mesh;
+    const double isoLevel = 0.5;
+
+    for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
+        for (int y = 0; y < volume.getSizeY() - 1; ++y) {
+            for (int x = 0; x < volume.getSizeX() - 1; ++x) {
+                GRIDCELL cell;
+                for (int dz = 0; dz <= 1; ++dz) {
+                    for (int dy = 0; dy <= 1; ++dy) {
+                        for (int dx = 0; dx <= 1; ++dx) {
+                            int idx = dz * 4 + dy * 2 + dx;
+                            int vx = x + dx;
+                            int vy = y + dy;
+                            int vz = z + dz;
+                            cell.p[idx] = { (float)vx, (float)vy, (float)vz };
+                            cell.val[idx] = volume.get(vx, vy, vz) ? 1.0 : 0.0;
+                        }
+                    }
+                }
+
+                auto tris = Polygonise(cell, isoLevel);
+                for (const auto& tri : tris) {
+                    int baseIndex = (int)mesh.vertices.size();
+                    mesh.vertices.push_back({ tri.vertices[0].x, tri.vertices[0].y, tri.vertices[0].z });
+                    mesh.vertices.push_back({ tri.vertices[1].x, tri.vertices[1].y, tri.vertices[1].z });
+                    mesh.vertices.push_back({ tri.vertices[2].x, tri.vertices[2].y, tri.vertices[2].z });
+                    mesh.triangles.push_back({ baseIndex, baseIndex + 1, baseIndex + 2 });
+                }
+            }
+        }
+    }
+
+    // ポリゴン数調整
+    int baseCount = (int)mesh.triangles.size();
+    int subdivIterations = 0;
+    while ((baseCount * std::pow(4, subdivIterations)) < targetPolygonCount && subdivIterations < 4)
+        ++subdivIterations;
+
+    if (subdivIterations > 0) {
+        mesh = subdivideMesh(mesh, subdivIterations);
+    }
+
+    smoothMesh(mesh, 1);
+    return mesh;
+}
 GRIDCELL ConvertCubeToGridCell(const Cube& cube) {
     GRIDCELL gridCell;
     for (int i = 0; i < 8; ++i) {

@@ -1,16 +1,24 @@
-#include <windows.h>
+Ôªø#include <windows.h>
 #include <commctrl.h>
-#include <shlobj.h> // ÉtÉHÉãÉ_ëIëóp
+#include <shlobj.h> // „Éï„Ç©„É´„ÉÄÈÅ∏ÊäûÁî®
+#include <gdiplus.h>
 #include "AppState.h"
+#include "MeshUtils.h"
+#include "MeshGenerator.h"
+#include "FBXExporter.h"
 #include "BuildVolumeFromImages.h"
-
+#pragma comment(lib, "gdiplus.lib")
 #pragma comment(lib, "Comctl32.lib")
 #pragma comment(lib, "Shell32.lib")
+
+using namespace Gdiplus;
 
 AppState g_state;
 HWND g_hPolygonInput = nullptr;
 HWND g_hResolutionInput = nullptr;
 HWND g_hImageButtons[(int)ViewDirection::Count];
+HWND g_hImagePreviews[(int)ViewDirection::Count];
+ULONG_PTR gdiplusToken;
 
 void CreateControlUI(HWND hWnd) {
     CreateWindowW(L"STATIC", L"Polygon Count", WS_VISIBLE | WS_CHILD,
@@ -18,24 +26,28 @@ void CreateControlUI(HWND hWnd) {
     g_hPolygonInput = CreateWindowW(L"EDIT", L"10000", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
         120, 10, 100, 20, hWnd, nullptr, nullptr, nullptr);
 
+    CreateWindowW(L"BUTTON", L"Create 3D Model", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        220, 420, 190, 30, hWnd, (HMENU)300, nullptr, nullptr);
+
     const wchar_t* labels[] = { L"Front", L"Back", L"Left", L"Right", L"Top", L"Bottom" };
     for (int i = 0; i < (int)ViewDirection::Count; ++i) {
         CreateWindowW(L"STATIC", labels[i], WS_VISIBLE | WS_CHILD,
-            10, 40 + i * 30, 100, 20, hWnd, nullptr, nullptr, nullptr);
+            10, 40 + i * 60, 100, 20, hWnd, nullptr, nullptr, nullptr);
         g_hImageButtons[i] = CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            120, 40 + i * 30, 80, 25, hWnd, (HMENU)(100 + i), nullptr, nullptr);
+            120, 40 + i * 60, 80, 25, hWnd, (HMENU)(100 + i), nullptr, nullptr);
+        g_hImagePreviews[i] = CreateWindowW(L"STATIC", nullptr, WS_VISIBLE | WS_CHILD | SS_BITMAP,
+            220, 40 + i * 60, 100, 100, hWnd, nullptr, nullptr, nullptr);
     }
 
     CreateWindowW(L"BUTTON", L"Load All Images", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        10, 230, 190, 30, hWnd, (HMENU)200, nullptr, nullptr);
+        10, 420, 190, 30, hWnd, (HMENU)200, nullptr, nullptr);
 }
 
 void UpdateAppStateFromUI() {
     wchar_t buf[32] = {};
-
     if (g_hPolygonInput) {
         GetWindowTextW(g_hPolygonInput, buf, 31);
-        g_state.polygonCount = _wtoi(buf);
+        g_state.polygonCount = _wtoi(buf); // ‚Üê ÊñáÂ≠óÂàó„Åã„Çâ int „Å´Â§âÊèõ
     }
     if (g_hResolutionInput) {
         GetWindowTextW(g_hResolutionInput, buf, 31);
@@ -45,12 +57,32 @@ void UpdateAppStateFromUI() {
     }
 }
 
+void ShowImagePreview(int viewIndex, HBITMAP hBitmap) {
+    if (g_hImagePreviews[viewIndex]) {
+        // ÁîªÂÉè„Çí„É™„Çµ„Ç§„Ç∫„Åó„Å¶Ë°®Á§∫„Åô„Çã„Å´„ÅØ„ÄÅÊâãÂãïÊèèÁîª„ÅåÂøÖË¶Å
+        HDC hdc = GetDC(g_hImagePreviews[viewIndex]);
+        HDC memDC = CreateCompatibleDC(hdc);
+        SelectObject(memDC, hBitmap);
+
+        BITMAP bmp;
+        GetObject(hBitmap, sizeof(BITMAP), &bmp);
+
+        StretchBlt(hdc, 0, 0, 100, 100, memDC, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
+
+        DeleteDC(memDC);
+        ReleaseDC(g_hImagePreviews[viewIndex], hdc);
+    }
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-    case WM_CREATE:
+    case WM_CREATE: {
+        GdiplusStartupInput gdiplusStartupInput;
+        GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr);
         InitCommonControls();
         CreateControlUI(hWnd);
         return 0;
+    }
 
     case WM_COMMAND:
         if (LOWORD(wParam) >= 100 && LOWORD(wParam) < 100 + (int)ViewDirection::Count) {
@@ -59,25 +91,73 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             wchar_t filePath[MAX_PATH] = {};
             ofn.lStructSize = sizeof(ofn);
             ofn.hwndOwner = hWnd;
-            ofn.lpstrFilter = L"âÊëúÉtÉ@ÉCÉã (*.png;*.bmp;*.jpg)\0*.png;*.bmp;*.jpg\0";
+            ofn.lpstrFilter = L"Image Files (*.png;*.bmp;*.jpg) *.png;*.bmp;*.jpg ";
             ofn.lpstrFile = filePath;
             ofn.nMaxFile = MAX_PATH;
             ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 
+
             if (GetOpenFileName(&ofn)) {
                 if (!g_state.loadImageForView((ViewDirection)viewIndex, filePath)) {
-                    MessageBoxW(hWnd, L"âÊëúÇÃì«Ç›çûÇ›Ç…é∏îsÇµÇ‹ÇµÇΩÅB", L"ÉGÉâÅ[", MB_ICONERROR);
+                    MessageBoxW(hWnd, L"ÁîªÂÉè„ÅÆË™≠„ÅøËæº„Åø„Å´Â§±Êïó„Åó„Åæ„Åó„Åü„ÄÇ", L"„Ç®„É©„Éº", MB_ICONERROR);
                 }
                 else {
-                    MessageBoxW(hWnd, L"âÊëúÇì«Ç›çûÇ›Ç‹ÇµÇΩÅB", L"ê¨å˜", MB_OK);
+                    HBITMAP hBitmap = g_state.images[viewIndex]; // ‚Üê „Åì„Åì„ÅßÂèñÂæó
+                    ShowImagePreview(viewIndex, hBitmap);
                 }
             }
         }
         else if (LOWORD(wParam) == 200) {
-            // Ç±Ç±Ç≈FBXèoóÕèàóùÇåƒÇ—èoÇ∑ÅiâºÅj
-            MessageBoxW(hWnd, L"âÊëúÇì«Ç›çûÇ›Ç‹ÇµÇΩÅBFBXèoóÕèàóùÇÇ±Ç±Ç…í«â¡ÇµÇƒÇ≠ÇæÇ≥Ç¢ÅB", L"ê¨å˜", MB_OK);
+            BROWSEINFO bi = { 0 };
+            bi.lpszTitle = L"ÁîªÂÉè„Éï„Ç©„É´„ÉÄ„ÇíÈÅ∏Êäû„Åó„Å¶„Åè„Å†„Åï„ÅÑ";
+            LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+            if (pidl) {
+                wchar_t path[MAX_PATH];
+                if (SHGetPathFromIDList(pidl, path)) {
+                    if (!g_state.loadImages(path)) {
+                        MessageBoxW(hWnd, L"ÁîªÂÉè„ÅÆ‰∏ÄÊã¨Ë™≠„ÅøËæº„Åø„Å´Â§±Êïó„Åó„Åæ„Åó„Åü„ÄÇ", L"„Ç®„É©„Éº", MB_ICONERROR);
+                    }
+                    else {
+                        for (int i = 0; i < (int)ViewDirection::Count; ++i) {
+                            HBITMAP hBitmap = g_state.getImageBitmap((ViewDirection)i);
+                            if (hBitmap) {
+                                ShowImagePreview(i, hBitmap);
+                            }
+                        }
+                        MessageBoxW(hWnd, L"ÁîªÂÉè„ÇíË™≠„ÅøËæº„Åø„Åæ„Åó„Åü„ÄÇFBXÂá∫ÂäõÂá¶ÁêÜ„Çí„Åì„Åì„Å´ËøΩÂä†„Åó„Å¶„Åè„Å†„Åï„ÅÑ„ÄÇ", L"ÊàêÂäü", MB_OK);
+                    }
+                }
+            }
         }
+        else if (LOWORD(wParam) == 300) { // 300 = Create 3D Model „Éú„Çø„É≥
+            UpdateAppStateFromUI();
+            VolumeData volume(128, 128, 128);
+            if (generateVolumeFromImages(g_state, volume)) {
+                MeshGenerator generator;
+                generator.setTargetPolygonCount(g_state.polygonCount);
+                Mesh mesh = generator.generate(volume);
+                exportMeshToFBX(L"output.fbx", mesh);
+                MessageBoxW(hWnd, L"FBX„Éï„Ç°„Ç§„É´„ÇíÂá∫Âäõ„Åó„Åæ„Åó„Åü„ÄÇ", L"ÊàêÂäü", MB_OK);
+            }
+            else {
+                MessageBoxW(hWnd, L"3D„É¢„Éá„É´„ÅÆÁîüÊàê„Å´Â§±Êïó„Åó„Åæ„Åó„Åü„ÄÇ", L"„Ç®„É©„Éº", MB_ICONERROR);
+            }
+        }
+
         break;
+
+    case WM_SIZE: {
+        int width = LOWORD(lParam);
+        int height = HIWORD(lParam);
+
+        // ‰æãÔºöLoad All Images „Éú„Çø„É≥„Çí‰∏ãÈÉ®„Å´ÂÜçÈÖçÁΩÆ
+        MoveWindow(g_hPolygonInput, 120, 10, 100, 20, TRUE);
+        for (int i = 0; i < (int)ViewDirection::Count; ++i) {
+            MoveWindow(g_hImageButtons[i], 120, 40 + i * 60, 80, 25, TRUE);
+            MoveWindow(g_hImagePreviews[i], 220, 40 + i * 60, 100, 100, TRUE);
+        }
+        return 0;
+    }
 
     case WM_DESTROY:
         PostQuitMessage(0);
@@ -109,5 +189,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
+    GdiplusShutdown(gdiplusToken);
     return 0;
 }

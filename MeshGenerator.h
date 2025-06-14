@@ -21,14 +21,12 @@ struct Cube {
     XYZ position[8];
 };
 
-std::vector<Triangle> GenerateMeshWithMarchingCubes(const Volume& volume, float isoLevel);
+std::vector<Triangle> Polygonise(const GRIDCELL& grid, float isoLevel);
 class MeshGenerator {
 public:
     MeshGenerator();
-
     void setTargetPolygonCount(int count);
     Mesh generate(const VolumeData& volume);
-
 private:
     int targetPolygonCount;
 };
