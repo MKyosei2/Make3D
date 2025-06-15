@@ -3,7 +3,11 @@
 #include <cmath>
 
 bool IsSilhouette(const Pixel& pixel) {
-    return (pixel.r + pixel.g + pixel.b) < 128 * 3;  // 黒っぽいものをシルエットと判定
+    // アルファ付き画像では透明度も考慮（透過ならfalse）
+    if (pixel.a < 64) return false;
+
+    int brightness = pixel.r + pixel.g + pixel.b;
+    return brightness < 180 * 3;  // ← やや緩めたしきい値（暗ければOK）
 }
 
 bool GetMaskBoundingBox(HBITMAP hBitmap, RECT& outBox) {

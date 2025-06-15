@@ -1,6 +1,6 @@
 ﻿#include <windows.h>
 #include <commctrl.h>
-#include <shlobj.h> // フォルダ選択用
+#include <shlobj.h>
 #include <gdiplus.h>
 #include "AppState.h"
 #include "MeshUtils.h"
@@ -26,17 +26,22 @@ void CreateControlUI(HWND hWnd) {
     g_hPolygonInput = CreateWindowW(L"EDIT", L"10000", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
         120, 10, 100, 20, hWnd, nullptr, nullptr, nullptr);
 
+    CreateWindowW(L"STATIC", L"Voxel Res", WS_VISIBLE | WS_CHILD,
+        10, 35, 100, 20, hWnd, nullptr, nullptr, nullptr);
+    g_hResolutionInput = CreateWindowW(L"EDIT", L"128", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
+        120, 35, 100, 20, hWnd, nullptr, nullptr, nullptr);
+
     CreateWindowW(L"BUTTON", L"Create 3D Model", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
         220, 420, 190, 30, hWnd, (HMENU)300, nullptr, nullptr);
 
     const wchar_t* labels[] = { L"Front", L"Back", L"Left", L"Right", L"Top", L"Bottom" };
     for (int i = 0; i < (int)ViewDirection::Count; ++i) {
         CreateWindowW(L"STATIC", labels[i], WS_VISIBLE | WS_CHILD,
-            10, 40 + i * 60, 100, 20, hWnd, nullptr, nullptr, nullptr);
+            10, 70 + i * 60, 100, 20, hWnd, nullptr, nullptr, nullptr);
         g_hImageButtons[i] = CreateWindowW(L"BUTTON", L"Browse", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-            120, 40 + i * 60, 80, 25, hWnd, (HMENU)(100 + i), nullptr, nullptr);
+            120, 70 + i * 60, 80, 25, hWnd, (HMENU)(100 + i), nullptr, nullptr);
         g_hImagePreviews[i] = CreateWindowW(L"STATIC", nullptr, WS_VISIBLE | WS_CHILD | SS_BITMAP,
-            220, 40 + i * 60, 100, 100, hWnd, nullptr, nullptr, nullptr);
+            220, 70 + i * 60, 100, 100, hWnd, nullptr, nullptr, nullptr);
     }
 
     CreateWindowW(L"BUTTON", L"Load All Images", WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
@@ -45,9 +50,10 @@ void CreateControlUI(HWND hWnd) {
 
 void UpdateAppStateFromUI() {
     wchar_t buf[32] = {};
+
     if (g_hPolygonInput) {
         GetWindowTextW(g_hPolygonInput, buf, 31);
-        g_state.polygonCount = _wtoi(buf); // ← 文字列から int に変換
+        g_state.polygonCount = _wtoi(buf);
     }
     if (g_hResolutionInput) {
         GetWindowTextW(g_hResolutionInput, buf, 31);
@@ -59,14 +65,12 @@ void UpdateAppStateFromUI() {
 
 void ShowImagePreview(int viewIndex, HBITMAP hBitmap) {
     if (g_hImagePreviews[viewIndex]) {
-        // 画像をリサイズして表示するには、手動描画が必要
         HDC hdc = GetDC(g_hImagePreviews[viewIndex]);
         HDC memDC = CreateCompatibleDC(hdc);
         SelectObject(memDC, hBitmap);
 
         BITMAP bmp;
         GetObject(hBitmap, sizeof(BITMAP), &bmp);
-
         StretchBlt(hdc, 0, 0, 100, 100, memDC, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
 
         DeleteDC(memDC);
@@ -91,18 +95,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             wchar_t filePath[MAX_PATH] = {};
             ofn.lStructSize = sizeof(ofn);
             ofn.hwndOwner = hWnd;
-            ofn.lpstrFilter = L"Image Files (*.png;*.bmp;*.jpg) *.png;*.bmp;*.jpg ";
+            ofn.lpstrFilter = L"Image Files (*.png;*.bmp;*.jpg)\0*.png;*.bmp;*.jpg\0";
             ofn.lpstrFile = filePath;
             ofn.nMaxFile = MAX_PATH;
             ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
-
 
             if (GetOpenFileName(&ofn)) {
                 if (!g_state.loadImageForView((ViewDirection)viewIndex, filePath)) {
                     MessageBoxW(hWnd, L"画像の読み込みに失敗しました。", L"エラー", MB_ICONERROR);
                 }
                 else {
-                    HBITMAP hBitmap = g_state.images[viewIndex]; // ← ここで取得
+                    HBITMAP hBitmap = g_state.images[viewIndex];
                     ShowImagePreview(viewIndex, hBitmap);
                 }
             }
@@ -129,13 +132,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 }
             }
         }
-        else if (LOWORD(wParam) == 300) { // 300 = Create 3D Model ボタン
+        else if (LOWORD(wParam) == 300) {
             UpdateAppStateFromUI();
-            VolumeData volume(128, 128, 128);
+            VolumeData volume(g_state.voxelResolution, g_state.voxelResolution, g_state.voxelResolution);
             if (generateVolumeFromImages(g_state, volume)) {
                 MeshGenerator generator;
                 generator.setTargetPolygonCount(g_state.polygonCount);
                 Mesh mesh = generator.generate(volume);
+
+                // ★ オプション：出力直前に確認用の三角形・頂点数表示
+                /*
+                wchar_t msg[256];
+                swprintf_s(msg, L"頂点数: %d\n三角形数: %d", (int)mesh.vertices.size(), (int)mesh.triangles.size());
+                MessageBoxW(hWnd, msg, L"確認", MB_OK);
+                */
+
                 exportMeshToFBX(L"output.fbx", mesh);
                 MessageBoxW(hWnd, L"FBXファイルを出力しました。", L"成功", MB_OK);
             }
@@ -143,18 +154,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 MessageBoxW(hWnd, L"3Dモデルの生成に失敗しました。", L"エラー", MB_ICONERROR);
             }
         }
-
         break;
 
     case WM_SIZE: {
-        int width = LOWORD(lParam);
-        int height = HIWORD(lParam);
-
-        // 例：Load All Images ボタンを下部に再配置
-        MoveWindow(g_hPolygonInput, 120, 10, 100, 20, TRUE);
         for (int i = 0; i < (int)ViewDirection::Count; ++i) {
-            MoveWindow(g_hImageButtons[i], 120, 40 + i * 60, 80, 25, TRUE);
-            MoveWindow(g_hImagePreviews[i], 220, 40 + i * 60, 100, 100, TRUE);
+            MoveWindow(g_hImageButtons[i], 120, 70 + i * 60, 80, 25, TRUE);
+            MoveWindow(g_hImagePreviews[i], 220, 70 + i * 60, 100, 100, TRUE);
         }
         return 0;
     }

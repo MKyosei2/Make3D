@@ -4,119 +4,8 @@
 #include "VolumeUtils.h" 
 #include "common.h"
 #include <cmath>
-MeshGenerator::MeshGenerator() {
-    targetPolygonCount = 10000;
-}
 
-void MeshGenerator::setTargetPolygonCount(int count) {
-    targetPolygonCount = count;
-}
-
-Mesh MeshGenerator::generate(const VolumeData& volume) {
-    Mesh mesh;
-    const double isoLevel = 0.5;
-
-    for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
-        for (int y = 0; y < volume.getSizeY() - 1; ++y) {
-            for (int x = 0; x < volume.getSizeX() - 1; ++x) {
-                GRIDCELL cell;
-                for (int dz = 0; dz <= 1; ++dz) {
-                    for (int dy = 0; dy <= 1; ++dy) {
-                        for (int dx = 0; dx <= 1; ++dx) {
-                            int idx = dz * 4 + dy * 2 + dx;
-                            int vx = x + dx;
-                            int vy = y + dy;
-                            int vz = z + dz;
-                            cell.p[idx] = { (float)vx, (float)vy, (float)vz };
-                            cell.val[idx] = volume.get(vx, vy, vz) ? 1.0 : 0.0;
-                        }
-                    }
-                }
-
-                auto tris = Polygonise(cell, isoLevel);
-                for (const auto& tri : tris) {
-                    int baseIndex = (int)mesh.vertices.size();
-                    mesh.vertices.push_back({ tri.vertices[0].x, tri.vertices[0].y, tri.vertices[0].z });
-                    mesh.vertices.push_back({ tri.vertices[1].x, tri.vertices[1].y, tri.vertices[1].z });
-                    mesh.vertices.push_back({ tri.vertices[2].x, tri.vertices[2].y, tri.vertices[2].z });
-                    mesh.triangles.push_back({ baseIndex, baseIndex + 1, baseIndex + 2 });
-                }
-            }
-        }
-    }
-
-    // ポリゴン数調整
-    int baseCount = (int)mesh.triangles.size();
-    int subdivIterations = 0;
-    while ((baseCount * std::pow(4, subdivIterations)) < targetPolygonCount && subdivIterations < 4)
-        ++subdivIterations;
-
-    if (subdivIterations > 0) {
-        mesh = subdivideMesh(mesh, subdivIterations);
-    }
-
-    smoothMesh(mesh, 1);
-    return mesh;
-}
-GRIDCELL ConvertCubeToGridCell(const Cube& cube) {
-    GRIDCELL gridCell;
-    for (int i = 0; i < 8; ++i) {
-        gridCell.p[i] = cube.position[i];
-        gridCell.val[i] = cube.value[i];
-    }
-    return gridCell;
-}
-
-Cube SampleCube(const VolumeData& volume, int x, int y, int z) {
-    Cube cube;
-    return cube;
-}
-
-int CalculateCubeIndex(const Cube& cube, float isoLevel) {
-    int index = 0;
-    return index;
-}
-
-std::vector<Triangle> Polygonise(const GRIDCELL& grid, float isoLevel) {
-    std::vector<Triangle> triangles;
-    return triangles;
-}
-
-std::vector<Triangle> GenerateMeshWithMarchingCubes(const VolumeData& volume, float isoLevel) {
-    std::vector<Triangle> result;
-
-    for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
-        for (int y = 0; y < volume.getSizeY() - 1; ++y) {
-            for (int x = 0; x < volume.getSizeX() - 1; ++x) {
-                Cube cube = SampleCube(volume, x, y, z);
-                int index = CalculateCubeIndex(cube, isoLevel);
-                GRIDCELL gridCell = ConvertCubeToGridCell(cube);
-                auto triangles = Polygonise(gridCell, isoLevel);
-                result.insert(result.end(), triangles.begin(), triangles.end());
-            }
-        }
-    }
-
-    return result;
-}
-
-// 補間関数（isolevel を元に補間点を求める）
-XYZ VertexInterp(double isolevel, XYZ p1, XYZ p2, double valp1, double valp2) {
-    double mu;
-    XYZ p;
-    if (fabs(isolevel - valp1) < 0.00001) return p1;
-    if (fabs(isolevel - valp2) < 0.00001) return p2;
-    if (fabs(valp1 - valp2) < 0.00001) return p1;
-    mu = (isolevel - valp1) / (valp2 - valp1);
-    p.x = p1.x + mu * (p2.x - p1.x);
-    p.y = p1.y + mu * (p2.y - p1.y);
-    p.z = p1.z + mu * (p2.z - p1.z);
-    return p;
-}
-
-// edgeTable と triTable（簡略化のため省略）
-// ↓ 必要なら full table を提供します
-static const int edgeTable[256] = 
+static const int edgeTable[256] =
 { 0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
 0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
 0x190, 0x99 , 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
@@ -148,8 +37,8 @@ static const int edgeTable[256] =
 0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c,
 0x69c, 0x795, 0x49f, 0x596, 0x29a, 0x393, 0x99 , 0x190,
 0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
-0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0  };
-static const int triTable[256][16] = 
+0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0 };
+static const int triTable[256][16] =
 { {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -407,8 +296,90 @@ static const int triTable[256][16] =
 {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1} };
 
-// 🔧 Polygonise 関数の実装（これがリンクエラーの原因だった）
-int Polygonise(GRIDCELL grid, double isolevel, TRIANGLE* triangles) {
+MeshGenerator::MeshGenerator() {
+    targetPolygonCount = 10000;
+}
+
+void MeshGenerator::setTargetPolygonCount(int count) {
+    targetPolygonCount = count;
+}
+
+Mesh MeshGenerator::generate(const VolumeData& volume) {
+    Mesh mesh;
+    const double isoLevel = 0.5;
+
+    int triangleCount = 0; // 追加：生成三角形のカウント
+
+    for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
+        for (int y = 0; y < volume.getSizeY() - 1; ++y) {
+            for (int x = 0; x < volume.getSizeX() - 1; ++x) {
+                GRIDCELL cell;
+                for (int dz = 0; dz <= 1; ++dz)
+                    for (int dy = 0; dy <= 1; ++dy)
+                        for (int dx = 0; dx <= 1; ++dx) {
+                            int idx = dz * 4 + dy * 2 + dx;
+                            int vx = x + dx;
+                            int vy = y + dy;
+                            int vz = z + dz;
+                            cell.p[idx] = { (float)vx, (float)vy, (float)vz };
+                            cell.val[idx] = volume.get(vx, vy, vz) ? 1.0 : 0.0;
+                        }
+
+                TRIANGLE triangles[5];  // 最大5つの三角形が返る
+                int n = Polygonise(cell, isoLevel, triangles);
+                triangleCount += n;
+
+                for (int i = 0; i < n; ++i) {
+                    int baseIndex = (int)mesh.vertices.size();
+                    mesh.vertices.push_back({ triangles[i].p[0].x, triangles[i].p[0].y, triangles[i].p[0].z });
+                    mesh.vertices.push_back({ triangles[i].p[1].x, triangles[i].p[1].y, triangles[i].p[1].z });
+                    mesh.vertices.push_back({ triangles[i].p[2].x, triangles[i].p[2].y, triangles[i].p[2].z });
+                    mesh.triangles.push_back({ baseIndex, baseIndex + 1, baseIndex + 2 });
+                }
+            }
+        }
+    }
+
+    // デバッグ表示：三角形数を通知
+    wchar_t msg[256];
+    swprintf_s(msg, L"生成された三角形数：%d", triangleCount);
+    MessageBoxW(nullptr, msg, L"メッシュ生成", MB_OK);
+
+    // ポリゴン調整＋スムージング（既存処理）
+    int baseCount = (int)mesh.triangles.size();
+    int subdivIterations = 0;
+    while ((baseCount * std::pow(4, subdivIterations)) < targetPolygonCount && subdivIterations < 4)
+        ++subdivIterations;
+
+    if (subdivIterations > 0) {
+        mesh = subdivideMesh(mesh, subdivIterations);
+    }
+
+    smoothMesh(mesh, 1);
+    return mesh;
+}
+
+GRIDCELL ConvertCubeToGridCell(const Cube& cube) {
+    GRIDCELL gridCell;
+    for (int i = 0; i < 8; ++i) {
+        gridCell.p[i] = cube.position[i];
+        gridCell.val[i] = cube.value[i];
+    }
+    return gridCell;
+}
+
+Cube SampleCube(const VolumeData& volume, int x, int y, int z) {
+    Cube cube;
+    return cube;
+}
+
+int CalculateCubeIndex(const Cube& cube, float isolevel) {
+    int index = 0;
+    return index;
+}
+
+int Polygonise(const GRIDCELL& grid, double isolevel, TRIANGLE* triangles) {
+
     int cubeindex = 0;
     XYZ vertlist[12];
 
@@ -457,6 +428,60 @@ int Polygonise(GRIDCELL grid, double isolevel, TRIANGLE* triangles) {
     }
 
     return ntriang;
+}
+
+std::vector<Triangle> GenerateMeshWithMarchingCubes(const VolumeData& volume, float isoLevel) {
+    std::vector<Triangle> result;
+
+    for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
+        for (int y = 0; y < volume.getSizeY() - 1; ++y) {
+            for (int x = 0; x < volume.getSizeX() - 1; ++x) {
+                GRIDCELL cell;
+
+                for (int dz = 0; dz <= 1; ++dz)
+                    for (int dy = 0; dy <= 1; ++dy)
+                        for (int dx = 0; dx <= 1; ++dx) {
+                            int idx = dz * 4 + dy * 2 + dx;
+                            int vx = x + dx;
+                            int vy = y + dy;
+                            int vz = z + dz;
+                            cell.p[idx] = { (float)vx, (float)vy, (float)vz };
+                            cell.val[idx] = volume.get(vx, vy, vz) ? 1.0 : 0.0;
+                        }
+
+                TRIANGLE buffer[5];
+                int n = Polygonise(cell, isoLevel, buffer);
+
+                for (int i = 0; i < n; ++i) {
+                    Triangle tri;
+                    for (int j = 0; j < 3; ++j) {
+                        tri.vertices[j] = {
+                            buffer[i].p[j].x,
+                            buffer[i].p[j].y,
+                            buffer[i].p[j].z
+                        };
+                    }
+                    result.push_back(tri);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+// 補間関数（isolevel を元に補間点を求める）
+XYZ VertexInterp(double isolevel, XYZ p1, XYZ p2, double valp1, double valp2){
+    double mu;
+    XYZ p;
+    if (fabs(isolevel - valp1) < 0.00001) return p1;
+    if (fabs(isolevel - valp2) < 0.00001) return p2;
+    if (fabs(valp1 - valp2) < 0.00001) return p1;
+    mu = (isolevel - valp1) / (valp2 - valp1);
+    p.x = p1.x + mu * (p2.x - p1.x);
+    p.y = p1.y + mu * (p2.y - p1.y);
+    p.z = p1.z + mu * (p2.z - p1.z);
+    return p;
 }
 
 // メッシュ生成関数

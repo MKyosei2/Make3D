@@ -1,6 +1,11 @@
 ﻿#include "BuildVolumeFromImages.h"
 #include <windows.h>
 #include "VolumeUtils.h" 
+#include <vector>
+
+struct RGBPixel {
+    BYTE b, g, r;
+};
 
 VolumeData BuildVolumeFromSingleImage(const Image& img) {
     int depth = 64;
@@ -24,36 +29,57 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
     int sizeY = volume.getSizeY();
     int sizeZ = volume.getSizeZ();
 
-    // 簡易的に全体を 0 クリア（未使用）
+    // ボリューム初期化
     for (int z = 0; z < sizeZ; ++z)
         for (int y = 0; y < sizeY; ++y)
             for (int x = 0; x < sizeX; ++x)
                 volume.set(x, y, z, false);
 
-    // 例: Front 画像で奥行きを削る処理（実装簡易化）
     HBITMAP hBmp = appState.images[(int)ViewDirection::Front];
     if (!hBmp) return false;
 
-    BITMAP bmp;
+    // GDIコンテキスト作成
+    BITMAP bmp = {};
     GetObject(hBmp, sizeof(BITMAP), &bmp);
-    int width = bmp.bmWidth;
-    int height = bmp.bmHeight;
-    BYTE* bits = (BYTE*)bmp.bmBits;
 
+    HDC hdc = GetDC(nullptr);
+
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = bmp.bmWidth;
+    bmi.bmiHeader.biHeight = -bmp.bmHeight; // 上下反転
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 24; // RGB
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    int stride = ((bmp.bmWidth * 3 + 3) & ~3);
+    std::vector<BYTE> pixelData(stride * bmp.bmHeight);
+
+    if (!GetDIBits(hdc, hBmp, 0, bmp.bmHeight, pixelData.data(), &bmi, DIB_RGB_COLORS)) {
+        ReleaseDC(nullptr, hdc);
+        return false;
+    }
+
+    ReleaseDC(nullptr, hdc);
+
+    // ボリュームに埋め込み（しきい値判定）
     for (int z = 0; z < sizeZ; ++z) {
         for (int y = 0; y < sizeY; ++y) {
             for (int x = 0; x < sizeX; ++x) {
-                int imgX = x * width / sizeX;
-                int imgY = y * height / sizeY;
-                int pixelIdx = (imgY * bmp.bmWidthBytes) + (imgX * 3);
+                int imgX = x * bmp.bmWidth / sizeX;
+                int imgY = y * bmp.bmHeight / sizeY;
 
-                BYTE r = bits[pixelIdx + 2];
-                BYTE g = bits[pixelIdx + 1];
-                BYTE b = bits[pixelIdx + 0];
+                int offset = imgY * stride + imgX * 3;
+                BYTE b = pixelData[offset + 0];
+                BYTE g = pixelData[offset + 1];
+                BYTE r = pixelData[offset + 2];
 
-                bool isSolid = (r + g + b) < 128 * 3; // 黒っぽいピクセルを内部とみなす
+                // シルエット判定：暗いピクセルを塗りつぶし
+                bool isSolid = (r + g + b) < 128 * 3;
                 if (isSolid) {
-                    volume.set(x, y, z, true);
+                    for (int dz = 0; dz < sizeZ; ++dz) {
+                        volume.set(x, y, dz, true);
+                    }
                 }
             }
         }

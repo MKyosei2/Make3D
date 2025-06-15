@@ -21,7 +21,8 @@ struct Cube {
     XYZ position[8];
 };
 
-std::vector<Triangle> Polygonise(const GRIDCELL& grid, float isoLevel);
+XYZ VertexInterp(double isolevel, XYZ p1, XYZ p2, double valp1, double valp2);
+int Polygonise(const GRIDCELL& grid, double isoLevel, TRIANGLE* triangles);
 class MeshGenerator {
 public:
     MeshGenerator();
