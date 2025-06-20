@@ -1,21 +1,39 @@
-﻿#include "FBXExporter.h"
+﻿#define NOMINMAX
+#include "FBXExporter.h"
 #include "MeshUtils.h"
 #include <fbxsdk.h>
 #include <windows.h>
+#include <algorithm> 
 #pragma comment(lib, "libfbxsdk.lib")
 
 bool exportMeshToFBX(const std::wstring& filenameW, const Mesh& mesh) {
-    // ✅ 空メッシュを防止
     if (mesh.vertices.empty() || mesh.triangles.empty()) {
         MessageBoxW(nullptr, L"メッシュが空です。FBX出力をスキップしました。", L"警告", MB_ICONWARNING);
         return false;
     }
 
-    // ✅ ファイル名拡張子チェック
     if (filenameW.size() < 4 || filenameW.substr(filenameW.size() - 4) != L".fbx") {
         MessageBoxW(nullptr, L".fbx 拡張子が必要です。", L"警告", MB_ICONWARNING);
         return false;
     }
+
+    // 中心補正のためにバウンディングボックスを計算
+    double minX = 1e10, maxX = -1e10;
+    double minY = 1e10, maxY = -1e10;
+    double minZ = 1e10, maxZ = -1e10;
+
+    for (const auto& v : mesh.vertices) {
+        minX = std::min(minX, (double)v.x);
+        maxX = std::max(maxX, (double)v.x);
+        minY = std::min(minY, (double)v.y);
+        maxY = std::max(maxY, (double)v.y);
+        minZ = std::min(minZ, (double)v.z);
+        maxZ = std::max(maxZ, (double)v.z);
+    }
+
+    double offsetX = -(minX + maxX) * 0.5;
+    double offsetY = -(minY + maxY) * 0.5;
+    double offsetZ = -(minZ + maxZ) * 0.5;
 
     FbxManager* manager = FbxManager::Create();
     FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
@@ -27,13 +45,14 @@ bool exportMeshToFBX(const std::wstring& filenameW, const Mesh& mesh) {
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
     fbxMesh->InitControlPoints((int)mesh.vertices.size());
 
-    // 頂点の設定
     for (int i = 0; i < (int)mesh.vertices.size(); ++i) {
         const auto& v = mesh.vertices[i];
-        fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
+        fbxMesh->SetControlPointAt(FbxVector4(
+            (double)v.x + offsetX,
+            (double)v.y + offsetY,
+            (double)v.z + offsetZ), i);
     }
 
-    // ポリゴンの設定
     for (const auto& tri : mesh.triangles) {
         if (tri.v0 < mesh.vertices.size() && tri.v1 < mesh.vertices.size() && tri.v2 < mesh.vertices.size()) {
             fbxMesh->BeginPolygon();
@@ -44,12 +63,14 @@ bool exportMeshToFBX(const std::wstring& filenameW, const Mesh& mesh) {
         }
     }
 
-    // ノードにメッシュを登録
     FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
     meshNode->SetNodeAttribute(fbxMesh);
+
+    // 🔧 全体のスケーリング（Maya表示調整用）
+    meshNode->LclScaling.Set(FbxDouble3(0.01, 0.01, 0.01));
+
     root->AddChild(meshNode);
 
-    // 出力の準備
     FbxExporter* exporter = FbxExporter::Create(manager, "");
     std::string filenameA(filenameW.begin(), filenameW.end());
 

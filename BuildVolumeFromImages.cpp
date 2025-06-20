@@ -25,65 +25,95 @@ VolumeData BuildVolumeFromSingleImage(const Image& img) {
 }
 
 bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
-    int sizeX = volume.getSizeX();
-    int sizeY = volume.getSizeY();
-    int sizeZ = volume.getSizeZ();
+    const int sizeX = volume.getSizeX();
+    const int sizeY = volume.getSizeY();
+    const int sizeZ = volume.getSizeZ();
 
-    // ボリューム初期化
+    // 初期化：すべて true（AND 論理積用）
     for (int z = 0; z < sizeZ; ++z)
         for (int y = 0; y < sizeY; ++y)
             for (int x = 0; x < sizeX; ++x)
-                volume.set(x, y, z, false);
+                volume.set(x, y, z, true);
 
-    HBITMAP hBmp = appState.images[(int)ViewDirection::Front];
-    if (!hBmp) return false;
+    auto applyMask = [&](ViewDirection dir) {
+        HBITMAP hBitmap = appState.images[(int)dir];
+        if (!hBitmap) return;
 
-    // GDIコンテキスト作成
-    BITMAP bmp = {};
-    GetObject(hBmp, sizeof(BITMAP), &bmp);
+        BITMAP bmp = {};
+        GetObject(hBitmap, sizeof(BITMAP), &bmp);
+        const int imgW = bmp.bmWidth;
+        const int imgH = bmp.bmHeight;
+        const int stride = ((imgW * 3 + 3) & ~3);
 
-    HDC hdc = GetDC(nullptr);
+        std::vector<BYTE> pixels(stride * imgH);
+        BITMAPINFO bmi = {};
+        bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 24;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        bmi.bmiHeader.biWidth = imgW;
+        bmi.bmiHeader.biHeight = -imgH;
 
-    BITMAPINFO bmi = {};
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = bmp.bmWidth;
-    bmi.bmiHeader.biHeight = -bmp.bmHeight; // 上下反転
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 24; // RGB
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    int stride = ((bmp.bmWidth * 3 + 3) & ~3);
-    std::vector<BYTE> pixelData(stride * bmp.bmHeight);
-
-    if (!GetDIBits(hdc, hBmp, 0, bmp.bmHeight, pixelData.data(), &bmi, DIB_RGB_COLORS)) {
+        HDC hdc = GetDC(nullptr);
+        GetDIBits(hdc, hBitmap, 0, imgH, pixels.data(), &bmi, DIB_RGB_COLORS);
         ReleaseDC(nullptr, hdc);
-        return false;
-    }
 
-    ReleaseDC(nullptr, hdc);
+        for (int z = 0; z < sizeZ; ++z) {
+            for (int y = 0; y < sizeY; ++y) {
+                for (int x = 0; x < sizeX; ++x) {
+                    int ix = 0, iy = 0;
 
-    // ボリュームに埋め込み（しきい値判定）
-    for (int z = 0; z < sizeZ; ++z) {
-        for (int y = 0; y < sizeY; ++y) {
-            for (int x = 0; x < sizeX; ++x) {
-                int imgX = x * bmp.bmWidth / sizeX;
-                int imgY = y * bmp.bmHeight / sizeY;
-
-                int offset = imgY * stride + imgX * 3;
-                BYTE b = pixelData[offset + 0];
-                BYTE g = pixelData[offset + 1];
-                BYTE r = pixelData[offset + 2];
-
-                // シルエット判定：暗いピクセルを塗りつぶし
-                bool isSolid = (r + g + b) < 128 * 3;
-                if (isSolid) {
-                    for (int dz = 0; dz < sizeZ; ++dz) {
-                        volume.set(x, y, dz, true);
+                    switch (dir) {
+                    case ViewDirection::Front:
+                        ix = x * imgW / sizeX;
+                        iy = y * imgH / sizeY;
+                        break;
+                    case ViewDirection::Back:
+                        ix = (sizeX - 1 - x) * imgW / sizeX;
+                        iy = y * imgH / sizeY;
+                        break;
+                    case ViewDirection::Left:
+                        ix = z * imgW / sizeZ;
+                        iy = y * imgH / sizeY;
+                        break;
+                    case ViewDirection::Right:
+                        ix = (sizeZ - 1 - z) * imgW / sizeZ;
+                        iy = y * imgH / sizeY;
+                        break;
+                    case ViewDirection::Top:
+                        ix = x * imgW / sizeX;
+                        iy = (sizeZ - 1 - z) * imgH / sizeZ;
+                        break;
+                    case ViewDirection::Bottom:
+                        ix = x * imgW / sizeX;
+                        iy = z * imgH / sizeZ;
+                        break;
+                    default:
+                        continue;
                     }
+
+                    if (ix < 0 || iy < 0 || ix >= imgW || iy >= imgH) continue;
+
+                    int offset = iy * stride + ix * 3;
+                    BYTE r = pixels[offset + 2];
+                    BYTE g = pixels[offset + 1];
+                    BYTE b = pixels[offset + 0];
+                    bool solid = (r + g + b) < 128 * 3;
+
+                    if (!solid)
+                        volume.set(x, y, z, false); // どれかが false なら除外
                 }
             }
         }
-    }
+        };
+
+    // 全方向適用（存在する画像だけ使う）
+    applyMask(ViewDirection::Front);
+    applyMask(ViewDirection::Back);
+    applyMask(ViewDirection::Left);
+    applyMask(ViewDirection::Right);
+    applyMask(ViewDirection::Top);
+    applyMask(ViewDirection::Bottom);
 
     return true;
 }

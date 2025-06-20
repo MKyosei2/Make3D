@@ -1,22 +1,17 @@
-﻿  AppMain.cpp
-C:\Users\kyose\source\repos\Make3D\Make3D\AppMain.cpp(41,30): warning C4312: '型キャスト': 'int' からより大きいサイズの 'HMENU' へ変換します。
-  MeshGenerator.cpp
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(481,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(482,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
-C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(483,16): warning C4244: '=': 'double' から 'float' への変換です。データが失われる可能性があります。
+﻿  BuildVolumeFromImages.cpp
   コード生成しています。
-  121 of 700 functions (17.3%) were compiled, the rest were copied from previous compilation.
-    56 functions were new in current compilation
-    90 functions had inline decision re-evaluated but remain unchanged
+  11 of 711 functions ( 1.5%) were compiled, the rest were copied from previous compilation.
+    2 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
   コード生成が終了しました。
 PartProcessor.obj : warning LNK4099: PDB 'vc143.pdb' が 'PartProcessor.obj' で、または 'C:\Users\kyose\source\repos\Make3D\x64\Release\vc143.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
 PreviewRenderer.obj : warning LNK4099: PDB 'vc143.pdb' が 'PreviewRenderer.obj' で、または 'C:\Users\kyose\source\repos\Make3D\x64\Release\vc143.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
+AppState.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
+BuildVolumeFromImages.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
+ImageUtils.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
+MeshGenerator.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
 MeshUtils.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
 AppMain.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
-ImageUtils.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
-FBXExporter.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
-MeshGenerator.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
 VolumeUtils.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
-BuildVolumeFromImages.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
-AppState.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
+FBXExporter.obj : warning LNK4020: 'c:\users\kyose\source\repos\make3d\make3d\x64\release\vc143.pdb' の型レコードは破損しています。一部のシンボルおよび型は、デバッガーからはアクセスできない可能性があります。
   Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
