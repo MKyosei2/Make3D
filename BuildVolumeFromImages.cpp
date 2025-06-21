@@ -30,7 +30,7 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
     const int sizeY = volume.getSizeY();
     const int sizeZ = volume.getSizeZ();
 
-    // ① false で初期化（AND削除方式から塗り込み式へ）
+    // 初期化：すべて false に
     for (int z = 0; z < sizeZ; ++z)
         for (int y = 0; y < sizeY; ++y)
             for (int x = 0; x < sizeX; ++x)
@@ -61,25 +61,21 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
         GetDIBits(hdc, hBitmap, 0, imgH, pixels.data(), &bmi, DIB_RGB_COLORS);
         ReleaseDC(nullptr, hdc);
 
-        // ② 平均明度から動的しきい値決定
+        // 平均輝度を使って動的しきい値を決定
         long long total = 0;
         for (int y = 0; y < imgH; ++y)
             for (int x = 0; x < imgW; ++x) {
-                int offset = y * stride + x * 3;
-                BYTE r = pixels[offset + 2];
-                BYTE g = pixels[offset + 1];
-                BYTE b = pixels[offset + 0];
-                total += r + g + b;
+                int ofs = y * stride + x * 3;
+                total += pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
             }
-        int avg = (int)(total / (imgW * imgH));
-        int threshold = avg - 30;
-        if (threshold < 30) threshold = 30;
+
+        int avg = static_cast<int>(total / (imgW * imgH));
+        int threshold = std::clamp(avg - 30, 16, 255);  // 自動調整
 
         for (int z = 0; z < sizeZ; ++z) {
             for (int y = 0; y < sizeY; ++y) {
                 for (int x = 0; x < sizeX; ++x) {
                     int ix = 0, iy = 0;
-
                     switch (dir) {
                     case ViewDirection::Front:  ix = x * imgW / sizeX; iy = y * imgH / sizeY; break;
                     case ViewDirection::Back:   ix = (sizeX - 1 - x) * imgW / sizeX; iy = y * imgH / sizeY; break;
@@ -91,11 +87,8 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
                     }
 
                     if (ix < 0 || iy < 0 || ix >= imgW || iy >= imgH) continue;
-                    int offset = iy * stride + ix * 3;
-                    BYTE r = pixels[offset + 2];
-                    BYTE g = pixels[offset + 1];
-                    BYTE b = pixels[offset + 0];
-                    int brightness = r + g + b;
+                    int ofs = iy * stride + ix * 3;
+                    int brightness = pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
 
                     if (brightness < threshold * 3) {
                         volume.set(x, y, z, true);
@@ -106,26 +99,21 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
         }
         };
 
-    // ③ 全方向マスク適用
+    // 全方向にマスクを適用
     for (int i = 0; i < (int)ViewDirection::Count; ++i)
         applyMask((ViewDirection)i);
 
-    // ④ 万が一 1 ボクセルも塗れていなければ、仮ボリューム出力
+    // Voxelがまったく存在しない場合、代替で中央立方体を生成
     if (!anyVoxelSet) {
-        MessageBoxW(nullptr, L"画像から抽出できるボクセルが見つかりませんでした。\n仮の球体ボリュームを生成します。", L"代替生成", MB_OK);
-        generateVoxelSphere(volume, sizeX / 2.5f);
+        MessageBoxW(nullptr, L"画像からボクセルを抽出できなかったため、中央に仮のボクセル立方体を生成します。", L"代替処理", MB_OK);
+        int x0 = sizeX / 3, x1 = 2 * sizeX / 3;
+        int y0 = sizeY / 3, y1 = 2 * sizeY / 3;
+        int z0 = sizeZ / 3, z1 = 2 * sizeZ / 3;
+        for (int z = z0; z < z1; ++z)
+            for (int y = y0; y < y1; ++y)
+                for (int x = x0; x < x1; ++x)
+                    volume.set(x, y, z, true);
     }
-    int filled = 0;
-    for (int z = 0; z < sizeZ; ++z)
-        for (int y = 0; y < sizeY; ++y)
-            for (int x = 0; x < sizeX; ++x)
-                if (volume.get(x, y, z))
-                    ++filled;
 
-    // 💡 万が一全て false だったら「中央に 1 点だけ true を入れる」
-    if (filled == 0) {
-        MessageBoxW(nullptr, L"[最終救済] volume が空。中央を1ピクセル強制 ON", L"DEBUG", MB_OK);
-        volume.set(sizeX / 2, sizeY / 2, sizeZ / 2, true);
-    }
     return true;
 }

@@ -60,35 +60,60 @@ AlignmentParams computeAlignmentParams(const HBITMAP hBitmap) {
 
 // 輝度差からマスクを自動抽出（非常に単純なエッジ判定）
 HBITMAP ExtractMaskFromBitmap(HBITMAP hSrcBitmap) {
+    if (!hSrcBitmap) return nullptr;
+
     BITMAP bmp = {};
-    GetObject(hSrcBitmap, sizeof(BITMAP), &bmp);
-    if (bmp.bmBitsPixel != 32) return nullptr;
+    if (GetObject(hSrcBitmap, sizeof(BITMAP), &bmp) == 0 || bmp.bmBitsPixel != 32)
+        return nullptr;
 
     int w = bmp.bmWidth;
     int h = bmp.bmHeight;
-    DWORD* src = (DWORD*)bmp.bmBits;
 
-    HBITMAP hDst = CreateCompatibleBitmap(GetDC(0), w, h);
-    BITMAP dstBmp = {};
-    GetObject(hDst, sizeof(BITMAP), &dstBmp);
-    DWORD* dst = (DWORD*)dstBmp.bmBits;
+    HDC hdc = GetDC(NULL);
+    HDC srcDC = CreateCompatibleDC(hdc);
+    HDC dstDC = CreateCompatibleDC(hdc);
 
-    for (int y = 1; y < h - 1; ++y) {
-        for (int x = 1; x < w - 1; ++x) {
-            DWORD c = src[y * w + x];
-            BYTE r = (BYTE)(c >> 16), g = (BYTE)(c >> 8), b = (BYTE)c;
+    HBITMAP hDst = CreateCompatibleBitmap(hdc, w, h);
+    if (!hDst) {
+        DeleteDC(srcDC);
+        DeleteDC(dstDC);
+        ReleaseDC(NULL, hdc);
+        return nullptr;
+    }
+
+    HBITMAP oldSrc = (HBITMAP)SelectObject(srcDC, hSrcBitmap);
+    HBITMAP oldDst = (HBITMAP)SelectObject(dstDC, hDst);
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            COLORREF c = GetPixel(srcDC, x, y);
+            int r = GetRValue(c);
+            int g = GetGValue(c);
+            int b = GetBValue(c);
             int lum = (int)(0.3 * r + 0.59 * g + 0.11 * b);
 
-            DWORD cR = src[y * w + (x + 1)];
-            BYTE r2 = (BYTE)(cR >> 16), g2 = (BYTE)(cR >> 8), b2 = (BYTE)cR;
-            int lum2 = (int)(0.3 * r2 + 0.59 * g2 + 0.11 * b2);
+            // 横の隣接ピクセルと輝度差を比較（簡易エッジ検出）
+            if (x < w - 1) {
+                COLORREF c2 = GetPixel(srcDC, x + 1, y);
+                int lum2 = (int)(0.3 * GetRValue(c2) + 0.59 * GetGValue(c2) + 0.11 * GetBValue(c2));
+                int diff = abs(lum - lum2);
 
-            int diff = abs(lum - lum2);
-
-            BYTE a = (diff > 16) ? 255 : 0;
-            dst[y * w + x] = (a << 24) | (255 << 16) | (255 << 8) | 255;
+                if (diff > 16)
+                    SetPixel(dstDC, x, y, RGB(255, 255, 255)); // マスク（白）
+                else
+                    SetPixel(dstDC, x, y, RGB(0, 0, 0)); // 背景（黒）
+            }
+            else {
+                SetPixel(dstDC, x, y, RGB(0, 0, 0));
+            }
         }
     }
+
+    SelectObject(srcDC, oldSrc);
+    SelectObject(dstDC, oldDst);
+    DeleteDC(srcDC);
+    DeleteDC(dstDC);
+    ReleaseDC(NULL, hdc);
 
     return hDst;
 }

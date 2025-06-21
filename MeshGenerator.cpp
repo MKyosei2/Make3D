@@ -309,16 +309,14 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
     const double isoLevel = 0.5;
     int triangleCount = 0;
 
-    // 安全な get 関数
+    // 安全なアクセス関数
     auto getSafe = [&](int x, int y, int z) -> bool {
-        if (x < 0 || y < 0 || z < 0 ||
-            x >= volume.getSizeX() ||
-            y >= volume.getSizeY() ||
-            z >= volume.getSizeZ()) return false;
-        return volume.get(x, y, z);
+        return (x >= 0 && x < volume.getSizeX() &&
+            y >= 0 && y < volume.getSizeY() &&
+            z >= 0 && z < volume.getSizeZ()) && volume.get(x, y, z);
         };
 
-    // ボクセルチェックログ
+    // ボクセル存在確認（統計）
     int trueVoxelCount = 0;
     for (int z = 0; z < volume.getSizeZ(); ++z)
         for (int y = 0; y < volume.getSizeY(); ++y)
@@ -330,6 +328,7 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
         return mesh;
     }
 
+    // メッシュ化（マーチングキューブ）
     for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
         for (int y = 0; y < volume.getSizeY() - 1; ++y) {
             for (int x = 0; x < volume.getSizeX() - 1; ++x) {
@@ -359,12 +358,12 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
                     float ny = uz * vx - ux * vz;
                     float nz = ux * vy - uy * vx;
                     float area = sqrtf(nx * nx + ny * ny + nz * nz);
-                    if (area < 1e-5f) continue;
+                    if (area < 1e-8f) continue;
 
-                    bool valid = std::isfinite(a.x) && std::isfinite(b.x) && std::isfinite(c.x) &&
-                        std::isfinite(a.y) && std::isfinite(b.y) && std::isfinite(c.y) &&
-                        std::isfinite(a.z) && std::isfinite(b.z) && std::isfinite(c.z);
-                    if (!valid) continue;
+                    if (!std::isfinite(a.x) || !std::isfinite(b.x) || !std::isfinite(c.x) ||
+                        !std::isfinite(a.y) || !std::isfinite(b.y) || !std::isfinite(c.y) ||
+                        !std::isfinite(a.z) || !std::isfinite(b.z) || !std::isfinite(c.z))
+                        continue;
 
                     int base = (int)mesh.vertices.size();
                     mesh.vertices.push_back({ a.x, a.y, a.z });
@@ -378,20 +377,22 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
     }
 
     if (triangleCount == 0) {
-        MessageBoxW(nullptr, L"ボクセルは存在していますが、三角形が1つも生成されませんでした。\nボクセル配置や分布を確認してください。", L"エラー", MB_ICONERROR);
+        MessageBoxW(nullptr,
+            L"ボクセルは存在していますが、三角形が1つも生成されませんでした。\nボクセル配置や輝度しきい値を見直してください。",
+            L"エラー", MB_ICONERROR);
         return mesh;
     }
 
-    wchar_t msg[256];
-    swprintf_s(msg, L"✅ 三角形数: %d\nボクセル TRUE数: %d", triangleCount, trueVoxelCount);
-    MessageBoxW(nullptr, msg, L"メッシュ統計", MB_OK);
+    // 統計ログ
+    wchar_t stat[256];
+    swprintf_s(stat, L"三角形: %d\nボクセルTRUE数: %d", triangleCount, trueVoxelCount);
+    MessageBoxW(nullptr, stat, L"メッシュ統計", MB_OK);
 
     // 細分割
     int baseCount = (int)mesh.triangles.size();
     int subdivIterations = 0;
     while ((baseCount * std::pow(4, subdivIterations)) < targetPolygonCount && subdivIterations < 4)
         ++subdivIterations;
-
     if (subdivIterations > 0)
         mesh = subdivideMesh(mesh, subdivIterations);
 

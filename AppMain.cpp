@@ -67,18 +67,18 @@ void UpdateAppStateFromUI() {
 }
 
 void ShowImagePreview(int viewIndex, HBITMAP hBitmap) {
-    if (g_hImagePreviews[viewIndex]) {
-        HDC hdc = GetDC(g_hImagePreviews[viewIndex]);
-        HDC memDC = CreateCompatibleDC(hdc);
-        SelectObject(memDC, hBitmap);
+    if (!hBitmap || !g_hImagePreviews[viewIndex]) return; // ★ nullチェックを追加
 
-        BITMAP bmp;
-        GetObject(hBitmap, sizeof(BITMAP), &bmp);
-        StretchBlt(hdc, 0, 0, 100, 100, memDC, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
+    HDC hdc = GetDC(g_hImagePreviews[viewIndex]);
+    HDC memDC = CreateCompatibleDC(hdc);
+    SelectObject(memDC, hBitmap);
 
-        DeleteDC(memDC);
-        ReleaseDC(g_hImagePreviews[viewIndex], hdc);
-    }
+    BITMAP bmp;
+    GetObject(hBitmap, sizeof(BITMAP), &bmp);
+    StretchBlt(hdc, 0, 0, 100, 100, memDC, 0, 0, bmp.bmWidth, bmp.bmHeight, SRCCOPY);
+
+    DeleteDC(memDC);
+    ReleaseDC(g_hImagePreviews[viewIndex], hdc);
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -106,10 +106,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (GetOpenFileName(&ofn)) {
                 if (!g_state.loadImageForView((ViewDirection)viewIndex, filePath)) {
                     MessageBoxW(hWnd, L"画像の読み込みに失敗しました。", L"エラー", MB_ICONERROR);
+                    ShowImagePreview(viewIndex, nullptr);  // ✅ プレビューを空に
                 }
                 else {
-                    HBITMAP hBitmap = g_state.images[viewIndex];
-                    ShowImagePreview(viewIndex, hBitmap);
+                    ShowImagePreview(viewIndex, g_state.images[viewIndex]);
                 }
             }
         }

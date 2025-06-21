@@ -1,4 +1,4 @@
-#include "AppState.h"
+﻿#include "AppState.h"
 #include <windows.h>
 #include <shlwapi.h>
 #include "ImageUtils.h"
@@ -20,6 +20,8 @@ bool AppState::loadImages(const std::wstring& directory) {
             images[i] = hBitmap;
         }
         else {
+            DeleteObject(images[i]); // 古いビットマップがあるなら削除
+            images[i] = nullptr;     // ★ 明示的に初期化
             success = false;
         }
     }
@@ -37,21 +39,42 @@ void AppState::clearImages() {
 }
 
 bool AppState::loadImageForView(ViewDirection view, const std::wstring& path) {
+    // GDI+ Bitmap 読み込み
     Bitmap* bitmap = new Bitmap(path.c_str());
-    if (bitmap->GetLastStatus() != Ok) {
+    if (!bitmap || bitmap->GetLastStatus() != Ok) {
         delete bitmap;
+        images[(int)view] = nullptr;
         return false;
     }
 
     HBITMAP hBitmap = nullptr;
-    if (bitmap->GetHBITMAP(Color::White, &hBitmap) != Ok) {
+    if (bitmap->GetHBITMAP(Color::White, &hBitmap) != Ok || !hBitmap) {
         delete bitmap;
+        images[(int)view] = nullptr;
         return false;
     }
-
-    images[(int)view] = hBitmap;
     delete bitmap;
-    return true;
+
+    // 既存画像を削除（ダブルロード対策）
+    if (images[(int)view]) {
+        DeleteObject(images[(int)view]);
+        images[(int)view] = nullptr;
+    }
+
+    // 自動マスク抽出（フォールバックあり）
+    HBITMAP hMasked = ExtractMaskFromBitmap(hBitmap);
+    if (hMasked) {
+        DeleteObject(hBitmap);
+        images[(int)view] = hMasked;
+    }
+    else {
+        if (hBitmap)
+            images[(int)view] = hBitmap;
+        else
+            images[(int)view] = nullptr;
+    }
+
+    return images[(int)view] != nullptr;
 }
 
 HBITMAP AppState::getImageBitmap(ViewDirection view) const {
