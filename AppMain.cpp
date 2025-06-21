@@ -53,12 +53,15 @@ void UpdateAppStateFromUI() {
 
     if (g_hPolygonInput) {
         GetWindowTextW(g_hPolygonInput, buf, 31);
-        g_state.polygonCount = _wtoi(buf);
+        int poly = _wtoi(buf);
+        if (poly >= 100 && poly <= 1000000)
+            g_state.polygonCount = poly;
     }
+
     if (g_hResolutionInput) {
         GetWindowTextW(g_hResolutionInput, buf, 31);
         int res = _wtoi(buf);
-        if (res >= 16 && res <= 1024)
+        if (res >= 16 && res <= 512)
             g_state.voxelResolution = res;
     }
 }
@@ -134,7 +137,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         else if (LOWORD(wParam) == 300) {
             UpdateAppStateFromUI();
-            VolumeData volume(g_state.voxelResolution, g_state.voxelResolution, g_state.voxelResolution);
+            VolumeData volume(g_state.voxelResolution,
+                g_state.voxelResolution,
+                g_state.voxelResolution);
+
+            MeshGenerator generator;
+            generator.setTargetPolygonCount(g_state.polygonCount);
+            Mesh mesh = generator.generate(volume);
             if (generateVolumeFromImages(g_state, volume)) {
                 MeshGenerator generator;
                 generator.setTargetPolygonCount(g_state.polygonCount);

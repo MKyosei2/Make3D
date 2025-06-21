@@ -307,8 +307,28 @@ void MeshGenerator::setTargetPolygonCount(int count) {
 Mesh MeshGenerator::generate(const VolumeData& volume) {
     Mesh mesh;
     const double isoLevel = 0.5;
+    int triangleCount = 0;
 
-    int triangleCount = 0; // 追加：生成三角形のカウント
+    // 安全な get 関数
+    auto getSafe = [&](int x, int y, int z) -> bool {
+        if (x < 0 || y < 0 || z < 0 ||
+            x >= volume.getSizeX() ||
+            y >= volume.getSizeY() ||
+            z >= volume.getSizeZ()) return false;
+        return volume.get(x, y, z);
+        };
+
+    // ボクセルチェックログ
+    int trueVoxelCount = 0;
+    for (int z = 0; z < volume.getSizeZ(); ++z)
+        for (int y = 0; y < volume.getSizeY(); ++y)
+            for (int x = 0; x < volume.getSizeX(); ++x)
+                if (volume.get(x, y, z)) ++trueVoxelCount;
+
+    if (trueVoxelCount == 0) {
+        MessageBoxW(nullptr, L"ボクセルが空のようです（全て false）。", L"エラー", MB_ICONERROR);
+        return mesh;
+    }
 
     for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
         for (int y = 0; y < volume.getSizeY() - 1; ++y) {
@@ -322,39 +342,60 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
                             int vy = y + dy;
                             int vz = z + dz;
                             cell.p[idx] = { (float)vx, (float)vy, (float)vz };
-                            cell.val[idx] = volume.get(vx, vy, vz) ? 1.0 : 0.0;
+                            cell.val[idx] = getSafe(vx, vy, vz) ? 1.0 : 0.0;
                         }
 
-                TRIANGLE triangles[5];  // 最大5つの三角形が返る
-                int n = Polygonise(cell, isoLevel, triangles);
-                triangleCount += n;
+                TRIANGLE tris[5];
+                int n = Polygonise(cell, isoLevel, tris);
 
                 for (int i = 0; i < n; ++i) {
-                    int baseIndex = (int)mesh.vertices.size();
-                    mesh.vertices.push_back({ triangles[i].p[0].x, triangles[i].p[0].y, triangles[i].p[0].z });
-                    mesh.vertices.push_back({ triangles[i].p[1].x, triangles[i].p[1].y, triangles[i].p[1].z });
-                    mesh.vertices.push_back({ triangles[i].p[2].x, triangles[i].p[2].y, triangles[i].p[2].z });
-                    mesh.triangles.push_back({ baseIndex, baseIndex + 1, baseIndex + 2 });
+                    auto& a = tris[i].p[0];
+                    auto& b = tris[i].p[1];
+                    auto& c = tris[i].p[2];
+
+                    float ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z;
+                    float vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
+                    float nx = uy * vz - uz * vy;
+                    float ny = uz * vx - ux * vz;
+                    float nz = ux * vy - uy * vx;
+                    float area = sqrtf(nx * nx + ny * ny + nz * nz);
+                    if (area < 1e-5f) continue;
+
+                    bool valid = std::isfinite(a.x) && std::isfinite(b.x) && std::isfinite(c.x) &&
+                        std::isfinite(a.y) && std::isfinite(b.y) && std::isfinite(c.y) &&
+                        std::isfinite(a.z) && std::isfinite(b.z) && std::isfinite(c.z);
+                    if (!valid) continue;
+
+                    int base = (int)mesh.vertices.size();
+                    mesh.vertices.push_back({ a.x, a.y, a.z });
+                    mesh.vertices.push_back({ b.x, b.y, b.z });
+                    mesh.vertices.push_back({ c.x, c.y, c.z });
+                    mesh.triangles.push_back({ base, base + 1, base + 2 });
+                    ++triangleCount;
                 }
             }
         }
     }
 
-    // デバッグ表示：三角形数を通知
-    wchar_t msg[256];
-    swprintf_s(msg, L"生成された三角形数：%d", triangleCount);
-    MessageBoxW(nullptr, msg, L"メッシュ生成", MB_OK);
+    if (triangleCount == 0) {
+        MessageBoxW(nullptr, L"ボクセルは存在していますが、三角形が1つも生成されませんでした。\nボクセル配置や分布を確認してください。", L"エラー", MB_ICONERROR);
+        return mesh;
+    }
 
-    // ポリゴン調整＋スムージング（既存処理）
+    wchar_t msg[256];
+    swprintf_s(msg, L"✅ 三角形数: %d\nボクセル TRUE数: %d", triangleCount, trueVoxelCount);
+    MessageBoxW(nullptr, msg, L"メッシュ統計", MB_OK);
+
+    // 細分割
     int baseCount = (int)mesh.triangles.size();
     int subdivIterations = 0;
     while ((baseCount * std::pow(4, subdivIterations)) < targetPolygonCount && subdivIterations < 4)
         ++subdivIterations;
 
-    if (subdivIterations > 0) {
+    if (subdivIterations > 0)
         mesh = subdivideMesh(mesh, subdivIterations);
-    }
 
+    // スムージング
     smoothMesh(mesh, 1);
     return mesh;
 }

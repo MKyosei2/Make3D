@@ -16,6 +16,7 @@ bool exportMeshToFBX(const std::wstring& filenameW, const Mesh& mesh) {
         MessageBoxW(nullptr, L".fbx 拡張子が必要です。", L"警告", MB_ICONWARNING);
         return false;
     }
+    DeleteFileW(filenameW.c_str());
 
     // 中心補正のためにバウンディングボックスを計算
     double minX = 1e10, maxX = -1e10;
