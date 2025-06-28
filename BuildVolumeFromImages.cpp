@@ -43,39 +43,31 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
         if (!hBitmap) return;
 
         BITMAP bmp = {};
-        GetObject(hBitmap, sizeof(BITMAP), &bmp);
+        if (GetObject(hBitmap, sizeof(BITMAP), &bmp) == 0 || bmp.bmBitsPixel != 32) return;
+
         const int imgW = bmp.bmWidth;
         const int imgH = bmp.bmHeight;
-        const int stride = ((imgW * 3 + 3) & ~3);
+        const int stride = ((imgW * 4 + 3) & ~3); // 4バイト単位（ARGB）
 
         std::vector<BYTE> pixels(stride * imgH);
+
         BITMAPINFO bmi = {};
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 24;
+        bmi.bmiHeader.biBitCount = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
         bmi.bmiHeader.biWidth = imgW;
-        bmi.bmiHeader.biHeight = -imgH;
+        bmi.bmiHeader.biHeight = -imgH; // 上下反転なし
 
-        HDC hdc = GetDC(nullptr);
+        HDC hdc = GetDC(NULL);
         GetDIBits(hdc, hBitmap, 0, imgH, pixels.data(), &bmi, DIB_RGB_COLORS);
-        ReleaseDC(nullptr, hdc);
-
-        // 平均輝度を使って動的しきい値を決定
-        long long total = 0;
-        for (int y = 0; y < imgH; ++y)
-            for (int x = 0; x < imgW; ++x) {
-                int ofs = y * stride + x * 3;
-                total += pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
-            }
-
-        int avg = static_cast<int>(total / (imgW * imgH));
-        int threshold = std::clamp(avg - 30, 16, 255);  // 自動調整
+        ReleaseDC(NULL, hdc);
 
         for (int z = 0; z < sizeZ; ++z) {
             for (int y = 0; y < sizeY; ++y) {
                 for (int x = 0; x < sizeX; ++x) {
                     int ix = 0, iy = 0;
+
                     switch (dir) {
                     case ViewDirection::Front:  ix = x * imgW / sizeX; iy = y * imgH / sizeY; break;
                     case ViewDirection::Back:   ix = (sizeX - 1 - x) * imgW / sizeX; iy = y * imgH / sizeY; break;
@@ -87,10 +79,11 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
                     }
 
                     if (ix < 0 || iy < 0 || ix >= imgW || iy >= imgH) continue;
-                    int ofs = iy * stride + ix * 3;
-                    int brightness = pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
+                    int ofs = iy * stride + ix * 4;
 
-                    if (brightness < threshold * 3) {
+                    BYTE a = pixels[ofs + 3]; // アルファチャネル（ARGB順）
+
+                    if (a > 32) { // 透明ではない → 対象とみなす
                         volume.set(x, y, z, true);
                         anyVoxelSet = true;
                     }
