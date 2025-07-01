@@ -8,27 +8,21 @@ using namespace Gdiplus;
 
 bool AppState::loadImages(const std::wstring& directory) {
     bool success = true;
-
-    const wchar_t* viewNames[] = {
-        L"Front", L"Back", L"Left", L"Right", L"Top", L"Bottom"
-    };
+    const wchar_t* viewNames[] = { L"Front", L"Back", L"Left", L"Right", L"Top", L"Bottom" };
 
     for (int i = 0; i < (int)ViewDirection::Count; ++i) {
         std::wstring path = directory + L"\\" + viewNames[i] + L".bmp";
-        HBITMAP hBitmap = (HBITMAP)LoadImageW(NULL, path.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
-        if (hBitmap) {
-            images[i] = hBitmap;
-        }
-        else {
-            DeleteObject(images[i]); // 古いビットマップがあるなら削除
-            images[i] = nullptr;     // ★ 明示的に初期化
+        if (!loadImageForView((ViewDirection)i, path)) {
+            MessageBoxW(nullptr, path.c_str(), L"この画像の読み込みに失敗しました", MB_ICONWARNING);
             success = false;
         }
     }
-
     return success;
 }
 
+HBITMAP AppState::getImageBitmap(ViewDirection view) const {
+    return images[(int)view];
+}
 void AppState::clearImages() {
     for (int i = 0; i < (int)ViewDirection::Count; ++i) {
         if (images[i]) {
@@ -39,44 +33,45 @@ void AppState::clearImages() {
 }
 
 bool AppState::loadImageForView(ViewDirection view, const std::wstring& path) {
-    // GDI+ Bitmap 読み込み
-    Bitmap* bitmap = new Bitmap(path.c_str());
-    if (!bitmap || bitmap->GetLastStatus() != Ok) {
-        delete bitmap;
+    Gdiplus::Bitmap bitmap(path.c_str());
+    if (bitmap.GetLastStatus() != Gdiplus::Ok) {
+        MessageBoxW(nullptr, (L"読み込み失敗: " + path).c_str(), L"Bitmap 読み込み失敗", MB_ICONERROR);
         images[(int)view] = nullptr;
+        return false;
+    }
+
+    Gdiplus::Bitmap* clone = bitmap.Clone(0, 0, bitmap.GetWidth(), bitmap.GetHeight(), PixelFormat32bppARGB);
+    if (!clone) {
+        MessageBoxW(nullptr, L"32bit変換 (Clone) に失敗しました", L"Bitmap Clone 失敗", MB_ICONERROR);
         return false;
     }
 
     HBITMAP hBitmap = nullptr;
-    if (bitmap->GetHBITMAP(Color::White, &hBitmap) != Ok || !hBitmap) {
-        delete bitmap;
-        images[(int)view] = nullptr;
+    if (clone->GetHBITMAP(Gdiplus::Color(255, 255, 255), &hBitmap) != Gdiplus::Ok || !hBitmap) {
+        delete clone;
+        MessageBoxW(nullptr, L"HBITMAP 取得に失敗しました", L"GetHBITMAP 失敗", MB_ICONERROR);
         return false;
     }
-    delete bitmap;
+    delete clone;
 
-    // 既存画像を削除（ダブルロード対策）
-    if (images[(int)view]) {
-        DeleteObject(images[(int)view]);
-        images[(int)view] = nullptr;
-    }
-
-    // 自動マスク抽出（フォールバックあり）
-    HBITMAP hMasked = ExtractMaskFromBitmap(hBitmap);
-    if (hMasked) {
+    BITMAP bmp = {};
+    GetObject(hBitmap, sizeof(BITMAP), &bmp);
+    if (bmp.bmWidth == 0 || bmp.bmHeight == 0) {
         DeleteObject(hBitmap);
-        images[(int)view] = hMasked;
-    }
-    else {
-        if (hBitmap)
-            images[(int)view] = hBitmap;
-        else
-            images[(int)view] = nullptr;
+        MessageBoxW(nullptr, L"HBITMAP サイズが無効です", L"Bitmap サイズ異常", MB_ICONERROR);
+        return false;
     }
 
-    return images[(int)view] != nullptr;
-}
+    HBITMAP hMasked = ExtractMaskFromBitmap(hBitmap);
+    if (!hMasked) {
+        MessageBoxW(nullptr, (L"マスク抽出失敗: " + path).c_str(), L"ExtractMaskFromBitmap() 失敗", MB_ICONERROR);
+        DeleteObject(hBitmap);
+        return false;
+    }
 
-HBITMAP AppState::getImageBitmap(ViewDirection view) const {
-    return images[(int)view];
+    DeleteObject(hBitmap);
+    if (images[(int)view]) DeleteObject(images[(int)view]);
+    images[(int)view] = hMasked;
+
+    return true;
 }

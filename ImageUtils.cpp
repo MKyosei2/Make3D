@@ -60,60 +60,39 @@ AlignmentParams computeAlignmentParams(const HBITMAP hBitmap) {
 
 // 輝度差からマスクを自動抽出（非常に単純なエッジ判定）
 HBITMAP ExtractMaskFromBitmap(HBITMAP hSrcBitmap) {
-    if (!hSrcBitmap) return nullptr;
-
     BITMAP bmp = {};
-    if (GetObject(hSrcBitmap, sizeof(BITMAP), &bmp) == 0 || bmp.bmBitsPixel != 32)
-        return nullptr;
-
+    GetObject(hSrcBitmap, sizeof(BITMAP), &bmp);
     int w = bmp.bmWidth;
     int h = bmp.bmHeight;
+    HDC hdc = GetDC(nullptr);
 
-    HDC hdc = GetDC(NULL);
-    HDC srcDC = CreateCompatibleDC(hdc);
-    HDC dstDC = CreateCompatibleDC(hdc);
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = w;
+    bmi.bmiHeader.biHeight = -h;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    std::vector<BYTE> pixels(w * h * 4);
+    GetDIBits(hdc, hSrcBitmap, 0, h, pixels.data(), &bmi, DIB_RGB_COLORS);
 
     HBITMAP hDst = CreateCompatibleBitmap(hdc, w, h);
-    if (!hDst) {
-        DeleteDC(srcDC);
-        DeleteDC(dstDC);
-        ReleaseDC(NULL, hdc);
-        return nullptr;
-    }
-
-    HBITMAP oldSrc = (HBITMAP)SelectObject(srcDC, hSrcBitmap);
-    HBITMAP oldDst = (HBITMAP)SelectObject(dstDC, hDst);
+    HDC memDC = CreateCompatibleDC(hdc);
+    SelectObject(memDC, hDst);
 
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            COLORREF c = GetPixel(srcDC, x, y);
-            int r = GetRValue(c);
-            int g = GetGValue(c);
-            int b = GetBValue(c);
-            int lum = (int)(0.3 * r + 0.59 * g + 0.11 * b);
-
-            // 横の隣接ピクセルと輝度差を比較（簡易エッジ検出）
-            if (x < w - 1) {
-                COLORREF c2 = GetPixel(srcDC, x + 1, y);
-                int lum2 = (int)(0.3 * GetRValue(c2) + 0.59 * GetGValue(c2) + 0.11 * GetBValue(c2));
-                int diff = abs(lum - lum2);
-
-                if (diff > 16)
-                    SetPixel(dstDC, x, y, RGB(255, 255, 255)); // マスク（白）
-                else
-                    SetPixel(dstDC, x, y, RGB(0, 0, 0)); // 背景（黒）
-            }
-            else {
-                SetPixel(dstDC, x, y, RGB(0, 0, 0));
-            }
+            BYTE* px = &pixels[(y * w + x) * 4];
+            BYTE a = px[3];
+            int brightness = px[0] + px[1] + px[2];
+            bool isFG = (a > 64) && (brightness < 180 * 3);
+            COLORREF color = isFG ? RGB(10, 10, 10) : RGB(255, 255, 255);
+            SetPixel(memDC, x, y, color);
         }
     }
 
-    SelectObject(srcDC, oldSrc);
-    SelectObject(dstDC, oldDst);
-    DeleteDC(srcDC);
-    DeleteDC(dstDC);
-    ReleaseDC(NULL, hdc);
-
+    DeleteDC(memDC);
+    ReleaseDC(nullptr, hdc);
     return hDst;
 }

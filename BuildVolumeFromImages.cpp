@@ -30,44 +30,68 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
     const int sizeY = volume.getSizeY();
     const int sizeZ = volume.getSizeZ();
 
-    // 初期化：すべて false に
     for (int z = 0; z < sizeZ; ++z)
         for (int y = 0; y < sizeY; ++y)
             for (int x = 0; x < sizeX; ++x)
                 volume.set(x, y, z, false);
 
     bool anyVoxelSet = false;
+    int totalVoxelCount = 0;
 
     auto applyMask = [&](ViewDirection dir) {
         HBITMAP hBitmap = appState.images[(int)dir];
-        if (!hBitmap) return;
+        if (!hBitmap) {
+            MessageBoxW(nullptr, L"画像が読み込まれていません", L"エラー", MB_ICONERROR);
+            return;
+        }
 
         BITMAP bmp = {};
-        if (GetObject(hBitmap, sizeof(BITMAP), &bmp) == 0 || bmp.bmBitsPixel != 32) return;
-
-        const int imgW = bmp.bmWidth;
-        const int imgH = bmp.bmHeight;
-        const int stride = ((imgW * 4 + 3) & ~3); // 4バイト単位（ARGB）
+        GetObject(hBitmap, sizeof(BITMAP), &bmp);
+        int imgW = bmp.bmWidth, imgH = bmp.bmHeight;
+        int stride = ((imgW * 3 + 3) & ~3);
 
         std::vector<BYTE> pixels(stride * imgH);
-
         BITMAPINFO bmi = {};
         bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biPlanes = 1;
-        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biBitCount = 24;
         bmi.bmiHeader.biCompression = BI_RGB;
         bmi.bmiHeader.biWidth = imgW;
-        bmi.bmiHeader.biHeight = -imgH; // 上下反転なし
+        bmi.bmiHeader.biHeight = -imgH;
 
-        HDC hdc = GetDC(NULL);
+        HDC hdc = GetDC(nullptr);
         GetDIBits(hdc, hBitmap, 0, imgH, pixels.data(), &bmi, DIB_RGB_COLORS);
-        ReleaseDC(NULL, hdc);
+        ReleaseDC(nullptr, hdc);
+
+        // debug: 画像の平均輝度からしきい値を算出
+        long long total = 0;
+        for (int y = 0; y < imgH; ++y)
+            for (int x = 0; x < imgW; ++x) {
+                int ofs = y * stride + x * 3;
+                total += pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
+            }
+
+        int avg = static_cast<int>(total / (imgW * imgH));
+        int threshold = std::clamp(avg - 30, 16, 255);
+
+        // DEBUG: 低輝度ピクセル数をカウント
+        int darkPixelCount = 0;
+        for (int y = 0; y < imgH; ++y)
+            for (int x = 0; x < imgW; ++x) {
+                int ofs = y * stride + x * 3;
+                int brightness = pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
+                if (brightness < threshold * 3) darkPixelCount++;
+            }
+
+        wchar_t msg[256];
+        swprintf_s(msg, 256, L"%s\n画像サイズ: %dx%d\n平均輝度: %d\nしきい値: %d\n低輝度ピクセル数: %d",
+            L"ボクセル生成デバッグ", imgW, imgH, avg, threshold, darkPixelCount);
+        MessageBoxW(nullptr, msg, L"DEBUG", MB_OK);
 
         for (int z = 0; z < sizeZ; ++z) {
             for (int y = 0; y < sizeY; ++y) {
                 for (int x = 0; x < sizeX; ++x) {
                     int ix = 0, iy = 0;
-
                     switch (dir) {
                     case ViewDirection::Front:  ix = x * imgW / sizeX; iy = y * imgH / sizeY; break;
                     case ViewDirection::Back:   ix = (sizeX - 1 - x) * imgW / sizeX; iy = y * imgH / sizeY; break;
@@ -79,24 +103,22 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
                     }
 
                     if (ix < 0 || iy < 0 || ix >= imgW || iy >= imgH) continue;
-                    int ofs = iy * stride + ix * 4;
+                    int ofs = iy * stride + ix * 3;
+                    int brightness = pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
 
-                    BYTE a = pixels[ofs + 3]; // アルファチャネル（ARGB順）
-
-                    if (a > 32) { // 透明ではない → 対象とみなす
+                    if (brightness < threshold * 3) {
                         volume.set(x, y, z, true);
                         anyVoxelSet = true;
+                        totalVoxelCount++;
                     }
                 }
             }
         }
         };
 
-    // 全方向にマスクを適用
     for (int i = 0; i < (int)ViewDirection::Count; ++i)
         applyMask((ViewDirection)i);
 
-    // Voxelがまったく存在しない場合、代替で中央立方体を生成
     if (!anyVoxelSet) {
         MessageBoxW(nullptr, L"画像からボクセルを抽出できなかったため、中央に仮のボクセル立方体を生成します。", L"代替処理", MB_OK);
         int x0 = sizeX / 3, x1 = 2 * sizeX / 3;
@@ -106,6 +128,11 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
             for (int y = y0; y < y1; ++y)
                 for (int x = x0; x < x1; ++x)
                     volume.set(x, y, z, true);
+    }
+    else {
+        wchar_t stat[128];
+        swprintf_s(stat, 128, L"正常にボクセルが生成されました。\nボクセル数: %d", totalVoxelCount);
+        MessageBoxW(nullptr, stat, L"成功", MB_OK);
     }
 
     return true;
