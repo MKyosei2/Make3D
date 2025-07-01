@@ -41,7 +41,7 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
     auto applyMask = [&](ViewDirection dir) {
         HBITMAP hBitmap = appState.images[(int)dir];
         if (!hBitmap) {
-            MessageBoxW(nullptr, L"画像が読み込まれていません", L"エラー", MB_ICONERROR);
+            // 画像がない場合はスキップ（エラーは出さない）
             return;
         }
 
@@ -63,7 +63,6 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
         GetDIBits(hdc, hBitmap, 0, imgH, pixels.data(), &bmi, DIB_RGB_COLORS);
         ReleaseDC(nullptr, hdc);
 
-        // debug: 画像の平均輝度からしきい値を算出
         long long total = 0;
         for (int y = 0; y < imgH; ++y)
             for (int x = 0; x < imgW; ++x) {
@@ -73,20 +72,6 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
 
         int avg = static_cast<int>(total / (imgW * imgH));
         int threshold = std::clamp(avg - 30, 16, 255);
-
-        // DEBUG: 低輝度ピクセル数をカウント
-        int darkPixelCount = 0;
-        for (int y = 0; y < imgH; ++y)
-            for (int x = 0; x < imgW; ++x) {
-                int ofs = y * stride + x * 3;
-                int brightness = pixels[ofs + 0] + pixels[ofs + 1] + pixels[ofs + 2];
-                if (brightness < threshold * 3) darkPixelCount++;
-            }
-
-        wchar_t msg[256];
-        swprintf_s(msg, 256, L"%s\n画像サイズ: %dx%d\n平均輝度: %d\nしきい値: %d\n低輝度ピクセル数: %d",
-            L"ボクセル生成デバッグ", imgW, imgH, avg, threshold, darkPixelCount);
-        MessageBoxW(nullptr, msg, L"DEBUG", MB_OK);
 
         for (int z = 0; z < sizeZ; ++z) {
             for (int y = 0; y < sizeY; ++y) {
@@ -116,8 +101,10 @@ bool generateVolumeFromImages(const AppState& appState, VolumeData& volume) {
         }
         };
 
+    // Front画像だけを使う（または他の画像がある場合は自動で使う）
     for (int i = 0; i < (int)ViewDirection::Count; ++i)
-        applyMask((ViewDirection)i);
+        if (appState.images[i])
+            applyMask((ViewDirection)i);
 
     if (!anyVoxelSet) {
         MessageBoxW(nullptr, L"画像からボクセルを抽出できなかったため、中央に仮のボクセル立方体を生成します。", L"代替処理", MB_OK);

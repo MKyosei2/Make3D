@@ -141,20 +141,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 g_state.voxelResolution,
                 g_state.voxelResolution);
 
-            MeshGenerator generator;
-            generator.setTargetPolygonCount(g_state.polygonCount);
-            Mesh mesh = generator.generate(volume);
             if (generateVolumeFromImages(g_state, volume)) {
                 MeshGenerator generator;
                 generator.setTargetPolygonCount(g_state.polygonCount);
                 Mesh mesh = generator.generate(volume);
-
-                // ★ オプション：出力直前に確認用の三角形・頂点数表示
-                /*
-                wchar_t msg[256];
-                swprintf_s(msg, L"頂点数: %d\n三角形数: %d", (int)mesh.vertices.size(), (int)mesh.triangles.size());
-                MessageBoxW(hWnd, msg, L"確認", MB_OK);
-                */
 
                 exportMeshToFBX(L"output.fbx", mesh);
                 MessageBoxW(hWnd, L"FBXファイルを出力しました。", L"成功", MB_OK);
