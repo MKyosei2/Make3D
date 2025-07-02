@@ -146,7 +146,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 generator.setTargetPolygonCount(g_state.polygonCount);
                 Mesh mesh = generator.generate(volume);
 
-                exportMeshToFBX(L"output.fbx", mesh);
+                exportMeshToFBX(mesh, L"output.fbx");
                 MessageBoxW(hWnd, L"FBXファイルを出力しました。", L"成功", MB_OK);
             }
             else {

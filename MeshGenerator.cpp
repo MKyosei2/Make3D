@@ -4,6 +4,7 @@
 #include "VolumeUtils.h" 
 #include "common.h"
 #include <cmath>
+#include <windows.h>
 
 static const int edgeTable[256] =
 { 0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
@@ -307,16 +308,13 @@ void MeshGenerator::setTargetPolygonCount(int count) {
 Mesh MeshGenerator::generate(const VolumeData& volume) {
     Mesh mesh;
     const double isoLevel = 0.5;
-    int triangleCount = 0;
 
-    // 安全なアクセス関数
     auto getSafe = [&](int x, int y, int z) -> bool {
         return (x >= 0 && x < volume.getSizeX() &&
             y >= 0 && y < volume.getSizeY() &&
             z >= 0 && z < volume.getSizeZ()) && volume.get(x, y, z);
         };
 
-    // ボクセル存在確認（統計）
     int trueVoxelCount = 0;
     for (int z = 0; z < volume.getSizeZ(); ++z)
         for (int y = 0; y < volume.getSizeY(); ++y)
@@ -328,7 +326,10 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
         return mesh;
     }
 
-    // メッシュ化（マーチングキューブ）
+    int totalTris = 0;
+    int invalidVerts = 0;
+    int invalidTriCounts = 0;
+
     for (int z = 0; z < volume.getSizeZ() - 1; ++z) {
         for (int y = 0; y < volume.getSizeY() - 1; ++y) {
             for (int x = 0; x < volume.getSizeX() - 1; ++x) {
@@ -341,62 +342,63 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
                             int vy = y + dy;
                             int vz = z + dz;
                             cell.p[idx] = { (float)vx, (float)vy, (float)vz };
-                            cell.val[idx] = getSafe(vx, vy, vz) ? 1.0 : 0.0;
+                            cell.val[idx] = getSafe(vx, vy, vz) ? 1.0f : 0.0f;
                         }
 
                 TRIANGLE tris[5];
                 int n = Polygonise(cell, isoLevel, tris);
+
+                if (n < 0 || n > 5) {
+                    ++invalidTriCounts;
+                    continue;
+                }
 
                 for (int i = 0; i < n; ++i) {
                     auto& a = tris[i].p[0];
                     auto& b = tris[i].p[1];
                     auto& c = tris[i].p[2];
 
-                    float ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z;
-                    float vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
-                    float nx = uy * vz - uz * vy;
-                    float ny = uz * vx - ux * vz;
-                    float nz = ux * vy - uy * vx;
-                    float area = sqrtf(nx * nx + ny * ny + nz * nz);
-                    if (area < 1e-8f) continue;
-
-                    if (!std::isfinite(a.x) || !std::isfinite(b.x) || !std::isfinite(c.x) ||
-                        !std::isfinite(a.y) || !std::isfinite(b.y) || !std::isfinite(c.y) ||
-                        !std::isfinite(a.z) || !std::isfinite(b.z) || !std::isfinite(c.z))
+                    // 有限性チェック
+                    auto isValid = [](const XYZ& p) {
+                        return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
+                        };
+                    if (!isValid(a) || !isValid(b) || !isValid(c)) {
+                        ++invalidVerts;
                         continue;
+                    }
 
-                    int base = (int)mesh.vertices.size();
+                    int baseIndex = static_cast<int>(mesh.vertices.size());
                     mesh.vertices.push_back({ a.x, a.y, a.z });
                     mesh.vertices.push_back({ b.x, b.y, b.z });
                     mesh.vertices.push_back({ c.x, c.y, c.z });
-                    mesh.triangles.push_back({ base, base + 1, base + 2 });
-                    ++triangleCount;
+                    mesh.triangles.push_back({ baseIndex, baseIndex + 1, baseIndex + 2 });
+                    ++totalTris;
                 }
             }
         }
     }
 
-    if (triangleCount == 0) {
-        MessageBoxW(nullptr,
-            L"ボクセルは存在していますが、三角形が1つも生成されませんでした。\nボクセル配置や輝度しきい値を見直してください。",
-            L"エラー", MB_ICONERROR);
-        return mesh;
+    // 頂点数が異常に多ければ出力を中断
+    if (mesh.vertices.size() > 1000000) {
+        MessageBoxW(nullptr, L"メッシュの頂点数が100万を超えています。異常な出力の可能性があります。", L"警告", MB_ICONERROR);
+        return Mesh();
     }
 
-    // 統計ログ
-    wchar_t stat[256];
-    swprintf_s(stat, L"三角形: %d\nボクセルTRUE数: %d", triangleCount, trueVoxelCount);
-    MessageBoxW(nullptr, stat, L"メッシュ統計", MB_OK);
+    // 三角形統計の表示
+    wchar_t buf[256];
+    swprintf_s(buf, 256, L"三角形数: %d\n無効な三角形数: %d\nNaN/Inf頂点数: %d", totalTris, invalidTriCounts, invalidVerts);
+    MessageBoxW(nullptr, buf, L"メッシュ生成統計", MB_OK);
 
-    // 細分割
-    int baseCount = (int)mesh.triangles.size();
+    // ポリゴン分割とスムージング
+    int baseCount = static_cast<int>(mesh.triangles.size());
     int subdivIterations = 0;
     while ((baseCount * std::pow(4, subdivIterations)) < targetPolygonCount && subdivIterations < 4)
         ++subdivIterations;
-    if (subdivIterations > 0)
-        mesh = subdivideMesh(mesh, subdivIterations);
 
-    // スムージング
+    if (subdivIterations > 0) {
+        mesh = subdivideMesh(mesh, subdivIterations);
+    }
+
     smoothMesh(mesh, 1);
     return mesh;
 }

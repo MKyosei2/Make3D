@@ -4,92 +4,112 @@
 #include <fbxsdk.h>
 #include <windows.h>
 #include <algorithm> 
+#include <cfloat> 
+#include <fbxsdk/utils/fbxgeometryconverter.h>
 #pragma comment(lib, "libfbxsdk.lib")
 
-bool exportMeshToFBX(const std::wstring& filenameW, const Mesh& mesh) {
-    if (mesh.vertices.empty() || mesh.triangles.empty()) {
-        MessageBoxW(nullptr, L"メッシュが空です。FBX出力をスキップしました。", L"警告", MB_ICONWARNING);
-        return false;
-    }
+bool exportMeshToFBX(const Mesh& mesh, const std::wstring& filename) {
+    FbxManager* sdkManager = FbxManager::Create();
+    FbxIOSettings* ios = FbxIOSettings::Create(sdkManager, IOSROOT);
+    sdkManager->SetIOSettings(ios);
 
-    if (filenameW.size() < 4 || filenameW.substr(filenameW.size() - 4) != L".fbx") {
-        MessageBoxW(nullptr, L".fbx 拡張子が必要です。", L"警告", MB_ICONWARNING);
-        return false;
-    }
-    DeleteFileW(filenameW.c_str());
+    FbxScene* scene = FbxScene::Create(sdkManager, "MyScene");
+    FbxNode* rootNode = scene->GetRootNode();
 
-    // 中心補正のためにバウンディングボックスを計算
-    double minX = 1e10, maxX = -1e10;
-    double minY = 1e10, maxY = -1e10;
-    double minZ = 1e10, maxZ = -1e10;
+    FbxMesh* meshNode = FbxMesh::Create(scene, "GeneratedMesh");
 
+    int vertexCount = static_cast<int>(mesh.vertices.size());
+    meshNode->InitControlPoints(vertexCount);
+
+    // 重心を原点に移動
+    double cx = 0, cy = 0, cz = 0;
     for (const auto& v : mesh.vertices) {
-        minX = std::min(minX, (double)v.x);
-        maxX = std::max(maxX, (double)v.x);
-        minY = std::min(minY, (double)v.y);
-        maxY = std::max(maxY, (double)v.y);
-        minZ = std::min(minZ, (double)v.z);
-        maxZ = std::max(maxZ, (double)v.z);
+        cx += v.x;
+        cy += v.y;
+        cz += v.z;
+    }
+    cx /= vertexCount;
+    cy /= vertexCount;
+    cz /= vertexCount;
+
+    // AABB算出
+    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX;
+    float maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
+
+    for (int i = 0; i < vertexCount; ++i) {
+        const Vertex& v = mesh.vertices[i];
+        float px = (float)(v.x - cx);
+        float py = (float)(v.y - cy);
+        float pz = (float)(v.z - cz);
+        meshNode->SetControlPointAt(FbxVector4(px, py, pz), i);
+
+        minX = std::min(minX, px); maxX = std::max(maxX, px);
+        minY = std::min(minY, py); maxY = std::max(maxY, py);
+        minZ = std::min(minZ, pz); maxZ = std::max(maxZ, pz);
     }
 
-    double offsetX = -(minX + maxX) * 0.5;
-    double offsetY = -(minY + maxY) * 0.5;
-    double offsetZ = -(minZ + maxZ) * 0.5;
+    // AABBメッセージ表示
+    wchar_t buf[512];
+    swprintf_s(buf, 512,
+        L"メッシュAABB\nX: %.2f ~ %.2f\nY: %.2f ~ %.2f\nZ: %.2f ~ %.2f\n頂点数: %d",
+        minX, maxX, minY, maxY, minZ, maxZ, vertexCount);
+    MessageBoxW(nullptr, buf, L"座標範囲", MB_OK);
 
-    FbxManager* manager = FbxManager::Create();
-    FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
-    manager->SetIOSettings(ios);
+    // 法線追加（すべてZ+）
+    FbxGeometryElementNormal* normals = meshNode->CreateElementNormal();
+    normals->SetMappingMode(FbxGeometryElement::eByControlPoint);
+    normals->SetReferenceMode(FbxGeometryElement::eDirect);
+    for (int i = 0; i < vertexCount; ++i)
+        normals->GetDirectArray().Add(FbxVector4(0, 0, 1));
 
-    FbxScene* scene = FbxScene::Create(manager, "MeshScene");
-    FbxNode* root = scene->GetRootNode();
-
-    FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-    fbxMesh->InitControlPoints((int)mesh.vertices.size());
-
-    for (int i = 0; i < (int)mesh.vertices.size(); ++i) {
-        const auto& v = mesh.vertices[i];
-        fbxMesh->SetControlPointAt(FbxVector4(
-            (double)v.x + offsetX,
-            (double)v.y + offsetY,
-            (double)v.z + offsetZ), i);
-    }
+    // UV追加（仮の三角展開）
+    FbxGeometryElementUV* uvElement = meshNode->CreateElementUV("UVChannel_1");
+    uvElement->SetMappingMode(FbxGeometryElement::eByPolygonVertex);
+    uvElement->SetReferenceMode(FbxGeometryElement::eDirect);
 
     for (const auto& tri : mesh.triangles) {
-        if (tri.v0 < mesh.vertices.size() && tri.v1 < mesh.vertices.size() && tri.v2 < mesh.vertices.size()) {
-            fbxMesh->BeginPolygon();
-            fbxMesh->AddPolygon(tri.v0);
-            fbxMesh->AddPolygon(tri.v1);
-            fbxMesh->AddPolygon(tri.v2);
-            fbxMesh->EndPolygon();
+        meshNode->BeginPolygon();
+        for (int i = 0; i < 3; ++i) {
+            int vi = (i == 0) ? tri.v0 : (i == 1) ? tri.v1 : tri.v2;
+            meshNode->AddPolygon(vi);
+
+            FbxVector2 uv = (i == 0) ? FbxVector2(0, 0)
+                : (i == 1) ? FbxVector2(1, 0)
+                : FbxVector2(0.5, 1);
+            uvElement->GetDirectArray().Add(uv);
         }
+        meshNode->EndPolygon();
     }
 
-    FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
-    meshNode->SetNodeAttribute(fbxMesh);
+    // ★ BuildMesh 呼び出し：Maya表示に必須
+    FbxGeometryConverter converter(sdkManager);
+    converter.Triangulate(scene, true);
 
-    // 🔧 全体のスケーリング（Maya表示調整用）
-    meshNode->LclScaling.Set(FbxDouble3(0.01, 0.01, 0.01));
+    // ノードを作成してジオメトリを割り当て
+    FbxNode* meshContainer = FbxNode::Create(scene, "MeshNode");
+    meshContainer->SetNodeAttribute(meshNode);
+    meshContainer->SetShadingMode(FbxNode::eTextureShading);  // Maya表示対策
+    rootNode->AddChild(meshContainer);
 
-    root->AddChild(meshNode);
+    // ファイル名を multibyte に変換
+    std::string filenameA;
+    {
+        int size_needed = WideCharToMultiByte(CP_ACP, 0, filename.c_str(), -1, NULL, 0, NULL, NULL);
+        filenameA.resize(size_needed);
+        WideCharToMultiByte(CP_ACP, 0, filename.c_str(), -1, &filenameA[0], size_needed, NULL, NULL);
+    }
 
-    FbxExporter* exporter = FbxExporter::Create(manager, "");
-    std::string filenameA(filenameW.begin(), filenameW.end());
-
-    if (!exporter->Initialize(filenameA.c_str(), -1, manager->GetIOSettings())) {
-        MessageBoxW(nullptr, L"FBXエクスポーターの初期化に失敗しました。", L"エラー", MB_ICONERROR);
-        exporter->Destroy();
-        manager->Destroy();
+    // FBX Exporter 設定（ASCII形式でより透明性を）
+    FbxExporter* exporter = FbxExporter::Create(sdkManager, "");
+    int asciiID = sdkManager->GetIOPluginRegistry()->FindWriterIDByDescription("FBX ascii");
+    if (!exporter->Initialize(filenameA.c_str(), asciiID, sdkManager->GetIOSettings())) {
+        MessageBoxW(nullptr, L"FBXエクスポート初期化に失敗", L"エラー", MB_ICONERROR);
         return false;
     }
 
-    bool result = exporter->Export(scene);
+    exporter->Export(scene);
     exporter->Destroy();
-    manager->Destroy();
-
-    if (!result) {
-        MessageBoxW(nullptr, L"FBXファイルの出力に失敗しました。", L"エラー", MB_ICONERROR);
-        return false;
-    }
+    sdkManager->Destroy();
 
     return true;
 }
