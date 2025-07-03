@@ -1,15 +1,16 @@
 #pragma once
-#include <windows.h>
-#include "common.h"
+#include <Windows.h>
+#include "MeshGenerator.h"
 
 class PreviewRenderer {
 public:
-    PreviewRenderer();
+    PreviewRenderer(HWND hwnd);
     ~PreviewRenderer();
-
-    void render(HDC hdc, const RECT& rect);
-    void setViewDirection(ViewDirection dir);
+    void setMesh(const Mesh& mesh);
+    void render();
 
 private:
-    ViewDirection currentDirection;
+    HWND hwnd;
+    Mesh currentMesh;
+    void drawMesh(HDC hdc);
 };

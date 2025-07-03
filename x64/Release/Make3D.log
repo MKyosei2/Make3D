@@ -1,10 +1,13 @@
 ﻿  FBXExporter.cpp
-C:\Users\kyose\source\repos\Make3D\Make3D\FBXExporter.cpp(124,46): warning C4267: '引数': 'size_t' から 'int' に変換しました。データが失われているかもしれません。
-  コード生成しています。
-  3 of 713 functions ( 0.4%) were compiled, the rest were copied from previous compilation.
-    1 functions were new in current compilation
-    1 functions had inline decision re-evaluated but remain unchanged
-  コード生成が終了しました。
-PartProcessor.obj : warning LNK4099: PDB 'vc143.pdb' が 'PartProcessor.obj' で、または 'C:\Users\kyose\source\repos\Make3D\x64\Release\vc143.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
-PreviewRenderer.obj : warning LNK4099: PDB 'vc143.pdb' が 'PreviewRenderer.obj' で、または 'C:\Users\kyose\source\repos\Make3D\x64\Release\vc143.pdb' に見つかりません。デバッグ情報がないものとして、オブジェクトにリンクします。
-  Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
+  ImageProcessor.cpp
+  MainApp.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(40,28): warning C4312: '型キャスト': 'int' からより大きいサイズの 'HMENU' へ変換します。
+  MeshGenerator.cpp
+  PartProcessor.cpp
+  PreviewRenderer.cpp
+  Utils.cpp
+  VolumeBuilder.cpp
+Utils.obj : error LNK2005: "class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl convertToAnsi(class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?convertToAnsi@@YA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@2@@Z) は既に FBXExporter.obj で定義されています。
+MainApp.obj : error LNK2001: 外部シンボル "public: struct HBITMAP__ * __cdecl AppState::getImageBitmap(enum ViewDirection)const " (?getImageBitmap@AppState@@QEBAPEAUHBITMAP__@@W4ViewDirection@@@Z) は未解決です
+MSVCRT.lib(exe_winmain.obj) : error LNK2001: 外部シンボル WinMain は未解決です
+C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe : fatal error LNK1120: 2 件の未解決の外部参照

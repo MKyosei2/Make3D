@@ -1,10 +1,20 @@
 #pragma once
-#include <windows.h>
+#include <string>
 #include <vector>
-#include "PartTypes.h"
+#include "MeshGenerator.h"
 
-// 1‰æ‘œ‚©‚ç•¡”‚Ì PartRegion ‚ğ’Šo‚·‚é
-std::vector<PartRegion> extractRegionsFromMask(HBITMAP hBitmap);
+enum class PartType {
+    Undefined, Cube, Cylinder, Sphere, Custom
+};
 
-// w’è—Ìˆæ‚É‹éŒ`˜g‚ğ•`‰æ‚·‚é
-void drawRegionsToHDC(HDC hdc, const std::vector<PartRegion>& regions);
+struct MeshPart {
+    Mesh mesh;
+    PartType type;
+    std::wstring name;
+};
+
+class PartProcessor {
+public:
+    static std::vector<MeshPart> splitMeshIntoParts(const Mesh& mesh);
+    static PartType classifyPart(const Mesh& mesh);
+};

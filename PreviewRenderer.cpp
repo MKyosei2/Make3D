@@ -1,30 +1,27 @@
 #include "PreviewRenderer.h"
 
-PreviewRenderer::PreviewRenderer()
-    : currentDirection(ViewDirection::Front) {
+PreviewRenderer::PreviewRenderer(HWND hwnd) : hwnd(hwnd) {}
+
+PreviewRenderer::~PreviewRenderer() {}
+
+void PreviewRenderer::setMesh(const Mesh& mesh) {
+    currentMesh = mesh;
+    InvalidateRect(hwnd, nullptr, TRUE);
 }
 
-PreviewRenderer::~PreviewRenderer() {
+void PreviewRenderer::render() {
+    HDC hdc = GetDC(hwnd);
+    drawMesh(hdc);
+    ReleaseDC(hwnd, hdc);
 }
 
-void PreviewRenderer::setViewDirection(ViewDirection dir) {
-    currentDirection = dir;
-}
+void PreviewRenderer::drawMesh(HDC hdc) {
+    if (currentMesh.vertices.empty()) return;
 
-void PreviewRenderer::render(HDC hdc, const RECT& rect) {
-    // 単純な描画テスト：視点に応じた色を塗るだけ
-    COLORREF color = RGB(200, 200, 200);
-    switch (currentDirection) {
-    case ViewDirection::Front:  color = RGB(255, 0, 0); break;
-    case ViewDirection::Back:   color = RGB(0, 255, 0); break;
-    case ViewDirection::Left:   color = RGB(0, 0, 255); break;
-    case ViewDirection::Right:  color = RGB(255, 255, 0); break;
-    case ViewDirection::Top:    color = RGB(0, 255, 255); break;
-    case ViewDirection::Bottom: color = RGB(255, 0, 255); break;
-    default: break;
+    // 仮描画：頂点を点で表示
+    for (const Vertex& v : currentMesh.vertices) {
+        int x = static_cast<int>(v.x * 100 + 200);
+        int y = static_cast<int>(v.y * 100 + 200);
+        Ellipse(hdc, x - 2, y - 2, x + 2, y + 2);
     }
-
-    HBRUSH brush = CreateSolidBrush(color);
-    FillRect(hdc, &rect, brush);
-    DeleteObject(brush);
 }
