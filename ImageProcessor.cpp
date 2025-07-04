@@ -1,7 +1,8 @@
+#define NOMINMAX
 #include "ImageProcessor.h"
 #include <algorithm>
 #include <Windows.h>
-#include <cmath> 
+#include <cmath>
 
 Image::Image(int w, int h) : width(w), height(h), data(w* h, 0) {}
 
@@ -21,17 +22,16 @@ void Image::set(int x, int y, unsigned char value) {
     data[x + y * width] = value;
 }
 
-Image ConvertBitmapToImage(HBITMAP hBitmap) {
+Image ConvertBitmapToImage(HBITMAP hBitmap, BYTE threshold) {
     BITMAP bmp;
     GetObject(hBitmap, sizeof(BITMAP), &bmp);
-
     Image img(bmp.bmWidth, bmp.bmHeight);
 
     HDC hdc = GetDC(nullptr);
     HDC memDC = CreateCompatibleDC(hdc);
     SelectObject(memDC, hBitmap);
 
-    BITMAPINFO bmi = { 0 };
+    BITMAPINFO bmi = {};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     bmi.bmiHeader.biWidth = bmp.bmWidth;
     bmi.bmiHeader.biHeight = -bmp.bmHeight;
@@ -48,7 +48,7 @@ Image ConvertBitmapToImage(HBITMAP hBitmap) {
             BYTE g = pixels[4 * (x + y * bmp.bmWidth) + 1];
             BYTE r = pixels[4 * (x + y * bmp.bmWidth) + 2];
             BYTE a = pixels[4 * (x + y * bmp.bmWidth) + 3];
-            if (IsSilhouette(r, g, b, a)) {
+            if (IsSilhouette(r, g, b, a, threshold)) {
                 img.set(x, y, 255);
             }
         }
@@ -60,8 +60,7 @@ Image ConvertBitmapToImage(HBITMAP hBitmap) {
 }
 
 Image ExtractMaskFromBitmap(HBITMAP hBitmap, BYTE threshold) {
-    Image image = ConvertBitmapToImage(hBitmap);
-    return image;
+    return ConvertBitmapToImage(hBitmap, threshold);
 }
 
 bool IsSilhouette(BYTE r, BYTE g, BYTE b, BYTE a, BYTE threshold) {
@@ -89,5 +88,5 @@ void computeAlignmentParams(const Image& mask, int& centerX, int& centerY, int& 
     GetMaskBoundingBox(mask, minX, minY, maxX, maxY);
     centerX = (minX + maxX) / 2;
     centerY = (minY + maxY) / 2;
-    maxSize = (std::max)(maxX - minX, maxY - minY); // èCê≥ÅFÉ}ÉNÉçè’ìÀâÒîÇÃÇΩÇﬂ () Ç≈àÕÇﬁ
+    maxSize = std::max(maxX - minX, maxY - minY);
 }

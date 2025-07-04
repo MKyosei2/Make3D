@@ -15,3 +15,4 @@ struct VolumeData {
 
 bool generateVolumeFromImages(const AppState& state, VolumeData& volume);
 VolumeData BuildVolumeFromSingleImageWithDepthProfile(const Image& image, int resolution);
+VolumeData AlignAndMergeMasks(const std::vector<Image>& masks, int resolution);

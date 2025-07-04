@@ -24,9 +24,9 @@ void ExportMeshToFBX(const std::vector<Triangle>& triangles, const std::vector<V
     FbxNode* rootNode = scene->GetRootNode();
 
     FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-
     int vertexCount = static_cast<int>(vertices.size());
     fbxMesh->InitControlPoints(vertexCount);
+
     for (int i = 0; i < vertexCount; ++i) {
         const Vertex& v = vertices[i];
         fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);

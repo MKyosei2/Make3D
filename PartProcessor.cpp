@@ -1,19 +1,43 @@
-#include "PartProcessor.h"
+#include "PreviewRenderer.h"
+#include <cmath>
 
-std::vector<MeshPart> PartProcessor::splitMeshIntoParts(const Mesh& mesh) {
-    // 仮実装：全体を一つのパーツとして返す
-    MeshPart part;
-    part.mesh = mesh;
-    part.type = classifyPart(mesh);
-    part.name = L"MainPart";
-    return { part };
+PreviewRenderer::PreviewRenderer(HWND hwnd) : hwnd(hwnd) {}
+PreviewRenderer::~PreviewRenderer() {}
+
+void PreviewRenderer::setMesh(const Mesh& mesh) {
+    currentMesh = mesh;
+    InvalidateRect(hwnd, nullptr, TRUE);
 }
 
-PartType PartProcessor::classifyPart(const Mesh& mesh) {
-    // 非常に単純な分類処理（将来的に体積や頂点分布で改善）
-    size_t v = mesh.vertices.size();
-    if (v < 100) return PartType::Cube;
-    if (v < 300) return PartType::Cylinder;
-    if (v < 600) return PartType::Sphere;
-    return PartType::Custom;
+void PreviewRenderer::render() {
+    HDC hdc = GetDC(hwnd);
+    drawMesh(hdc);
+    ReleaseDC(hwnd, hdc);
+}
+
+void PreviewRenderer::drawMesh(HDC hdc) {
+    if (currentMesh.vertices.empty()) return;
+
+    auto project = [](const Vertex& v) -> POINT {
+        return {
+            static_cast<int>(v.x * 100 + 150),
+            static_cast<int>(v.y * -100 + 150)
+        };
+        };
+
+    HPEN pen = CreatePen(PS_SOLID, 1, RGB(0, 255, 0));
+    HGDIOBJ oldPen = SelectObject(hdc, pen);
+
+    for (const Triangle& tri : currentMesh.triangles) {
+        POINT p1 = project(currentMesh.vertices[tri.v0]);
+        POINT p2 = project(currentMesh.vertices[tri.v1]);
+        POINT p3 = project(currentMesh.vertices[tri.v2]);
+
+        MoveToEx(hdc, p1.x, p1.y, nullptr); LineTo(hdc, p2.x, p2.y);
+        MoveToEx(hdc, p2.x, p2.y, nullptr); LineTo(hdc, p3.x, p3.y);
+        MoveToEx(hdc, p3.x, p3.y, nullptr); LineTo(hdc, p1.x, p1.y);
+    }
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen);
 }

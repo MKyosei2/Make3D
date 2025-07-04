@@ -12,6 +12,8 @@ struct Image {
     void set(int x, int y, unsigned char value);
 };
 
-Image ConvertBitmapToImage(HBITMAP hBitmap);
+Image ConvertBitmapToImage(HBITMAP hBitmap, BYTE threshold = 128);
 Image ExtractMaskFromBitmap(HBITMAP hBitmap, BYTE threshold = 128);
 bool IsSilhouette(BYTE r, BYTE g, BYTE b, BYTE a, BYTE threshold = 128);
+void GetMaskBoundingBox(const Image& mask, int& minX, int& minY, int& maxX, int& maxY);
+void computeAlignmentParams(const Image& mask, int& centerX, int& centerY, int& maxSize);

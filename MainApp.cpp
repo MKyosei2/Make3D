@@ -2,6 +2,8 @@
 #include "VolumeBuilder.h"
 #include "MeshGenerator.h"
 #include "FBXExporter.h"
+#include "PreviewRenderer.h"
+#include <shobjidl.h>
 
 MainApp* MainApp::appInstance = nullptr;
 
@@ -27,7 +29,7 @@ void MainApp::createMainWindow() {
     RegisterClass(&wc);
 
     hWnd = CreateWindowEx(0, L"3DGenAppClass", L"3D Model Generator",
-        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+        WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 900, 700,
         nullptr, nullptr, hInst, nullptr);
 
     createControlUI(hWnd);
@@ -43,20 +45,27 @@ void MainApp::createControlUI(HWND hwnd) {
 
     CreateWindow(L"STATIC", L"Polygon Count:", WS_VISIBLE | WS_CHILD, 150, 30, 100, 20, hwnd, nullptr, hInst, nullptr);
     hPolygonCountInput = CreateWindow(L"EDIT", L"1000", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
-        250, 30, 80, 20, hwnd, nullptr, hInst, nullptr);
+        260, 30, 80, 20, hwnd, nullptr, hInst, nullptr);
 
     CreateWindow(L"STATIC", L"Voxel Resolution:", WS_VISIBLE | WS_CHILD, 150, 60, 100, 20, hwnd, nullptr, hInst, nullptr);
     hVoxelResolutionInput = CreateWindow(L"EDIT", L"64", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
-        250, 60, 80, 20, hwnd, nullptr, hInst, nullptr);
+        260, 60, 80, 20, hwnd, nullptr, hInst, nullptr);
+
+    CreateWindow(L"STATIC", L"Silhouette Threshold:", WS_VISIBLE | WS_CHILD, 150, 90, 120, 20, hwnd, nullptr, hInst, nullptr);
+    hThresholdInput = CreateWindow(L"EDIT", L"128", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
+        280, 90, 60, 20, hwnd, nullptr, hInst, nullptr);
 
     hFolderButton = CreateWindow(L"BUTTON", L"Load Folder", WS_VISIBLE | WS_CHILD,
-        150, 100, 100, 25, hwnd, (HMENU)201, hInst, nullptr);
+        150, 130, 100, 25, hwnd, (HMENU)201, hInst, nullptr);
+
+    hSaveButton = CreateWindow(L"BUTTON", L"Save As", WS_VISIBLE | WS_CHILD,
+        260, 130, 100, 25, hwnd, (HMENU)203, hInst, nullptr);
 
     hGenerateButton = CreateWindow(L"BUTTON", L"Generate Model", WS_VISIBLE | WS_CHILD,
-        150, 140, 150, 30, hwnd, (HMENU)202, hInst, nullptr);
+        150, 170, 150, 30, hwnd, (HMENU)202, hInst, nullptr);
 
     hPreviewStatic = CreateWindow(L"STATIC", nullptr, WS_VISIBLE | WS_CHILD | SS_BLACKRECT,
-        400, 30, 128, 128, hwnd, nullptr, hInst, nullptr);
+        500, 30, 300, 300, hwnd, nullptr, hInst, nullptr);
 }
 
 void MainApp::updateAppStateFromUI() {
@@ -66,6 +75,9 @@ void MainApp::updateAppStateFromUI() {
 
     GetWindowText(hVoxelResolutionInput, buffer, 16);
     state.voxelResolution = _wtoi(buffer);
+
+    GetWindowText(hThresholdInput, buffer, 16);
+    state.silhouetteThreshold = (BYTE)_wtoi(buffer);
 }
 
 void MainApp::showImagePreview(ViewDirection dir) {
@@ -82,7 +94,47 @@ void MainApp::showImagePreview(ViewDirection dir) {
 }
 
 void MainApp::loadImagesFromFolder() {
-    // フォルダ選択ダイアログ処理（省略）
+    IFileDialog* pFileDialog = nullptr;
+    if (SUCCEEDED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&pFileDialog)))) {
+        DWORD dwOptions;
+        pFileDialog->GetOptions(&dwOptions);
+        pFileDialog->SetOptions(dwOptions | FOS_PICKFOLDERS);
+
+        if (SUCCEEDED(pFileDialog->Show(hWnd))) {
+            IShellItem* pItem = nullptr;
+            if (SUCCEEDED(pFileDialog->GetResult(&pItem))) {
+                PWSTR pszFolderPath = nullptr;
+                if (SUCCEEDED(pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFolderPath))) {
+                    const wchar_t* viewNames[6] = { L"front.png", L"back.png", L"left.png", L"right.png", L"top.png", L"bottom.png" };
+                    for (int i = 0; i < 6; ++i) {
+                        std::wstring path = std::wstring(pszFolderPath) + L"\\" + viewNames[i];
+                        state.loadImageForView((ViewDirection)i, path);
+                    }
+                    CoTaskMemFree(pszFolderPath);
+                }
+                pItem->Release();
+            }
+        }
+        pFileDialog->Release();
+    }
+}
+
+void MainApp::selectSavePath() {
+    IFileDialog* pDialog;
+    if (SUCCEEDED(CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&pDialog)))) {
+        if (SUCCEEDED(pDialog->Show(hWnd))) {
+            IShellItem* pItem;
+            if (SUCCEEDED(pDialog->GetResult(&pItem))) {
+                PWSTR pszPath = nullptr;
+                if (SUCCEEDED(pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszPath))) {
+                    state.outputFilePath = pszPath;
+                    CoTaskMemFree(pszPath);
+                }
+                pItem->Release();
+            }
+        }
+        pDialog->Release();
+    }
 }
 
 void MainApp::onGenerateModel() {
@@ -93,7 +145,7 @@ void MainApp::onGenerateModel() {
     MeshGenerator generator;
     generator.setTargetPolygonCount(state.polygonCount);
     Mesh mesh = generator.generate(volume);
-    exportMeshToFBX(mesh, L"output.fbx");
+    exportMeshToFBX(mesh, state.outputFilePath);
 }
 
 LRESULT CALLBACK MainApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -107,6 +159,8 @@ LRESULT CALLBACK MainApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
                 appInstance->loadImagesFromFolder();
             else if (id == 202)
                 appInstance->onGenerateModel();
+            else if (id == 203)
+                appInstance->selectSavePath();
         }
         break;
     case WM_DESTROY:

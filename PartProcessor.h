@@ -1,20 +1,16 @@
 #pragma once
-#include <string>
-#include <vector>
+#include <Windows.h>
 #include "MeshGenerator.h"
 
-enum class PartType {
-    Undefined, Cube, Cylinder, Sphere, Custom
-};
-
-struct MeshPart {
-    Mesh mesh;
-    PartType type;
-    std::wstring name;
-};
-
-class PartProcessor {
+class PreviewRenderer {
 public:
-    static std::vector<MeshPart> splitMeshIntoParts(const Mesh& mesh);
-    static PartType classifyPart(const Mesh& mesh);
+    PreviewRenderer(HWND hwnd);
+    ~PreviewRenderer();
+    void setMesh(const Mesh& mesh);
+    void render();
+
+private:
+    HWND hwnd;
+    Mesh currentMesh;
+    void drawMesh(HDC hdc);
 };

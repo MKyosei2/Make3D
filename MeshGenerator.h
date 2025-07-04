@@ -4,6 +4,7 @@
 
 struct Vertex { float x, y, z; };
 struct Triangle { int v0, v1, v2; };
+
 struct Mesh {
     std::vector<Vertex> vertices;
     std::vector<Triangle> triangles;

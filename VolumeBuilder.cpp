@@ -23,42 +23,25 @@ bool generateVolumeFromImages(const AppState& state, VolumeData& volume) {
     volume.resize(res, res, res);
 
     if (state.isSingleImage) {
-        Image image = ConvertBitmapToImage(state.getImageBitmap(Front));
+        Image image = ConvertBitmapToImage(state.getImageBitmap(Front), state.silhouetteThreshold);
         if (image.width == 0 || image.height == 0) return false;
-
-        VolumeData single = BuildVolumeFromSingleImageWithDepthProfile(image, res);
-        volume = single;
+        volume = BuildVolumeFromSingleImageWithDepthProfile(image, res);
         return true;
     }
 
     std::vector<Image> masks(6);
     for (int i = 0; i < 6; ++i) {
         HBITMAP bmp = state.getImageBitmap((ViewDirection)i);
-        masks[i] = ExtractMaskFromBitmap(bmp);
+        if (!bmp) return false;
+        masks[i] = ExtractMaskFromBitmap(bmp, state.silhouetteThreshold);
     }
 
-    for (int z = 0; z < res; ++z) {
-        for (int y = 0; y < res; ++y) {
-            for (int x = 0; x < res; ++x) {
-                bool front = masks[Front].get(x, y);
-                bool back = masks[Back].get(res - 1 - x, y);
-                bool left = masks[Left].get(z, y);
-                bool right = masks[Right].get(res - 1 - z, y);
-                bool top = masks[Top].get(x, res - 1 - z);
-                bool bottom = masks[Bottom].get(x, z);
-
-                if (front && back && left && right && top && bottom)
-                    volume.set(x, y, z, true);
-            }
-        }
-    }
-
+    volume = AlignAndMergeMasks(masks, res);
     return true;
 }
 
 VolumeData BuildVolumeFromSingleImageWithDepthProfile(const Image& image, int resolution) {
     VolumeData volume(resolution, resolution, resolution);
-
     for (int y = 0; y < resolution; ++y) {
         for (int x = 0; x < resolution; ++x) {
             if (image.get(x, y)) {
@@ -69,6 +52,24 @@ VolumeData BuildVolumeFromSingleImageWithDepthProfile(const Image& image, int re
             }
         }
     }
+    return volume;
+}
 
+VolumeData AlignAndMergeMasks(const std::vector<Image>& masks, int resolution) {
+    VolumeData volume(resolution, resolution, resolution);
+    for (int z = 0; z < resolution; ++z) {
+        for (int y = 0; y < resolution; ++y) {
+            for (int x = 0; x < resolution; ++x) {
+                bool front = masks[Front].get(x, y);
+                bool back = masks[Back].get(resolution - 1 - x, y);
+                bool left = masks[Left].get(z, y);
+                bool right = masks[Right].get(resolution - 1 - z, y);
+                bool top = masks[Top].get(x, resolution - 1 - z);
+                bool bottom = masks[Bottom].get(x, z);
+                if (front && back && left && right && top && bottom)
+                    volume.set(x, y, z, true);
+            }
+        }
+    }
     return volume;
 }

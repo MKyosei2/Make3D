@@ -9,6 +9,8 @@ struct AppState {
     int polygonCount = 1000;
     int voxelResolution = 64;
     bool isSingleImage = false;
+    std::wstring outputFilePath = L"output.fbx";
+    BYTE silhouetteThreshold = 128;
 
     void clearImages();
     bool loadImageForView(ViewDirection dir, const std::wstring& imagePath);
@@ -28,8 +30,10 @@ private:
     HWND hImageButtons[ViewDirection::Count];
     HWND hPolygonCountInput;
     HWND hVoxelResolutionInput;
+    HWND hThresholdInput;
     HWND hGenerateButton;
     HWND hFolderButton;
+    HWND hSaveButton;
     HWND hPreviewStatic;
 
     void createMainWindow();
@@ -37,6 +41,7 @@ private:
     void updateAppStateFromUI();
     void showImagePreview(ViewDirection dir);
     void loadImagesFromFolder();
+    void selectSavePath();
     void onGenerateModel();
     static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
     static MainApp* appInstance;
