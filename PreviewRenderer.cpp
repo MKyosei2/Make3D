@@ -12,6 +12,13 @@ void PreviewRenderer::setMesh(const Mesh& mesh) {
     InvalidateRect(hwnd, nullptr, TRUE);
 }
 
+void PreviewRenderer::rotate(float angleDelta) {
+    angle += angleDelta;
+    if (angle > 360.0f) angle -= 360.0f;
+    if (angle < 0.0f) angle += 360.0f;
+    InvalidateRect(hwnd, nullptr, TRUE);
+}
+
 void PreviewRenderer::render() {
     if (!hwnd) return;
     HDC hdc = GetDC(hwnd);
@@ -21,6 +28,17 @@ void PreviewRenderer::render() {
 
 void PreviewRenderer::drawMesh(HDC hdc) {
     if (currentMesh.vertices.empty()) return;
+
+    auto rotateZ = [this](const Vertex& v) -> Vertex {
+        float rad = angle * 3.14159f / 180.0f;
+        float cosA = cosf(rad);
+        float sinA = sinf(rad);
+        return {
+            v.x * cosA - v.z * sinA,
+            v.y,
+            v.x * sinA + v.z * cosA
+        };
+        };
 
     auto project = [](const Vertex& v) -> POINT {
         return {
@@ -33,9 +51,9 @@ void PreviewRenderer::drawMesh(HDC hdc) {
     HGDIOBJ oldPen = SelectObject(hdc, pen);
 
     for (const Triangle& tri : currentMesh.triangles) {
-        POINT p1 = project(currentMesh.vertices[tri.v0]);
-        POINT p2 = project(currentMesh.vertices[tri.v1]);
-        POINT p3 = project(currentMesh.vertices[tri.v2]);
+        POINT p1 = project(rotateZ(currentMesh.vertices[tri.v0]));
+        POINT p2 = project(rotateZ(currentMesh.vertices[tri.v1]));
+        POINT p3 = project(rotateZ(currentMesh.vertices[tri.v2]));
 
         MoveToEx(hdc, p1.x, p1.y, nullptr); LineTo(hdc, p2.x, p2.y);
         MoveToEx(hdc, p2.x, p2.y, nullptr); LineTo(hdc, p3.x, p3.y);

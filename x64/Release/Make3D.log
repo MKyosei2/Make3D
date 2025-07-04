@@ -1,13 +1,6 @@
 ﻿  ImageProcessor.cpp
-PreviewRenderer.obj : error LNK2005: "private: void __cdecl PreviewRenderer::drawMesh(struct HDC__ *)" (?drawMesh@PreviewRenderer@@AEAAXPEAUHDC__@@@Z) は既に PartProcessor.obj で定義されています。
-PreviewRenderer.obj : error LNK2005: "public: void __cdecl PreviewRenderer::render(void)" (?render@PreviewRenderer@@QEAAXXZ) は既に PartProcessor.obj で定義されています。
-PreviewRenderer.obj : error LNK2005: "public: void __cdecl PreviewRenderer::setMesh(struct Mesh const &)" (?setMesh@PreviewRenderer@@QEAAXAEBUMesh@@@Z) は既に PartProcessor.obj で定義されています。
-PreviewRenderer.obj : error LNK2005: "public: __cdecl PreviewRenderer::~PreviewRenderer(void)" (??1PreviewRenderer@@QEAA@XZ) は既に PartProcessor.obj で定義されています。
-PreviewRenderer.obj : error LNK2005: "public: __cdecl PreviewRenderer::PreviewRenderer(struct HWND__ *)" (??0PreviewRenderer@@QEAA@PEAUHWND__@@@Z) は既に PartProcessor.obj で定義されています。
-Utils.obj : error LNK2005: "class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > __cdecl convertToAnsi(class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?convertToAnsi@@YA?AV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@AEBV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@2@@Z) は既に FBXExporter.obj で定義されています。
-MainApp.obj : error LNK2001: 外部シンボル "public: struct HBITMAP__ * __cdecl AppState::getImageBitmap(enum ViewDirection)const " (?getImageBitmap@AppState@@QEBAPEAUHBITMAP__@@W4ViewDirection@@@Z) は未解決です
-MainApp.obj : error LNK2001: 外部シンボル "public: bool __cdecl AppState::loadImageForView(enum ViewDirection,class std::basic_string<wchar_t,struct std::char_traits<wchar_t>,class std::allocator<wchar_t> > const &)" (?loadImageForView@AppState@@QEAA_NW4ViewDirection@@AEBV?$basic_string@_WU?$char_traits@_W@std@@V?$allocator@_W@2@@std@@@Z) は未解決です
-MeshGenerator.obj : error LNK2001: 外部シンボル "int const (* triTable)[16]" (?triTable@@3QAY0BA@$$CBHA) は未解決です
-MeshGenerator.obj : error LNK2001: 外部シンボル "int const * const edgeTable" (?edgeTable@@3QBHB) は未解決です
-MSVCRT.lib(exe_winmain.obj) : error LNK2001: 外部シンボル WinMain は未解決です
-C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe : fatal error LNK1120: 5 件の未解決の外部参照
+  MeshGenerator.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\ImageProcessor.cpp(90,20): error C2589: '(': スコープ解決演算子 (::) の右側にあるトークンは使えません。
+C:\Users\kyose\source\repos\Make3D\Make3D\ImageProcessor.cpp(90,20): error C2059: 構文エラー: ')'
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(96,24): error C2589: '(': スコープ解決演算子 (::) の右側にあるトークンは使えません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(96,24): error C2059: 構文エラー: ')'

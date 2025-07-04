@@ -3,6 +3,7 @@
 #include <string>
 #include "common.h"
 #include "ImageProcessor.h"
+#include "PreviewRenderer.h"
 
 struct AppState {
     HBITMAP images[ViewDirection::Count] = { nullptr };
@@ -26,6 +27,7 @@ private:
     HINSTANCE hInst;
     HWND hWnd;
     AppState state;
+    PreviewRenderer* preview = nullptr;
 
     HWND hImageButtons[ViewDirection::Count];
     HWND hPolygonCountInput;
@@ -35,6 +37,9 @@ private:
     HWND hFolderButton;
     HWND hSaveButton;
     HWND hPreviewStatic;
+    HWND hSingleImageCheck;
+    HWND hStatusText;
+    HWND hClearButton;
 
     void createMainWindow();
     void createControlUI(HWND hwnd);
@@ -43,6 +48,7 @@ private:
     void loadImagesFromFolder();
     void selectSavePath();
     void onGenerateModel();
+    void onClearImages();
     static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
     static MainApp* appInstance;
 };

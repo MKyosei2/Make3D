@@ -1,4 +1,3 @@
-#define NOMINMAX
 #include "ImageProcessor.h"
 #include <algorithm>
 #include <Windows.h>

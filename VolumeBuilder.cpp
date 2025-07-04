@@ -1,5 +1,8 @@
 #include "VolumeBuilder.h"
 #include "ImageProcessor.h"
+#include "MainApp.h"
+#include "common.h"
+#include <algorithm>
 
 VolumeData::VolumeData(int w, int h, int d) : width(w), height(h), depth(d), voxels(w* h* d, false) {}
 
@@ -42,9 +45,14 @@ bool generateVolumeFromImages(const AppState& state, VolumeData& volume) {
 
 VolumeData BuildVolumeFromSingleImageWithDepthProfile(const Image& image, int resolution) {
     VolumeData volume(resolution, resolution, resolution);
+    int centerX, centerY, maxSize;
+    computeAlignmentParams(image, centerX, centerY, maxSize);
+
     for (int y = 0; y < resolution; ++y) {
         for (int x = 0; x < resolution; ++x) {
-            if (image.get(x, y)) {
+            int imgX = (x - resolution / 2) * maxSize / resolution + centerX;
+            int imgY = (y - resolution / 2) * maxSize / resolution + centerY;
+            if (image.get(imgX, imgY)) {
                 int depthStart = resolution / 3;
                 int depthEnd = 2 * resolution / 3;
                 for (int z = depthStart; z < depthEnd; ++z)
@@ -66,7 +74,8 @@ VolumeData AlignAndMergeMasks(const std::vector<Image>& masks, int resolution) {
                 bool right = masks[Right].get(resolution - 1 - z, y);
                 bool top = masks[Top].get(x, resolution - 1 - z);
                 bool bottom = masks[Bottom].get(x, z);
-                if (front && back && left && right && top && bottom)
+                int count = front + back + left + right + top + bottom;
+                if (count >= 4) // è≠Çµä…ÇﬂÇÈ
                     volume.set(x, y, z, true);
             }
         }

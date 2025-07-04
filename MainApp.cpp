@@ -7,12 +7,32 @@
 
 MainApp* MainApp::appInstance = nullptr;
 
+void AppState::clearImages() {
+    for (int i = 0; i < ViewDirection::Count; ++i) {
+        if (images[i]) {
+            DeleteObject(images[i]);
+            images[i] = nullptr;
+        }
+    }
+}
+
+bool AppState::loadImageForView(ViewDirection dir, const std::wstring& imagePath) {
+    HBITMAP bmp = (HBITMAP)LoadImage(nullptr, imagePath.c_str(), IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+    if (!bmp) return false;
+    if (images[dir]) DeleteObject(images[dir]);
+    images[dir] = bmp;
+    return true;
+}
+
+HBITMAP AppState::getImageBitmap(ViewDirection dir) const {
+    return images[dir];
+}
+
 MainApp::MainApp(HINSTANCE hInstance) : hInst(hInstance) {}
 
 int MainApp::run() {
     appInstance = this;
     createMainWindow();
-
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
@@ -22,7 +42,7 @@ int MainApp::run() {
 }
 
 void MainApp::createMainWindow() {
-    WNDCLASS wc = { };
+    WNDCLASS wc = {};
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInst;
     wc.lpszClassName = L"3DGenAppClass";
@@ -34,6 +54,8 @@ void MainApp::createMainWindow() {
 
     createControlUI(hWnd);
     ShowWindow(hWnd, SW_SHOW);
+
+    preview = new PreviewRenderer(hPreviewStatic);
 }
 
 void MainApp::createControlUI(HWND hwnd) {
@@ -55,14 +77,23 @@ void MainApp::createControlUI(HWND hwnd) {
     hThresholdInput = CreateWindow(L"EDIT", L"128", WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
         280, 90, 60, 20, hwnd, nullptr, hInst, nullptr);
 
+    hSingleImageCheck = CreateWindow(L"BUTTON", L"Single Image Mode", WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+        150, 120, 200, 20, hwnd, (HMENU)301, hInst, nullptr);
+
     hFolderButton = CreateWindow(L"BUTTON", L"Load Folder", WS_VISIBLE | WS_CHILD,
-        150, 130, 100, 25, hwnd, (HMENU)201, hInst, nullptr);
+        150, 150, 100, 25, hwnd, (HMENU)201, hInst, nullptr);
 
     hSaveButton = CreateWindow(L"BUTTON", L"Save As", WS_VISIBLE | WS_CHILD,
-        260, 130, 100, 25, hwnd, (HMENU)203, hInst, nullptr);
+        260, 150, 100, 25, hwnd, (HMENU)203, hInst, nullptr);
+
+    hClearButton = CreateWindow(L"BUTTON", L"Clear Images", WS_VISIBLE | WS_CHILD,
+        370, 150, 100, 25, hwnd, (HMENU)204, hInst, nullptr);
 
     hGenerateButton = CreateWindow(L"BUTTON", L"Generate Model", WS_VISIBLE | WS_CHILD,
-        150, 170, 150, 30, hwnd, (HMENU)202, hInst, nullptr);
+        150, 190, 150, 30, hwnd, (HMENU)202, hInst, nullptr);
+
+    hStatusText = CreateWindow(L"STATIC", L"Status: Ready", WS_VISIBLE | WS_CHILD,
+        150, 230, 300, 20, hwnd, nullptr, hInst, nullptr);
 
     hPreviewStatic = CreateWindow(L"STATIC", nullptr, WS_VISIBLE | WS_CHILD | SS_BLACKRECT,
         500, 30, 300, 300, hwnd, nullptr, hInst, nullptr);
@@ -78,19 +109,12 @@ void MainApp::updateAppStateFromUI() {
 
     GetWindowText(hThresholdInput, buffer, 16);
     state.silhouetteThreshold = (BYTE)_wtoi(buffer);
+
+    state.isSingleImage = (SendMessage(hSingleImageCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
 }
 
 void MainApp::showImagePreview(ViewDirection dir) {
-    HBITMAP bmp = state.getImageBitmap(dir);
-    if (!bmp) return;
-
-    HDC hdc = GetDC(hPreviewStatic);
-    HDC memDC = CreateCompatibleDC(hdc);
-    HBITMAP oldBmp = (HBITMAP)SelectObject(memDC, bmp);
-    BitBlt(hdc, 0, 0, 128, 128, memDC, 0, 0, SRCCOPY);
-    SelectObject(memDC, oldBmp);
-    DeleteDC(memDC);
-    ReleaseDC(hPreviewStatic, hdc);
+    if (preview) preview->render();
 }
 
 void MainApp::loadImagesFromFolder() {
@@ -117,6 +141,7 @@ void MainApp::loadImagesFromFolder() {
         }
         pFileDialog->Release();
     }
+    SetWindowText(hStatusText, L"Status: Images Loaded");
 }
 
 void MainApp::selectSavePath() {
@@ -137,15 +162,35 @@ void MainApp::selectSavePath() {
     }
 }
 
+void MainApp::onClearImages() {
+    state.clearImages();
+    SetWindowText(hStatusText, L"Status: Images Cleared");
+}
+
 void MainApp::onGenerateModel() {
+    SetWindowText(hStatusText, L"Status: Generating...");
     updateAppStateFromUI();
+
     VolumeData volume;
-    if (!generateVolumeFromImages(state, volume)) return;
+    if (!generateVolumeFromImages(state, volume)) {
+        SetWindowText(hStatusText, L"Error: Failed to generate volume");
+        return;
+    }
 
     MeshGenerator generator;
     generator.setTargetPolygonCount(state.polygonCount);
     Mesh mesh = generator.generate(volume);
-    exportMeshToFBX(mesh, state.outputFilePath);
+
+    if (!exportMeshToFBX(mesh, state.outputFilePath)) {
+        SetWindowText(hStatusText, L"Error: Failed to export FBX");
+        return;
+    }
+
+    if (preview) {
+        preview->setMesh(mesh);
+        preview->render();
+    }
+    SetWindowText(hStatusText, L"Status: Model Generated and Saved");
 }
 
 LRESULT CALLBACK MainApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -161,6 +206,8 @@ LRESULT CALLBACK MainApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
                 appInstance->onGenerateModel();
             else if (id == 203)
                 appInstance->selectSavePath();
+            else if (id == 204)
+                appInstance->onClearImages();
         }
         break;
     case WM_DESTROY:

@@ -40,8 +40,15 @@ void ExportMeshToFBX(const std::vector<Triangle>& triangles, const std::vector<V
         fbxMesh->EndPolygon();
     }
 
+    // ÞŽ¿‚Ì’Ç‰Ái”’Fj
+    FbxSurfacePhong* material = FbxSurfacePhong::Create(scene, "Material");
+    material->Diffuse.Set(FbxDouble3(1.0, 1.0, 1.0));
+    material->TransparencyFactor.Set(0.0);
+    material->ShadingModel.Set("phong");
+
     FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
     meshNode->SetNodeAttribute(fbxMesh);
+    meshNode->AddMaterial(material);
     rootNode->AddChild(meshNode);
 
     FbxExporter* exporter = FbxExporter::Create(manager, "");

@@ -2,7 +2,8 @@
 #include <vector>
 #include "common.h"
 #include "ImageProcessor.h"
-#include "MainApp.h"
+
+struct AppState; // ‘O•ûéŒ¾
 
 struct VolumeData {
     int width, height, depth;

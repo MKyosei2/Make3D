@@ -14,6 +14,7 @@ class MeshGenerator {
 public:
     void setTargetPolygonCount(int count);
     Mesh generate(const VolumeData& volume);
+    Mesh simplifyMesh(const Mesh& mesh, int maxPolygons);
 
 private:
     int targetPolygonCount = 1000;
