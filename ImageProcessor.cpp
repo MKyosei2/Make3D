@@ -87,5 +87,5 @@ void computeAlignmentParams(const Image& mask, int& centerX, int& centerY, int& 
     GetMaskBoundingBox(mask, minX, minY, maxX, maxY);
     centerX = (minX + maxX) / 2;
     centerY = (minY + maxY) / 2;
-    maxSize = std::max(maxX - minX, maxY - minY);
+    maxSize = std::max<int>(maxX - minX, maxY - minY); // Å© èCê≥çœÇ›
 }
