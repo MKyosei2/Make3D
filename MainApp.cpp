@@ -216,3 +216,8 @@ LRESULT CALLBACK MainApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
     }
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
+    MainApp app(hInstance);
+    return app.run();
+}
