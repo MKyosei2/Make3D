@@ -2,7 +2,9 @@
 #include <array>
 #include <cmath>
 #include <unordered_map>
-#include <algorithm> // std::max 用
+#include <algorithm>
+#include <string>
+#include <windows.h>
 
 const int edgeTable[256] = {
 0x000,0x109,0x203,0x30a,0x406,0x50f,0x605,0x70c,
@@ -327,6 +329,8 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
         {0,4},{1,5},{2,6},{3,7}
     } };
 
+    int cubeCount = 0;
+
     for (int z = 0; z < d - 1; ++z) {
         for (int y = 0; y < h - 1; ++y) {
             for (int x = 0; x < w - 1; ++x) {
@@ -344,6 +348,7 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
                 }
 
                 if (edgeTable[cubeIndex] == 0) continue;
+                cubeCount++;
 
                 std::array<Vertex, 12> vertList;
                 for (int i = 0; i < 12; ++i) {
@@ -373,6 +378,12 @@ Mesh MeshGenerator::generate(const VolumeData& volume) {
             }
         }
     }
+
+    // デバッグ用：頂点数とポリゴン数の表示
+    std::wstring info = L"立方体候補: " + std::to_wstring(cubeCount) +
+        L"\n頂点数: " + std::to_wstring(mesh.vertices.size()) +
+        L"\nポリゴン数: " + std::to_wstring(mesh.triangles.size());
+    MessageBox(nullptr, info.c_str(), L"MeshGenerator", MB_OK);
 
     if (mesh.triangles.size() > static_cast<size_t>(targetPolygonCount)) {
         mesh = simplifyMesh(mesh, targetPolygonCount);

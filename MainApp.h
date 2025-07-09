@@ -12,6 +12,7 @@ public:
     MainApp(HINSTANCE hInstance);
     bool initialize();
     int run();
+    bool generateModel(); // Å© êÈåæñYÇÍÇ∏Ç…
 
 private:
     HINSTANCE hInstance;
@@ -24,7 +25,5 @@ private:
     int silhouetteThreshold = 64;
 
     bool loadImageForView(ViewDirection dir, const std::wstring& imagePath);
-    bool generateModel();
-
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };

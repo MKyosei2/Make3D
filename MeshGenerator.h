@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include "VolumeBuilder.h"
+#include "VolumeBuilder.h" // VolumeData ‚ðŽg‚¤‚½‚ß
 
 struct Vertex { float x, y, z; };
 struct Triangle { int v0, v1, v2; };

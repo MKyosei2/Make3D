@@ -3,6 +3,8 @@
 #include <commdlg.h>
 #include <gdiplus.h>
 #include "VolumeBuilder.h"
+#include "MeshGenerator.h"
+#include "FBXExporter.h"
 #pragma comment(lib, "gdiplus.lib")
 
 using namespace Gdiplus;
@@ -25,12 +27,6 @@ MainApp::MainApp(HINSTANCE hInst) : hInstance(hInst), hwnd(nullptr), hSilhouette
 {
     ZeroMemory(buttons, sizeof(buttons));
     ZeroMemory(images, sizeof(images));
-}
-
-bool MainApp::generateModel()
-{
-    VolumeBuilder builder;
-    return builder.buildVolume(this->images, this->silhouetteThreshold);
 }
 
 bool MainApp::initialize()
@@ -127,7 +123,6 @@ LRESULT CALLBACK MainApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             SetWindowText(app->hStatusText, L"Status: Generating...");
             if (!app->generateModel()) {
                 SetWindowText(app->hStatusText, L"Status: Error");
-                MessageBox(hwnd, L"モデル生成に失敗しました。", L"エラー", MB_OK | MB_ICONERROR);
             }
             else {
                 SetWindowText(app->hStatusText, L"Status: Model Generated");
@@ -153,14 +148,24 @@ LRESULT CALLBACK MainApp::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
 bool MainApp::loadImageForView(ViewDirection dir, const std::wstring& imagePath)
 {
     Bitmap* bmp = Bitmap::FromFile(imagePath.c_str());
-    if (!bmp || bmp->GetLastStatus() != Ok) {
+
+    if (!bmp) {
+        MessageBox(hwnd, (L"Bitmapオブジェクトがnullです:\n" + imagePath).c_str(), L"エラー", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    Status stat = bmp->GetLastStatus();
+    if (stat != Ok) {
+        std::wstring msg = L"Bitmap読み込み失敗。Statusコード: " + std::to_wstring(stat) + L"\n" + imagePath;
+        MessageBox(hwnd, msg.c_str(), L"画像エラー", MB_OK | MB_ICONERROR);
         delete bmp;
         return false;
     }
 
     HBITMAP hBmp;
-    Color bg(255, 255, 255, 0); // 透明対応
+    Color bg(255, 255, 255, 0); // 透明背景
     if (bmp->GetHBITMAP(bg, &hBmp) != Ok) {
+        MessageBox(hwnd, L"HBITMAP 変換に失敗しました。", L"画像エラー", MB_OK | MB_ICONERROR);
         delete bmp;
         return false;
     }
@@ -173,7 +178,18 @@ bool MainApp::loadImageForView(ViewDirection dir, const std::wstring& imagePath)
 
 bool MainApp::generateModel()
 {
-    // ★ここにモデル生成ロジックを実装予定（マーチングキューブなど）
-    MessageBox(hwnd, L"（仮）モデル生成が呼び出されました。", L"生成成功", MB_OK);
+    VolumeBuilder builder;
+    if (!builder.buildVolume(this->images, this->silhouetteThreshold)) return false;
+
+    MeshGenerator generator;
+    generator.setTargetPolygonCount(1000);
+    Mesh mesh = generator.generate(builder.getVolume());
+
+    if (!exportMeshToFBX(mesh, L"output.fbx")) {
+        MessageBox(hwnd, L"FBX出力に失敗しました。", L"エラー", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    MessageBox(hwnd, L"モデル生成および出力に成功しました。", L"成功", MB_OK);
     return true;
 }
