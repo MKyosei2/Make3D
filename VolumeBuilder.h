@@ -6,18 +6,18 @@ struct VolumeData {
     int width = 0;
     int height = 0;
     int depth = 0;
-    std::vector<bool> data;
+    std::vector<float> data;
 
     VolumeData(int w = 0, int h = 0, int d = 0)
-        : width(w), height(h), depth(d), data(w* h* d, false) {
+        : width(w), height(h), depth(d), data(w* h* d, 0.0f) {
     }
 
-    bool get(int x, int y, int z) const {
-        if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return false;
+    float get(int x, int y, int z) const {
+        if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return 0.0f;
         return data[x + y * width + z * width * height];
     }
 
-    void set(int x, int y, int z, bool value) {
+    void set(int x, int y, int z, float value) {
         if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return;
         data[x + y * width + z * width * height] = value;
     }
