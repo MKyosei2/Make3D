@@ -1,54 +1,30 @@
 #pragma once
 #include <windows.h>
 #include <string>
-#include "common.h"
-#include "ImageProcessor.h"
-#include "PreviewRenderer.h"
 
-struct AppState {
-    HBITMAP images[ViewDirection::Count] = { nullptr };
-    int polygonCount = 1000;
-    int voxelResolution = 64;
-    bool isSingleImage = false;
-    std::wstring outputFilePath = L"output.fbx";
-    BYTE silhouetteThreshold = 128;
-
-    void clearImages();
-    bool loadImageForView(ViewDirection dir, const std::wstring& imagePath);
-    HBITMAP getImageBitmap(ViewDirection dir) const;
+enum ViewDirection {
+    FRONT = 0, BACK, LEFT, RIGHT, TOP, BOTTOM
 };
 
-class MainApp {
+class MainApp
+{
 public:
     MainApp(HINSTANCE hInstance);
+    bool initialize();
     int run();
 
 private:
-    HINSTANCE hInst;
-    HWND hWnd;
-    AppState state;
-    PreviewRenderer* preview = nullptr;
-
-    HWND hImageButtons[ViewDirection::Count];
-    HWND hPolygonCountInput;
-    HWND hVoxelResolutionInput;
-    HWND hThresholdInput;
-    HWND hGenerateButton;
-    HWND hFolderButton;
-    HWND hSaveButton;
-    HWND hPreviewStatic;
-    HWND hSingleImageCheck;
+    HINSTANCE hInstance;
+    HWND hwnd;
+    HWND buttons[6];
+    HWND hSilhouette;
     HWND hStatusText;
-    HWND hClearButton;
 
-    void createMainWindow();
-    void createControlUI(HWND hwnd);
-    void updateAppStateFromUI();
-    void showImagePreview(ViewDirection dir);
-    void loadImagesFromFolder();
-    void selectSavePath();
-    void onGenerateModel();
-    void onClearImages();
-    static LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-    static MainApp* appInstance;
+    HBITMAP images[6] = {};
+    int silhouetteThreshold = 64;
+
+    bool loadImageForView(ViewDirection dir, const std::wstring& imagePath);
+    bool generateModel();
+
+    static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };

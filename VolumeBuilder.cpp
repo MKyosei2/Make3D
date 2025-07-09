@@ -1,84 +1,48 @@
 #include "VolumeBuilder.h"
-#include "ImageProcessor.h"
-#include "MainApp.h"
-#include "common.h"
-#include <algorithm>
+#include <gdiplus.h>
+#pragma comment(lib, "gdiplus.lib")
 
-VolumeData::VolumeData(int w, int h, int d) : width(w), height(h), depth(d), voxels(w* h* d, false) {}
+using namespace Gdiplus;
 
-void VolumeData::resize(int w, int h, int d) {
-    width = w; height = h; depth = d;
-    voxels.assign(w * h * d, false);
-}
+VolumeBuilder::VolumeBuilder() {}
+VolumeBuilder::~VolumeBuilder() {}
 
-void VolumeData::set(int x, int y, int z, bool value) {
-    if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return;
-    voxels[x + y * width + z * width * height] = value;
-}
+bool VolumeBuilder::buildVolume(HBITMAP images[6], int silhouetteThreshold)
+{
+    for (int i = 0; i < 6; ++i)
+    {
+        if (!images[i]) {
+            MessageBox(nullptr, L"画像が読み込まれていない方向があります。", L"エラー", MB_OK | MB_ICONERROR);
+            return false;
+        }
 
-bool VolumeData::get(int x, int y, int z) const {
-    if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return false;
-    return voxels[x + y * width + z * width * height];
-}
+        // GDI+ Bitmap に変換
+        Bitmap bmp(images[i], nullptr);
+        if (bmp.GetLastStatus() != Ok) {
+            MessageBox(nullptr, L"画像の読み取りに失敗しました。", L"エラー", MB_OK | MB_ICONERROR);
+            return false;
+        }
 
-bool generateVolumeFromImages(const AppState& state, VolumeData& volume) {
-    int res = state.voxelResolution;
-    volume.resize(res, res, res);
+        UINT width = bmp.GetWidth();
+        UINT height = bmp.GetHeight();
 
-    if (state.isSingleImage) {
-        Image image = ConvertBitmapToImage(state.getImageBitmap(Front), state.silhouetteThreshold);
-        if (image.width == 0 || image.height == 0) return false;
-        volume = BuildVolumeFromSingleImageWithDepthProfile(image, res);
-        return true;
+        for (UINT y = 0; y < height; ++y) {
+            for (UINT x = 0; x < width; ++x) {
+                Color pixel;
+                bmp.GetPixel(x, y, &pixel);
+
+                // 輪郭（黒）の条件: R,G,B < silhouetteThreshold
+                if (pixel.GetR() < silhouetteThreshold &&
+                    pixel.GetG() < silhouetteThreshold &&
+                    pixel.GetB() < silhouetteThreshold)
+                {
+                    // TODO: ボクセルに変換処理（現状は仮のログ出力）
+                    // ここで (x, y, i方向) を元に 3D位置に変換して保存する
+                }
+            }
+        }
     }
 
-    std::vector<Image> masks(6);
-    for (int i = 0; i < 6; ++i) {
-        HBITMAP bmp = state.getImageBitmap((ViewDirection)i);
-        if (!bmp) return false;
-        masks[i] = ExtractMaskFromBitmap(bmp, state.silhouetteThreshold);
-    }
-
-    volume = AlignAndMergeMasks(masks, res);
+    MessageBox(nullptr, L"モデルボリューム生成完了（仮）", L"成功", MB_OK);
     return true;
-}
-
-VolumeData BuildVolumeFromSingleImageWithDepthProfile(const Image& image, int resolution) {
-    VolumeData volume(resolution, resolution, resolution);
-    int centerX, centerY, maxSize;
-    computeAlignmentParams(image, centerX, centerY, maxSize);
-
-    for (int y = 0; y < resolution; ++y) {
-        for (int x = 0; x < resolution; ++x) {
-            int imgX = (x - resolution / 2) * maxSize / resolution + centerX;
-            int imgY = (y - resolution / 2) * maxSize / resolution + centerY;
-            if (image.get(imgX, imgY)) {
-                int depthStart = resolution / 3;
-                int depthEnd = 2 * resolution / 3;
-                for (int z = depthStart; z < depthEnd; ++z)
-                    volume.set(x, y, z, true);
-            }
-        }
-    }
-    return volume;
-}
-
-VolumeData AlignAndMergeMasks(const std::vector<Image>& masks, int resolution) {
-    VolumeData volume(resolution, resolution, resolution);
-    for (int z = 0; z < resolution; ++z) {
-        for (int y = 0; y < resolution; ++y) {
-            for (int x = 0; x < resolution; ++x) {
-                bool front = masks[Front].get(x, y);
-                bool back = masks[Back].get(resolution - 1 - x, y);
-                bool left = masks[Left].get(z, y);
-                bool right = masks[Right].get(resolution - 1 - z, y);
-                bool top = masks[Top].get(x, resolution - 1 - z);
-                bool bottom = masks[Bottom].get(x, z);
-                int count = front + back + left + right + top + bottom;
-                if (count >= 4) // 少し緩める
-                    volume.set(x, y, z, true);
-            }
-        }
-    }
-    return volume;
 }

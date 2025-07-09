@@ -1,6 +1,37 @@
 ﻿  FBXExporter.cpp
-  コード生成しています。
-  Previous IPDB not found, fall back to full compilation.
-  All 602 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
-  コード生成が終了しました。
-  Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.h(16,19): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+  (ソース ファイル 'Make3D/FBXExporter.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.h(16,35): error C2143: 構文エラー: ',' が '&' の前にありません。
+  (ソース ファイル 'Make3D/FBXExporter.cpp' をコンパイルしています)
+  
+  MainApp.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(55,22): warning C4312: '型キャスト': 'int' からより大きいサイズの 'HMENU' へ変換します。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(174,15): error C2084: 関数 'bool MainApp::generateModel(void)' は既に本体を持っています。
+      C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(30,15):
+      'MainApp::generateModel' の以前の定義を確認してください
+  
+  MeshGenerator.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.h(16,19): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+  (ソース ファイル 'Make3D/MeshGenerator.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.h(16,35): error C2143: 構文エラー: ',' が '&' の前にありません。
+  (ソース ファイル 'Make3D/MeshGenerator.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(312,30): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(312,46): error C2143: 構文エラー: ',' が '&' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(315,19): error C2065: 'volume': 定義されていない識別子です。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(315,15): error C2737: 'w': const オブジェクトを初期化する必要があります
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(316,19): error C2065: 'volume': 定義されていない識別子です。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(316,15): error C2737: 'h': const オブジェクトを初期化する必要があります
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(317,19): error C2065: 'volume': 定義されていない識別子です。
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(317,15): error C2737: 'd': const オブジェクトを初期化する必要があります
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.cpp(341,31): error C2065: 'volume': 定義されていない識別子です。
+  PreviewRenderer.cpp
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.h(16,19): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+  (ソース ファイル 'Make3D/PreviewRenderer.cpp' をコンパイルしています)
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MeshGenerator.h(16,35): error C2143: 構文エラー: ',' が '&' の前にありません。
+  (ソース ファイル 'Make3D/PreviewRenderer.cpp' をコンパイルしています)
+  
+  VolumeBuilder.cpp
