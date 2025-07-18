@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include <string>
+#include "PreviewRenderer.h"
 
 enum ViewDirection {
     FRONT = 0, BACK, LEFT, RIGHT, TOP, BOTTOM
@@ -9,21 +10,22 @@ enum ViewDirection {
 class MainApp
 {
 public:
-    MainApp(HINSTANCE hInstance);
+    MainApp(HINSTANCE hInst);
     bool initialize();
     int run();
-    bool generateModel(); // Å© êÈåæñYÇÍÇ∏Ç…
 
 private:
+    static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    bool loadImageForView(ViewDirection dir, const std::wstring& imagePath);
+    bool generateModel();
+
     HINSTANCE hInstance;
     HWND hwnd;
     HWND buttons[6];
     HWND hSilhouette;
     HWND hStatusText;
+    HBITMAP images[6];
+    int silhouetteThreshold;
 
-    HBITMAP images[6] = {};
-    int silhouetteThreshold = 64;
-
-    bool loadImageForView(ViewDirection dir, const std::wstring& imagePath);
-    static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    PreviewRenderer preview; // Å© í«â¡
 };

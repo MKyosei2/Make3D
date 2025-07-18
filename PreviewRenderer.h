@@ -1,20 +1,35 @@
 #pragma once
-#include <Windows.h>
-#include "MeshGenerator.h"
+#include <vector>
+#include <windows.h>
+#include <d3d11.h>
+#include <DirectXMath.h>
 
-class PreviewRenderer {
+#pragma comment(lib, "d3d11.lib")
+
+class PreviewRenderer
+{
 public:
-    PreviewRenderer(HWND windowHandle);
+    struct Vertex
+    {
+        DirectX::XMFLOAT3 position;
+        DirectX::XMFLOAT3 normal;
+    };
+
+    PreviewRenderer();
     ~PreviewRenderer();
 
-    void setMesh(const Mesh& mesh);
-    void render();
-    void rotate(float angleDelta);
+    bool Initialize(HWND hwnd);
+    void Render(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
+    void Shutdown();
 
 private:
-    HWND hwnd = nullptr;
-    Mesh currentMesh;
-    float angle = 0.0f;
+    HWND hwnd;
+    ID3D11Device* device;
+    ID3D11DeviceContext* context;
+    IDXGISwapChain* swapChain;
+    ID3D11RenderTargetView* renderTargetView;
+    ID3D11Buffer* vertexBuffer;
+    ID3D11Buffer* indexBuffer;
 
-    void drawMesh(HDC hdc);
+    void CreateBuffers(const std::vector<Vertex>& vertices, const std::vector<unsigned int>& indices);
 };

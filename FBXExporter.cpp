@@ -1,60 +1,59 @@
 #include "FBXExporter.h"
 #include <fbxsdk.h>
-#include <string>
 
-std::string convertToAnsi(const std::wstring& wide) {
-    int len = WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    std::string result(len - 1, 0); // -1 ‚Í null•¶Žš‚Ì•ª
-    WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, &result[0], len, nullptr, nullptr);
-    return result;
-}
+#pragma comment(lib, "libfbxsdk.lib")
 
-bool exportMeshToFBX(const Mesh& mesh, const std::wstring& filename) {
-    std::string ansiFilename = convertToAnsi(filename);
-    ExportMeshToFBX(mesh.triangles, mesh.vertices, ansiFilename);
-    return true;
-}
-
-void ExportMeshToFBX(const std::vector<Triangle>& triangles, const std::vector<Vertex>& vertices, const std::string& filename) {
+bool FBXExporter::Export(const std::wstring& filename,
+    const std::vector<float>& vertices,
+    const std::vector<unsigned int>& indices)
+{
     FbxManager* manager = FbxManager::Create();
+    if (!manager) return false;
+
     FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
     manager->SetIOSettings(ios);
 
-    FbxScene* scene = FbxScene::Create(manager, "MeshScene");
+    FbxScene* scene = FbxScene::Create(manager, "Scene");
+
     FbxNode* rootNode = scene->GetRootNode();
+    FbxMesh* mesh = FbxMesh::Create(scene, "Mesh");
 
-    FbxMesh* fbxMesh = FbxMesh::Create(scene, "Mesh");
-    int vertexCount = static_cast<int>(vertices.size());
-    fbxMesh->InitControlPoints(vertexCount);
+    int vertexCount = static_cast<int>(vertices.size()) / 3;
+    mesh->InitControlPoints(vertexCount);
 
-    for (int i = 0; i < vertexCount; ++i) {
-        const Vertex& v = vertices[i];
-        fbxMesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
+    for (int i = 0; i < vertexCount; ++i)
+    {
+        float x = vertices[i * 3 + 0];
+        float y = vertices[i * 3 + 1];
+        float z = vertices[i * 3 + 2];
+        mesh->SetControlPointAt(FbxVector4(x, y, z), i);
     }
 
-    for (const Triangle& t : triangles) {
-        fbxMesh->BeginPolygon();
-        fbxMesh->AddPolygon(t.v0);
-        fbxMesh->AddPolygon(t.v1);
-        fbxMesh->AddPolygon(t.v2);
-        fbxMesh->EndPolygon();
+    int triangleCount = static_cast<int>(indices.size()) / 3;
+    for (int i = 0; i < triangleCount; ++i)
+    {
+        mesh->BeginPolygon();
+        mesh->AddPolygon(indices[i * 3 + 0]);
+        mesh->AddPolygon(indices[i * 3 + 1]);
+        mesh->AddPolygon(indices[i * 3 + 2]);
+        mesh->EndPolygon();
     }
-
-    // ÞŽ¿‚Ì’Ç‰Ái”’Fj
-    FbxSurfacePhong* material = FbxSurfacePhong::Create(scene, "Material");
-    material->Diffuse.Set(FbxDouble3(1.0, 1.0, 1.0));
-    material->TransparencyFactor.Set(0.0);
-    material->ShadingModel.Set("phong");
 
     FbxNode* meshNode = FbxNode::Create(scene, "MeshNode");
-    meshNode->SetNodeAttribute(fbxMesh);
-    meshNode->AddMaterial(material);
+    meshNode->SetNodeAttribute(mesh);
     rootNode->AddChild(meshNode);
 
     FbxExporter* exporter = FbxExporter::Create(manager, "");
-    exporter->Initialize(filename.c_str(), -1, manager->GetIOSettings());
-    exporter->Export(scene);
+    std::string path(filename.begin(), filename.end());
 
+    if (!exporter->Initialize(path.c_str(), -1, manager->GetIOSettings())) {
+        exporter->Destroy();
+        manager->Destroy();
+        return false;
+    }
+
+    exporter->Export(scene);
     exporter->Destroy();
     manager->Destroy();
+    return true;
 }

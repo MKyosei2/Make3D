@@ -300,152 +300,68 @@ int triTable[256][16] =
 {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
 {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1} };
 
-void MeshGenerator::setTargetPolygonCount(int count) {
-    targetPolygonCount = count;
-}
-
-Vertex interpolate(const Vertex& p1, const Vertex& p2) {
-    return {
-        (p1.x + p2.x) * 0.5f,
-        (p1.y + p2.y) * 0.5f,
-        (p1.z + p2.z) * 0.5f
-    };
-}
-
-Mesh MeshGenerator::generate(const VolumeData& volume)
+bool MeshGenerator::GenerateMesh(
+    const std::vector<unsigned char>& volume,
+    int width, int height, int depth,
+    std::vector<Vertex>& outVertices,
+    std::vector<unsigned int>& outIndices,
+    int& outCubeCount)
 {
-    Mesh mesh;
-    const float isoLevel = 0.99f;
+    outVertices.clear();
+    outIndices.clear();
+    outCubeCount = 0;
 
-    int w = volume.width;
-    int h = volume.height;
-    int d = volume.depth;
+    const int faceIndices[6][4] = {
+        {0, 1, 2, 3}, // -Z
+        {4, 5, 6, 7}, // +Z
+        {0, 4, 7, 3}, // -X
+        {1, 5, 6, 2}, // +X
+        {0, 1, 5, 4}, // -Y
+        {3, 2, 6, 7}  // +Y
+    };
 
-    std::map<std::tuple<float, float, float>, int> vertexMap;
+    const float cubeSize = 1.0f;
 
-    int cubeCount = 0;
+    for (int z = 0; z < depth; ++z) {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int idx = z * width * height + y * width + x;
+                if (volume[idx] == 0) continue;
 
-    auto vertexInterp = [&](float x1, float y1, float z1, float x2, float y2, float z2,
-        float val1, float val2) -> Vertex {
-            float t = (isoLevel - val1) / (val2 - val1 + 1e-6f); // avoid div0
-            return {
-                x1 + t * (x2 - x1),
-                y1 + t * (y2 - y1),
-                z1 + t * (z2 - z1)
-            };
-        };
+                float fx = static_cast<float>(x);
+                float fy = static_cast<float>(y);
+                float fz = static_cast<float>(z);
 
-    // デバッグ：volume に実際にボクセルが入っているか
-    int nonZeroVoxels = 0;
-    for (int z = 0; z < d; ++z)
-        for (int y = 0; y < h; ++y)
-            for (int x = 0; x < w; ++x)
-                if (volume.get(x, y, z) > 0.0f)
-                    nonZeroVoxels++;
+                std::array<Vertex, 8> cubeVerts = {
+                    Vertex{fx, fy, fz},
+                    Vertex{fx + cubeSize, fy, fz},
+                    Vertex{fx + cubeSize, fy + cubeSize, fz},
+                    Vertex{fx, fy + cubeSize, fz},
+                    Vertex{fx, fy, fz + cubeSize},
+                    Vertex{fx + cubeSize, fy, fz + cubeSize},
+                    Vertex{fx + cubeSize, fy + cubeSize, fz + cubeSize},
+                    Vertex{fx, fy + cubeSize, fz + cubeSize}
+                };
 
-    std::wstring voxelMsg = L"非ゼロボクセル数: " + std::to_wstring(nonZeroVoxels);
-    MessageBox(nullptr, voxelMsg.c_str(), L"デバッグ", MB_OK);
-
-    for (int z = 0; z < d - 1; ++z) {
-        for (int y = 0; y < h - 1; ++y) {
-            for (int x = 0; x < w - 1; ++x) {
-                float cube[8];
-                cube[0] = volume.get(x, y, z);
-                cube[1] = volume.get(x + 1, y, z);
-                cube[2] = volume.get(x + 1, y + 1, z);
-                cube[3] = volume.get(x, y + 1, z);
-                cube[4] = volume.get(x, y, z + 1);
-                cube[5] = volume.get(x + 1, y, z + 1);
-                cube[6] = volume.get(x + 1, y + 1, z + 1);
-                cube[7] = volume.get(x, y + 1, z + 1);
-
-                int cubeIndex = 0;
-                for (int i = 0; i < 8; ++i)
-                    if (cube[i] > isoLevel)
-                        cubeIndex |= (1 << i);
-
-                if (edgeTable[cubeIndex] == 0) continue;
-                cubeCount++;
-
-                Vertex vertList[12];
-
-                if (edgeTable[cubeIndex] & 1)
-                    vertList[0] = vertexInterp(x, y, z, x + 1, y, z, cube[0], cube[1]);
-                if (edgeTable[cubeIndex] & 2)
-                    vertList[1] = vertexInterp(x + 1, y, z, x + 1, y + 1, z, cube[1], cube[2]);
-                if (edgeTable[cubeIndex] & 4)
-                    vertList[2] = vertexInterp(x + 1, y + 1, z, x, y + 1, z, cube[2], cube[3]);
-                if (edgeTable[cubeIndex] & 8)
-                    vertList[3] = vertexInterp(x, y + 1, z, x, y, z, cube[3], cube[0]);
-                if (edgeTable[cubeIndex] & 16)
-                    vertList[4] = vertexInterp(x, y, z + 1, x + 1, y, z + 1, cube[4], cube[5]);
-                if (edgeTable[cubeIndex] & 32)
-                    vertList[5] = vertexInterp(x + 1, y, z + 1, x + 1, y + 1, z + 1, cube[5], cube[6]);
-                if (edgeTable[cubeIndex] & 64)
-                    vertList[6] = vertexInterp(x + 1, y + 1, z + 1, x, y + 1, z + 1, cube[6], cube[7]);
-                if (edgeTable[cubeIndex] & 128)
-                    vertList[7] = vertexInterp(x, y + 1, z + 1, x, y, z + 1, cube[7], cube[4]);
-                if (edgeTable[cubeIndex] & 256)
-                    vertList[8] = vertexInterp(x, y, z, x, y, z + 1, cube[0], cube[4]);
-                if (edgeTable[cubeIndex] & 512)
-                    vertList[9] = vertexInterp(x + 1, y, z, x + 1, y, z + 1, cube[1], cube[5]);
-                if (edgeTable[cubeIndex] & 1024)
-                    vertList[10] = vertexInterp(x + 1, y + 1, z, x + 1, y + 1, z + 1, cube[2], cube[6]);
-                if (edgeTable[cubeIndex] & 2048)
-                    vertList[11] = vertexInterp(x, y + 1, z, x, y + 1, z + 1, cube[3], cube[7]);
-
-                for (int i = 0; triTable[cubeIndex][i] != -1; i += 3) {
-                    Triangle tri;
-                    for (int j = 0; j < 3; ++j) {
-                        Vertex v = vertList[triTable[cubeIndex][i + j]];
-                        auto key = std::make_tuple(v.x, v.y, v.z);
-                        auto it = vertexMap.find(key);
-                        if (it == vertexMap.end()) {
-                            int index = (int)mesh.vertices.size();
-                            vertexMap[key] = index;
-                            mesh.vertices.push_back(v);
-                            if (j == 0) tri.v0 = index;
-                            else if (j == 1) tri.v1 = index;
-                            else tri.v2 = index;
-                        }
-                        else {
-                            if (j == 0) tri.v0 = it->second;
-                            else if (j == 1) tri.v1 = it->second;
-                            else tri.v2 = it->second;
-                        }
-                    }
-                    mesh.triangles.push_back(tri);
+                unsigned int baseIdx = static_cast<unsigned int>(outVertices.size());
+                for (const auto& v : cubeVerts) {
+                    outVertices.push_back(v);
                 }
+
+                for (int f = 0; f < 6; ++f) {
+                    const int* ids = faceIndices[f];
+                    outIndices.push_back(baseIdx + ids[0]);
+                    outIndices.push_back(baseIdx + ids[1]);
+                    outIndices.push_back(baseIdx + ids[2]);
+                    outIndices.push_back(baseIdx + ids[0]);
+                    outIndices.push_back(baseIdx + ids[2]);
+                    outIndices.push_back(baseIdx + ids[3]);
+                }
+
+                ++outCubeCount;
             }
         }
     }
 
-    std::wstring msg = L"立方体候補: " + std::to_wstring(cubeCount) +
-        L"\n頂点数: " + std::to_wstring(mesh.vertices.size()) +
-        L"\nポリゴン数: " + std::to_wstring(mesh.triangles.size());
-    MessageBox(nullptr, msg.c_str(), L"MeshGenerator", MB_OK);
-
-    return mesh;
-}
-
-Mesh MeshGenerator::simplifyMesh(const Mesh& mesh, int maxPolygons) {
-    Mesh simplified;
-    size_t triangleCount = mesh.triangles.size();
-    size_t step = std::max<size_t>(triangleCount / static_cast<size_t>(maxPolygons), 1);
-
-    for (size_t i = 0; i < triangleCount; i += step) {
-        Triangle tri = mesh.triangles[i];
-        Vertex v0 = mesh.vertices[tri.v0];
-        Vertex v1 = mesh.vertices[tri.v1];
-        Vertex v2 = mesh.vertices[tri.v2];
-
-        int base = static_cast<int>(simplified.vertices.size());
-        simplified.vertices.push_back(v0);
-        simplified.vertices.push_back(v1);
-        simplified.vertices.push_back(v2);
-        simplified.triangles.push_back({ base, base + 1, base + 2 });
-
-        if (static_cast<int>(simplified.triangles.size()) >= maxPolygons) break;
-    }
-    return simplified;
+    return true;
 }

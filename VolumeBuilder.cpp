@@ -1,96 +1,66 @@
 ﻿#include "VolumeBuilder.h"
+#include <vector>
+#include <fstream>
 #include <gdiplus.h>
-#include <string>
-#pragma comment(lib, "gdiplus.lib")
+#include <windows.h>
 
+#pragma comment(lib, "gdiplus.lib")
 using namespace Gdiplus;
 
 VolumeBuilder::VolumeBuilder() {}
-VolumeBuilder::~VolumeBuilder() {}
 
-bool VolumeBuilder::buildVolume(HBITMAP images[6], int silhouetteThreshold)
+bool VolumeBuilder::BuildFromImage(const std::wstring& imagePath, int width, int height, int depth)
 {
-    int setCount = 0;
-    int loadedCount = 0;
+    volumeData.clear();
+    volumeData.resize(width * height * depth, 0);
 
-    UINT maxWidth = 0, maxHeight = 0;
-
-    // 最大画像サイズを取得
-    for (int i = 0; i < 6; ++i) {
-        if (!images[i]) continue;
-        Bitmap bmp(images[i], nullptr);
-        if (bmp.GetLastStatus() != Ok) continue;
-
-        maxWidth = std::max<UINT>(maxWidth, bmp.GetWidth());
-        maxHeight = std::max<UINT>(maxHeight, bmp.GetHeight());
-    }
-
-    if (maxWidth == 0 || maxHeight == 0) {
-        MessageBox(nullptr, L"画像サイズの取得に失敗しました。", L"エラー", MB_OK | MB_ICONERROR);
+    // GDI+ 初期化
+    GdiplusStartupInput gdiplusStartupInput;
+    ULONG_PTR gdiplusToken;
+    if (GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, nullptr) != Ok) {
         return false;
     }
 
-    const int thickness = 4; // Z方向の厚み（任意変更可）
+    // 画像読み込み
+    Bitmap* bitmap = Bitmap::FromFile(imagePath.c_str());
+    if (!bitmap || bitmap->GetLastStatus() != Ok) {
+        GdiplusShutdown(gdiplusToken);
+        return false;
+    }
 
-    // VolumeData 初期化（Z方向に厚みあり）
-    volume = VolumeData((int)maxWidth, (int)maxHeight, thickness);
+    // サイズ調整（必要なら）
+    int imgW = bitmap->GetWidth();
+    int imgH = bitmap->GetHeight();
 
-    for (int i = 0; i < 6; ++i)
+    // 輝度をZ軸方向にマッピング
+    for (int y = 0; y < height && y < imgH; ++y)
     {
-        if (!images[i]) continue;
-        loadedCount++;
+        for (int x = 0; x < width && x < imgW; ++x)
+        {
+            Color color;
+            if (bitmap->GetPixel(x, y, &color) != Ok) continue;
 
-        Bitmap bmp(images[i], nullptr);
-        if (bmp.GetLastStatus() != Ok) {
-            MessageBox(nullptr, L"画像の読み取りに失敗しました。", L"エラー", MB_OK | MB_ICONERROR);
-            return false;
-        }
+            // 輝度 = 0〜255 の範囲で Z の奥行きにマッピング
+            BYTE luminance = static_cast<BYTE>((color.GetR() + color.GetG() + color.GetB()) / 3);
+            int maxZ = static_cast<int>((luminance / 255.0f) * depth);
 
-        UINT width = bmp.GetWidth();
-        UINT height = bmp.GetHeight();
-
-        for (UINT y = 0; y < height; ++y) {
-            for (UINT x = 0; x < width; ++x) {
-                Color pixel;
-                bmp.GetPixel(x, y, &pixel);
-
-                // 不透明ピクセルに厚みを持たせて Z方向に複製
-                if (pixel.GetAlpha() > 0) {
-                    for (int z = 0; z < thickness; ++z) {
-                        volume.set((int)x, (int)y, z, 1.0f); // float値を格納
-                        setCount++;
-                    }
+            for (int z = 0; z < maxZ; ++z)
+            {
+                int index = z * width * height + y * width + x;
+                if (index < volumeData.size())
+                {
+                    volumeData[index] = 1;
                 }
             }
         }
-
-        // 単一画像のみ処理（複数画像対応時はループ継続）
-        break;
     }
 
-    if (loadedCount == 0) {
-        MessageBox(nullptr, L"画像が1枚も読み込まれていません。", L"エラー", MB_OK | MB_ICONERROR);
-        return false;
-    }
-
-    // 🔧 外側1層をすべて0にして境界をつくる
-    for (int z = 0; z < volume.depth; ++z)
-        for (int y = 0; y < volume.height; ++y)
-            for (int x = 0; x < volume.width; ++x) {
-                if (x == 0 || y == 0 || z == 0 ||
-                    x == volume.width - 1 ||
-                    y == volume.height - 1 ||
-                    z == volume.depth - 1) {
-                    volume.set(x, y, z, 0.0f);
-                }
-            }
-
-    std::wstring msg = L"画像枚数: " + std::to_wstring(loadedCount) +
-        L"\nボクセル数: " + std::to_wstring(setCount);
-    MessageBox(nullptr, msg.c_str(), L"VolumeBuilder 完了", MB_OK);
+    delete bitmap;
+    GdiplusShutdown(gdiplusToken);
     return true;
 }
 
-const VolumeData& VolumeBuilder::getVolume() const {
-    return volume;
+const std::vector<unsigned char>& VolumeBuilder::GetVolumeData() const
+{
+    return volumeData;
 }

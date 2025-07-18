@@ -1,7 +1,319 @@
 ﻿  VolumeBuilder.cpp
-  コード生成しています。
-  2 of 501 functions ( 0.4%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    1 functions had inline decision re-evaluated but remain unchanged
-  コード生成が終了しました。
-  Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(33,9): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(33,18): error C2146: 構文エラー: ';' が、識別子 'GraphicsState' の前に必要です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(33,18): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(533,8): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(534,1): error C2146: 構文エラー: ';' が、識別子 'ObjectTypeIsValid' の前に必要です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(534,1): error C4430: 型指定子がありません - int と仮定しました。メモ: C++ は int を既定値としてサポートしていません
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(560,44): error C2065: 'META_SETBKCOLOR': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(560,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(561,44): error C2065: 'META_SETBKMODE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(561,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(562,44): error C2065: 'META_SETMAPMODE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(562,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(563,44): error C2065: 'META_SETROP2': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(563,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(564,44): error C2065: 'META_SETRELABS': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(564,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(565,44): error C2065: 'META_SETPOLYFILLMODE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(565,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(566,44): error C2065: 'META_SETSTRETCHBLTMODE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(566,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(567,44): error C2065: 'META_SETTEXTCHAREXTRA': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(567,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(568,44): error C2065: 'META_SETTEXTCOLOR': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(568,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(569,44): error C2065: 'META_SETTEXTJUSTIFICATION': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(569,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(570,44): error C2065: 'META_SETWINDOWORG': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(570,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(571,44): error C2065: 'META_SETWINDOWEXT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(571,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(572,44): error C2065: 'META_SETVIEWPORTORG': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(572,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(573,44): error C2065: 'META_SETVIEWPORTEXT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(573,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(574,44): error C2065: 'META_OFFSETWINDOWORG': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(574,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(575,44): error C2065: 'META_SCALEWINDOWEXT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(575,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(576,44): error C2065: 'META_OFFSETVIEWPORTORG': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(576,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(577,44): error C2065: 'META_SCALEVIEWPORTEXT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(577,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(578,44): error C2065: 'META_LINETO': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(578,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(579,44): error C2065: 'META_MOVETO': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(579,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(580,44): error C2065: 'META_EXCLUDECLIPRECT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(580,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(581,44): error C2065: 'META_INTERSECTCLIPRECT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(581,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(582,44): error C2065: 'META_ARC': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(582,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(583,44): error C2065: 'META_ELLIPSE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(583,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(584,44): error C2065: 'META_FLOODFILL': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(584,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(585,44): error C2065: 'META_PIE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(585,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(586,44): error C2065: 'META_RECTANGLE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(586,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(587,44): error C2065: 'META_ROUNDRECT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(587,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(588,44): error C2065: 'META_PATBLT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(588,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(589,44): error C2065: 'META_SAVEDC': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(589,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(590,44): error C2065: 'META_SETPIXEL': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(590,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(591,44): error C2065: 'META_OFFSETCLIPRGN': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(591,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(592,44): error C2065: 'META_TEXTOUT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(592,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(593,44): error C2065: 'META_BITBLT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(593,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(594,44): error C2065: 'META_STRETCHBLT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(594,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(595,44): error C2065: 'META_POLYGON': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(595,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(596,44): error C2065: 'META_POLYLINE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(596,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(597,44): error C2065: 'META_ESCAPE': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(597,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(598,44): error C2065: 'META_RESTOREDC': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(598,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(599,44): error C2065: 'META_FILLREGION': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(599,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(600,44): error C2065: 'META_FRAMEREGION': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(600,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(601,44): error C2065: 'META_INVERTREGION': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(601,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(602,44): error C2065: 'META_PAINTREGION': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(602,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(603,44): error C2065: 'META_SELECTCLIPREGION': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(603,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(604,44): error C2065: 'META_SELECTOBJECT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(604,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(605,44): error C2065: 'META_SETTEXTALIGN': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(605,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(607,44): error C2065: 'META_CHORD': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(607,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(608,44): error C2065: 'META_SETMAPPERFLAGS': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(608,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(609,44): error C2065: 'META_EXTTEXTOUT': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(609,5): error C2056: 誤った式になっています。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(610,44): error C2065: 'META_SETDIBTODEV': 定義されていない識別子です。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0\um\GdiplusEnums.h(610,44): error C1003: プログラム内のエラーが 100 個を超えました。コンパイルは中断されます。
+  (ソース ファイル 'Make3D/VolumeBuilder.cpp' をコンパイルしています)
+  

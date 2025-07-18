@@ -1,21 +1,18 @@
 #pragma once
 #include <vector>
-#include "VolumeBuilder.h" // VolumeData ‚ðŽg‚¤‚½‚ß
+#include <array>
 
-struct Vertex { float x, y, z; };
-struct Triangle { int v0, v1, v2; };
-
-struct Mesh {
-    std::vector<Vertex> vertices;
-    std::vector<Triangle> triangles;
-};
-
-class MeshGenerator {
+class MeshGenerator
+{
 public:
-    void setTargetPolygonCount(int count);
-    Mesh generate(const VolumeData& volume);
-    Mesh simplifyMesh(const Mesh& mesh, int maxPolygons);
+    struct Vertex {
+        float x, y, z;
+    };
 
-private:
-    int targetPolygonCount = 1000;
+    bool GenerateMesh(
+        const std::vector<unsigned char>& volume,
+        int width, int height, int depth,
+        std::vector<Vertex>& outVertices,
+        std::vector<unsigned int>& outIndices,
+        int& outCubeCount);
 };

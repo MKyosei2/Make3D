@@ -1,37 +1,18 @@
 #pragma once
-#include <windows.h>
+#include <string>
 #include <vector>
-
-struct VolumeData {
-    int width = 0;
-    int height = 0;
-    int depth = 0;
-    std::vector<float> data;
-
-    VolumeData(int w = 0, int h = 0, int d = 0)
-        : width(w), height(h), depth(d), data(w* h* d, 0.0f) {
-    }
-
-    float get(int x, int y, int z) const {
-        if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return 0.0f;
-        return data[x + y * width + z * width * height];
-    }
-
-    void set(int x, int y, int z, float value) {
-        if (x < 0 || y < 0 || z < 0 || x >= width || y >= height || z >= depth) return;
-        data[x + y * width + z * width * height] = value;
-    }
-};
 
 class VolumeBuilder
 {
 public:
     VolumeBuilder();
-    ~VolumeBuilder();
 
-    bool buildVolume(HBITMAP images[6], int silhouetteThreshold);
-    const VolumeData& getVolume() const;
+    // 画像一枚からボリュームデータを構築する
+    bool BuildFromImage(const std::wstring& imagePath, int width, int height, int depth);
+
+    // ボリュームデータへのアクセス
+    const std::vector<unsigned char>& GetVolumeData() const;
 
 private:
-    VolumeData volume = VolumeData(128, 128, 128); // 仮ボリュームサイズ
+    std::vector<unsigned char> volumeData;
 };

@@ -1,6 +1,11 @@
 #pragma once
 #include <string>
-#include "MeshGenerator.h"
+#include <vector>
 
-bool exportMeshToFBX(const Mesh& mesh, const std::wstring& filename);
-void ExportMeshToFBX(const std::vector<Triangle>& triangles, const std::vector<Vertex>& vertices, const std::string& filename);
+class FBXExporter
+{
+public:
+    bool Export(const std::wstring& filename,
+        const std::vector<float>& vertices,  // フラットな x,y,z,... 配列
+        const std::vector<unsigned int>& indices);
+};
