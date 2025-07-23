@@ -19,6 +19,9 @@ void RunMarchingCubes(const std::vector<std::vector<std::vector<bool>>>& voxelGr
     std::vector<FbxVector4>& outVertices,
     std::vector<int>& outIndices);
 
+std::vector<std::vector<std::vector<bool>>> GenerateVoxelGridFromCTSlice(
+    const std::vector<unsigned char>& image, int width, int height, int depth);
+
 // グローバル変数
 std::vector<unsigned char> g_loadedBuffer;  // PNG画像のグレースケールバッファ
 int g_width = 0;                            // 画像の横幅
@@ -386,18 +389,6 @@ void Polygonise(const GridCell& cell, float isoLevel, std::vector<FbxVector4>& o
     }
 }
 
-std::vector<float> GenerateDepthMapFromImage(const std::vector<unsigned char>& image, int width, int height) {
-    std::vector<float> depthMap(width * height);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            int index = (y * width + x) * 3;
-            float grayscale = (image[index] + image[index + 1] + image[index + 2]) / 3.0f / 255.0f;
-            depthMap[y * width + x] = grayscale;
-        }
-    }
-    return depthMap;
-}
-
 auto GenerateVoxelGrid(const std::vector<float>& depthMap, int width, int height, int depth) {
     std::vector<std::vector<std::vector<bool>>> grid(width, std::vector<std::vector<bool>>(height, std::vector<bool>(depth, false)));
     for (int y = 0; y < height; ++y)
@@ -412,13 +403,20 @@ auto GenerateVoxelGrid(const std::vector<float>& depthMap, int width, int height
 void RunMarchingCubes(const std::vector<std::vector<std::vector<bool>>>& voxelGrid,
     int width, int height, int depth,
     std::vector<FbxVector4>& outVertices,
-    std::vector<int>& outIndices) {
+    std::vector<int>& outIndices)
+{
+    outVertices.clear();  // 安全のため明示的に初期化
+    outIndices.clear();
+
     int vertexCount = 0;
+    int triangleCount = 0;
+    const int maxTriangles = 4048;
 
     for (int x = 0; x < width - 1; ++x) {
         for (int y = 0; y < height - 1; ++y) {
             for (int z = 0; z < depth - 1; ++z) {
-                // 簡略: 現在の8点の占有状態から cubeIndex を作る
+                if (triangleCount >= maxTriangles) break;
+
                 int cubeIndex = 0;
                 cubeIndex |= voxelGrid[x][y][z] ? 1 : 0;
                 cubeIndex |= voxelGrid[x + 1][y][z] ? 2 : 0;
@@ -432,16 +430,18 @@ void RunMarchingCubes(const std::vector<std::vector<std::vector<bool>>>& voxelGr
                 if (cubeIndex == 0 || cubeIndex == 255) continue;
 
                 for (int i = 0; triTable[cubeIndex][i] != -1; i += 3) {
-                    for (int j = 0; j < 3; ++j) {
-                        int edge = triTable[cubeIndex][i + j];
+                    if (triangleCount >= maxTriangles) break;
 
-                        // 簡易的に voxel 中心を頂点として使う（補間しない）
-                        float vx = x + 0.5f;
-                        float vy = y + 0.5f;
-                        float vz = z + 0.5f;
+                    for (int j = 0; j < 3; ++j) {
+                        float vx = static_cast<float>(x) + 0.5f;
+                        float vy = static_cast<float>(y) + 0.5f;
+                        float vz = static_cast<float>(z) + 0.5f;
+
                         outVertices.emplace_back(vx, vy, vz);
                         outIndices.push_back(vertexCount++);
                     }
+
+                    triangleCount++;
                 }
             }
         }
@@ -449,13 +449,36 @@ void RunMarchingCubes(const std::vector<std::vector<std::vector<bool>>>& voxelGr
 }
 
 void Run3DGenerationPipeline() {
-    if (g_loadedBuffer.empty()) return;
-    auto depthMap = GenerateDepthMapFromImage(g_loadedBuffer, g_width, g_height);
-    auto voxelGrid = GenerateVoxelGrid(depthMap, g_width, g_height, 64);
-
     g_vertices.clear();
     g_indices.clear();
-    RunMarchingCubes(voxelGrid, g_width, g_height, 64, g_vertices, g_indices); // 実装必要
+
+    if (g_loadedBuffer.empty()) return;
+
+    int voxelDepth = 64; // 任意の厚み
+    auto voxelGrid = GenerateVoxelGridFromCTSlice(g_loadedBuffer, g_width, g_height, voxelDepth);
+
+    RunMarchingCubes(voxelGrid, g_width, g_height, voxelDepth, g_vertices, g_indices);
+}
+
+std::vector<std::vector<std::vector<bool>>> GenerateVoxelGridFromCTSlice(
+    const std::vector<unsigned char>& image, int width, int height, int depth) {
+
+    std::vector<std::vector<std::vector<bool>>> grid(
+        width, std::vector<std::vector<bool>>(height, std::vector<bool>(depth, false)));
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int index = (y * width + x) * 3;
+            float brightness = (image[index] + image[index + 1] + image[index + 2]) / 3.0f;
+
+            if (brightness > 128.0f) {
+                for (int z = 0; z < depth; ++z) {
+                    grid[x][y][z] = true;
+                }
+            }
+        }
+    }
+    return grid;
 }
 
 std::string WStringToUTF8(const std::wstring& wstr) {
