@@ -1,4 +1,5 @@
-﻿#include <windows.h>
+﻿// MainApp.cpp : WinAPI + Marching Cubes + FBX Export GUI Tool
+#include <windows.h>
 #include <commdlg.h>
 #include <string>
 #include <vector>
@@ -10,42 +11,21 @@
 struct Vec3 { float x, y, z; };
 struct Triangle { int a, b, c; };
 
-std::string g_frontPath = "", g_sidePath = "", g_topPath = "";
+std::string g_inputImagePath = "";
 const float ISO_LEVEL = 0.5f;
-const int VOXEL_RES = 128;
+const int VOXEL_RES = 32;
 
-bool LoadBinaryMask(const std::string& path, int& w, int& h, std::vector<unsigned char>& mask) {
+// PNG読み込み
+bool LoadGrayscaleImage(const std::string& path, int& width, int& height, std::vector<unsigned char>& image) {
     int comp;
-    unsigned char* data = stbi_load(path.c_str(), &w, &h, &comp, 1);
+    unsigned char* data = stbi_load(path.c_str(), &width, &height, &comp, 1);
     if (!data) return false;
-    mask.assign(data, data + w * h);
+    image.assign(data, data + width * height);
     stbi_image_free(data);
     return true;
 }
 
-void GenerateIntersectedVolume(std::vector<unsigned char>& volume) {
-    int fw, fh, sw, sh, tw, th;
-    std::vector<unsigned char> front, side, top;
-    if (!LoadBinaryMask(g_frontPath, fw, fh, front)) return;
-    if (!LoadBinaryMask(g_sidePath, sw, sh, side)) return;
-    if (!LoadBinaryMask(g_topPath, tw, th, top))  return;
-
-    volume.resize(VOXEL_RES * VOXEL_RES * VOXEL_RES);
-    for (int z = 0; z < VOXEL_RES; ++z)
-        for (int y = 0; y < VOXEL_RES; ++y)
-            for (int x = 0; x < VOXEL_RES; ++x) {
-                int fx = x * fw / VOXEL_RES, fy = y * fh / VOXEL_RES;
-                int sx = z * sw / VOXEL_RES, sy = y * sh / VOXEL_RES;
-                int tx = x * tw / VOXEL_RES, tz = z * th / VOXEL_RES;
-
-                bool f = front[fx + fy * fw] > 128;
-                bool s = side[sx + sy * sw] > 128;
-                bool t = top[tx + tz * tw] > 128;
-
-                volume[x + y * VOXEL_RES + z * VOXEL_RES * VOXEL_RES] = (f && s && t) ? 255 : 0;
-            }
-}
-
+// 頂点補間（linear）
 Vec3 VertexInterp(const Vec3& p1, const Vec3& p2, float valp1, float valp2) {
     float mu = (ISO_LEVEL - valp1) / (valp2 - valp1 + 1e-6f);
     return {
@@ -55,16 +35,17 @@ Vec3 VertexInterp(const Vec3& p1, const Vec3& p2, float valp1, float valp2) {
     };
 }
 
+// Marching Cubes 実行
 void GenerateMarchingCubesMesh(const std::vector<unsigned char>& volume, int resX, int resY, int resZ,
     std::vector<Vec3>& vertices, std::vector<Triangle>& triangles) {
     const int edgeVertexMap[12][2] = {
-        {0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},
-        {0,4},{1,5},{2,6},{3,7}
+        {0,1}, {1,2}, {2,3}, {3,0}, {4,5}, {5,6}, {6,7}, {7,4}, {0,4}, {1,5}, {2,6}, {3,7}
     };
-    const Vec3 offset[8] = {
-        {0,0,0},{1,0,0},{1,1,0},{0,1,0},
-        {0,0,1},{1,0,1},{1,1,1},{0,1,1}
+    const Vec3 cubeVertexOffset[8] = {
+        {0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
+        {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}
     };
+
     auto at = [&](int x, int y, int z) {
         return volume[x + y * resX + z * resX * resY] / 255.0f;
         };
@@ -75,35 +56,39 @@ void GenerateMarchingCubesMesh(const std::vector<unsigned char>& volume, int res
                 int cubeIndex = 0;
                 float val[8];
                 Vec3 pos[8];
+
                 for (int i = 0; i < 8; ++i) {
-                    int xi = x + (int)offset[i].x;
-                    int yi = y + (int)offset[i].y;
-                    int zi = z + (int)offset[i].z;
+                    int xi = x + (int)cubeVertexOffset[i].x;
+                    int yi = y + (int)cubeVertexOffset[i].y;
+                    int zi = z + (int)cubeVertexOffset[i].z;
                     val[i] = at(xi, yi, zi);
                     pos[i] = { (float)xi, (float)yi, (float)zi };
                     if (val[i] < ISO_LEVEL) cubeIndex |= (1 << i);
                 }
+
                 int edges = edgeTable[cubeIndex];
                 if (edges == 0) continue;
 
                 Vec3 vertList[12];
-                for (int i = 0; i < 12; ++i)
+                for (int i = 0; i < 12; ++i) {
                     if (edges & (1 << i)) {
                         int a = edgeVertexMap[i][0];
                         int b = edgeVertexMap[i][1];
                         vertList[i] = VertexInterp(pos[a], pos[b], val[a], val[b]);
                     }
+                }
 
                 for (int i = 0; triTable[cubeIndex][i] != -1; i += 3) {
-                    int idx = (int)vertices.size();
+                    int idx0 = (int)vertices.size();
                     vertices.push_back(vertList[triTable[cubeIndex][i]]);
                     vertices.push_back(vertList[triTable[cubeIndex][i + 1]]);
                     vertices.push_back(vertList[triTable[cubeIndex][i + 2]]);
-                    triangles.push_back({ idx, idx + 1, idx + 2 });
+                    triangles.push_back({ idx0, idx0 + 1, idx0 + 2 });
                 }
             }
 }
 
+// FBX出力
 void ExportToFBX(const std::vector<Vec3>& vertices, const std::vector<Triangle>& triangles, const std::string& filename) {
     FbxManager* manager = FbxManager::Create();
     FbxIOSettings* ios = FbxIOSettings::Create(manager, IOSROOT);
@@ -113,8 +98,10 @@ void ExportToFBX(const std::vector<Vec3>& vertices, const std::vector<Triangle>&
     FbxMesh* mesh = FbxMesh::Create(scene, "Mesh");
 
     mesh->InitControlPoints((int)vertices.size());
-    for (int i = 0; i < vertices.size(); ++i)
-        mesh->SetControlPointAt(FbxVector4(vertices[i].x, vertices[i].y, vertices[i].z), i);
+    for (int i = 0; i < vertices.size(); ++i) {
+        const Vec3& v = vertices[i];
+        mesh->SetControlPointAt(FbxVector4(v.x, v.y, v.z), i);
+    }
 
     for (const auto& tri : triangles) {
         mesh->BeginPolygon();
@@ -136,59 +123,70 @@ void ExportToFBX(const std::vector<Vec3>& vertices, const std::vector<Triangle>&
     manager->Destroy();
 }
 
-std::wstring OpenFileDialog(HWND hwnd) {
-    wchar_t path[MAX_PATH] = {};
-    OPENFILENAME ofn = {};
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = hwnd;
-    ofn.lpstrFilter = L"PNG Files\0*.png\0";
-    ofn.lpstrFile = path;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.Flags = OFN_FILEMUSTEXIST;
-    return GetOpenFileName(&ofn) ? std::wstring(path) : L"";
-}
+// PNG読み込み → MarchingCubes → FBX出力処理
+void RunProcess(HWND hwnd) {
+    if (g_inputImagePath.empty()) {
+        MessageBox(hwnd, L"No image selected!", L"Error", MB_OK);
+        return;
+    }
 
-void RunExport(HWND hwnd) {
-    std::vector<unsigned char> volume;
-    GenerateIntersectedVolume(volume);
+    int w, h;
+    std::vector<unsigned char> img;
+    if (!LoadGrayscaleImage(g_inputImagePath, w, h, img)) {
+        MessageBox(hwnd, L"Image load failed!", L"Error", MB_OK);
+        return;
+    }
+
+    std::vector<unsigned char> volume(VOXEL_RES * VOXEL_RES * VOXEL_RES);
+    for (int z = 0; z < VOXEL_RES; ++z)
+        for (int y = 0; y < VOXEL_RES; ++y)
+            for (int x = 0; x < VOXEL_RES; ++x) {
+                int ix = x * w / VOXEL_RES;
+                int iy = y * h / VOXEL_RES;
+                volume[x + y * VOXEL_RES + z * VOXEL_RES * VOXEL_RES] = img[ix + iy * w];
+            }
 
     std::vector<Vec3> verts;
     std::vector<Triangle> tris;
     GenerateMarchingCubesMesh(volume, VOXEL_RES, VOXEL_RES, VOXEL_RES, verts, tris);
     ExportToFBX(verts, tris, "output.fbx");
-    MessageBox(hwnd, L"FBX Exported: output.fbx", L"Done", MB_OK);
+
+    MessageBox(hwnd, L"Exported to output.fbx", L"Success", MB_OK);
 }
 
+// ファイルダイアログ
+std::wstring OpenImageDialog(HWND hwnd) {
+    wchar_t path[MAX_PATH] = {};
+    OPENFILENAME ofn = {};
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hwnd;
+    ofn.lpstrFilter = L"PNG Files\0*.png\0All Files\0*.*\0";
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_FILEMUSTEXIST;
+
+    if (GetOpenFileName(&ofn)) return path;
+    return L"";
+}
+
+// ウィンドウプロシージャ
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case 1: {
-            auto w = OpenFileDialog(hwnd);
-            if (!w.empty()) {
-                char buf[MAX_PATH]; WideCharToMultiByte(CP_ACP, 0, w.c_str(), -1, buf, MAX_PATH, 0, 0);
-                g_frontPath = buf;
+            std::wstring path = OpenImageDialog(hwnd);
+            if (!path.empty()) {
+                char mbpath[MAX_PATH];
+                WideCharToMultiByte(CP_ACP, 0, path.c_str(), -1, mbpath, MAX_PATH, NULL, NULL);
+                g_inputImagePath = mbpath;
+                MessageBox(hwnd, path.c_str(), L"Image Selected", MB_OK);
             }
             break;
         }
-        case 2: {
-            auto w = OpenFileDialog(hwnd);
-            if (!w.empty()) {
-                char buf[MAX_PATH]; WideCharToMultiByte(CP_ACP, 0, w.c_str(), -1, buf, MAX_PATH, 0, 0);
-                g_sidePath = buf;
-            }
+        case 2:
+            RunProcess(hwnd);
             break;
-        }
-        case 3: {
-            auto w = OpenFileDialog(hwnd);
-            if (!w.empty()) {
-                char buf[MAX_PATH]; WideCharToMultiByte(CP_ACP, 0, w.c_str(), -1, buf, MAX_PATH, 0, 0);
-                g_topPath = buf;
-            }
-            break;
-        }
-        case 4:
-            RunExport(hwnd); break;
         }
         break;
     case WM_DESTROY:
@@ -199,27 +197,31 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     return 0;
 }
 
+// エントリーポイント（WinMain）
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int) {
-    WNDCLASS wc = { 0 };
+    const wchar_t CLASS_NAME[] = L"MainWinClass";
+    WNDCLASS wc = {};
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInst;
-    wc.lpszClassName = L"VoxelWin";
+    wc.lpszClassName = CLASS_NAME;
     RegisterClass(&wc);
 
-    HWND hwnd = CreateWindow(L"VoxelWin", L"3面シルエット → 3D再構成",
-        WS_OVERLAPPEDWINDOW, 100, 100, 400, 250, 0, 0, hInst, 0);
+    HWND hwnd = CreateWindowEx(0, CLASS_NAME, L"3D Model Generator", WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, 400, 200,
+        NULL, NULL, hInst, NULL);
 
-    CreateWindow(L"BUTTON", L"Front", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 30, 30, 100, 30, hwnd, (HMENU)1, hInst, 0);
-    CreateWindow(L"BUTTON", L"Side", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 150, 30, 100, 30, hwnd, (HMENU)2, hInst, 0);
-    CreateWindow(L"BUTTON", L"Top", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 270, 30, 100, 30, hwnd, (HMENU)3, hInst, 0);
-    CreateWindow(L"BUTTON", L"Export FBX", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 130, 100, 120, 40, hwnd, (HMENU)4, hInst, 0);
+    CreateWindow(L"BUTTON", L"Select PNG", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        20, 40, 150, 30, hwnd, (HMENU)1, hInst, NULL);
+    CreateWindow(L"BUTTON", L"Generate FBX", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        200, 40, 150, 30, hwnd, (HMENU)2, hInst, NULL);
 
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
 
     MSG msg;
-    while (GetMessage(&msg, 0, 0, 0)) {
-        TranslateMessage(&msg); DispatchMessage(&msg);
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
     }
     return 0;
 }
