@@ -5,7 +5,11 @@
       <FullPath>C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
-  <ContentFiles />
+  <ContentFiles>
+    <ContentFile>
+      <FullPath>C:\Users\kyose\source\repos\Make3D\x64\Release\MarchingCubes.compute.cso</FullPath>
+    </ContentFile>
+  </ContentFiles>
   <SatelliteDlls />
   <NonRecipeFileRefs />
 </Project>

@@ -1,26 +1,10 @@
-﻿  MainApp.cpp
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(44,50): error C2589: '(': スコープ解決演算子 (::) の右側にあるトークンは使えません。
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(44,50): error C2059: 構文エラー: ')'
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(79,39): warning C4002: 関数に似たマクロ呼び出し 'min' の引数が多すぎます
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(79,39): error C2589: '(': スコープ解決演算子 (::) の右側にあるトークンは使えません。
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(79,39): error C2059: 構文エラー: '{'
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(79,39): error C2143: 構文エラー: ';' が '{' の前にありません。
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(79,39): error C2143: 構文エラー: ')' が ';' の前にありません。
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(79,39): error C2059: 構文エラー: ')'
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(91,6): error C2601: 'VertexInterp': ローカル関数の定義が正しくありません。
-      C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(65,41):
-      この行に含まれる '{' に対応するものがありません
+﻿C:\Users\kyose\source\repos\Make3D\x64\Release\MarchingCubes.compute.hlsl(44,14): warning X3078: 'i': loop control variable conflicts with a previous declaration in the outer scope; most recent declaration will be used
   
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(96,6): error C2601: 'MarchingCubes': ローカル関数の定義が正しくありません。
-      C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(65,41):
-      この行に含まれる '{' に対応するものがありません
-  
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(136,6): error C2601: 'ExportToFBX': ローカル関数の定義が正しくありません。
-      C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(65,41):
-      この行に含まれる '{' に対応するものがありません
-  
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(164,12): error C2601: 'WinMain': ローカル関数の定義が正しくありません。
-      C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(65,41):
-      この行に含まれる '{' に対応するものがありません
-  
-C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(65,41): error C1075: '{': 一致するトークンが見つかりませんでした
+  compilation object save succeeded; see C:\Users\kyose\source\repos\Make3D\x64\Release\MarchingCubes.compute.cso
+  MainApp.cpp
+  コード生成しています。
+  102 of 437 functions (23.3%) were compiled, the rest were copied from previous compilation.
+    7 functions were new in current compilation
+    22 functions had inline decision re-evaluated but remain unchanged
+  コード生成が終了しました。
+  Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
