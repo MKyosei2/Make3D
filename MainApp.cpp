@@ -9,7 +9,6 @@
 #include <iostream>
 #include <ctime>
 #include <sstream>
-#include <algorithm>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -35,7 +34,7 @@ void ShowError(const char* msg) {
     MessageBoxA(nullptr, msg, "Error", MB_OK | MB_ICONERROR);
 }
 
-// 3値最大・最小
+// 完全手動max3/min3
 unsigned char max3(unsigned char a, unsigned char b, unsigned char c) {
     unsigned char m = a;
     if (b > m) m = b;
@@ -83,6 +82,23 @@ bool GenerateDistanceMap(const std::string& imagePath, int& width, int& height, 
         distanceMap[i] = invert ? (1.0f - gray) : gray;
     }
     stbi_image_free(image);
+
+    // --- ヒストグラム診断追加 ---
+    int hist[10] = { 0 };
+    for (int i = 0; i < width * height; ++i) {
+        int idx = (int)(distanceMap[i] * 9.99f);
+        if (idx < 0) idx = 0;
+        if (idx > 9) idx = 9;
+        hist[idx]++;
+    }
+    std::ostringstream oss;
+    oss << "distanceMap分布\n";
+    for (int i = 0; i < 10; ++i) {
+        oss << i << ": " << hist[i] << "\n";
+    }
+    MessageBoxA(nullptr, oss.str().c_str(), "ヒストグラム", MB_OK);
+    // --- ここまで ---
+
     return true;
 }
 

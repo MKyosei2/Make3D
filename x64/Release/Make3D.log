@@ -1,10 +1,7 @@
-﻿C:\Users\kyose\source\repos\Make3D\x64\Release\MarchingCubes.compute.hlsl(44,14): warning X3078: 'i': loop control variable conflicts with a previous declaration in the outer scope; most recent declaration will be used
-  
-  compilation object save succeeded; see C:\Users\kyose\source\repos\Make3D\x64\Release\MarchingCubes.compute.cso
-  MainApp.cpp
+﻿  MainApp.cpp
   コード生成しています。
-  102 of 437 functions (23.3%) were compiled, the rest were copied from previous compilation.
-    7 functions were new in current compilation
-    22 functions had inline decision re-evaluated but remain unchanged
+  0 of 437 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
   コード生成が終了しました。
   Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
