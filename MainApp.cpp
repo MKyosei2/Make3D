@@ -1,5 +1,5 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
-#define STB_IMAGE_IMPLEMENTATION // これが必要！
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #include <Windows.h>
@@ -32,7 +32,26 @@ std::vector<float> createDistanceMap(const unsigned char* img, int w, int h) {
     return field;
 }
 
-// FBX出力関数
+// ファイル選択ダイアログ（PNGのみ）
+std::string OpenPngFileDialog() {
+    char filePath[MAX_PATH] = "";
+    OPENFILENAMEA ofn = {};
+    ofn.lStructSize = sizeof(ofn);
+    ofn.lpstrFilter = "PNGファイル (*.png)\0*.png\0すべてのファイル (*.*)\0*.*\0";
+    ofn.lpstrFile = filePath;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+    ofn.lpstrTitle = "PNGファイルを選択";
+    if (GetOpenFileNameA(&ofn)) {
+        return std::string(filePath);
+    }
+    else {
+        return "";
+    }
+}
+
+// FBX出力関数（省略せず前回のまま）
+
 void ExportToFBX(const std::vector<float>& vertices, int vertCount, const std::string& filename) {
     FbxManager* lSdkManager = FbxManager::Create();
     FbxIOSettings* ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
@@ -77,23 +96,28 @@ void ExportToFBX(const std::vector<float>& vertices, int vertCount, const std::s
 }
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-    // PNG画像読み込み
+    // PNGファイル選択
+    std::string pngfile = OpenPngFileDialog();
+    if (pngfile.empty()) {
+        MessageBoxA(0, "PNGファイルが選択されませんでした", "Error", 0);
+        return 1;
+    }
     int w, h, comp;
-    unsigned char* img = stbi_load("input.png", &w, &h, &comp, 1);
+    unsigned char* img = stbi_load(pngfile.c_str(), &w, &h, &comp, 1);
     if (!img) {
-        MessageBoxA(0, "input.pngが読めません", "Error", 0);
+        MessageBoxA(0, "PNGファイルが読めません", "Error", 0);
         return 1;
     }
     auto distanceMap = createDistanceMap(img, w, h);
     stbi_image_free(img);
 
-    // D3D11初期化
+    // D3D11初期化、バッファ生成、ComputeShader実行（前回と同じ）
+
     D3D_FEATURE_LEVEL fl;
     ID3D11Device* device;
     ID3D11DeviceContext* context;
     D3D11CreateDevice(0, D3D_DRIVER_TYPE_HARDWARE, 0, 0, 0, 0, D3D11_SDK_VERSION, &device, &fl, &context);
 
-    // volumeDataバッファ
     D3D11_BUFFER_DESC bufDesc = {};
     bufDesc.Usage = D3D11_USAGE_DEFAULT;
     bufDesc.ByteWidth = sizeof(float) * distanceMap.size();
@@ -113,7 +137,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ID3D11ShaderResourceView* volSRV;
     device->CreateShaderResourceView(volBuf, &srvDesc, &volSRV);
 
-    // 頂点出力バッファ
     D3D11_BUFFER_DESC vbd = {};
     vbd.Usage = D3D11_USAGE_DEFAULT;
     vbd.ByteWidth = sizeof(float) * 3 * MAX_VERTS;
@@ -131,7 +154,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ID3D11UnorderedAccessView* vertUAV;
     device->CreateUnorderedAccessView(vertBuf, &uavDesc, &vertUAV);
 
-    // 頂点カウンタバッファ
     UINT zero = 0;
     D3D11_BUFFER_DESC cbd = {};
     cbd.Usage = D3D11_USAGE_DEFAULT;
@@ -152,7 +174,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ID3D11UnorderedAccessView* counterUAV;
     device->CreateUnorderedAccessView(counterBuf, &cuavDesc, &counterUAV);
 
-    // シェーダー直接コンパイル
     ID3DBlob* csBlob = nullptr;
     HRESULT hr = D3DCompileFromFile(
         L"MarchingCubes.compute.hlsl",
@@ -165,17 +186,14 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     ID3D11ComputeShader* cs;
     device->CreateComputeShader(csBlob->GetBufferPointer(), csBlob->GetBufferSize(), nullptr, &cs);
 
-    // バインド
     ID3D11ShaderResourceView* srvs[1] = { volSRV };
     ID3D11UnorderedAccessView* uavs[2] = { vertUAV, counterUAV };
     context->CSSetShaderResources(0, 1, srvs);
     context->CSSetUnorderedAccessViews(0, 2, uavs, nullptr);
     context->CSSetShader(cs, nullptr, 0);
 
-    // ディスパッチ
     context->Dispatch((WIDTH + 7) / 8, (HEIGHT + 7) / 8, (DEPTH + 7) / 8);
 
-    // 頂点カウンタ読み出し
     UINT vertCount = 0;
     D3D11_BUFFER_DESC rdDesc = {};
     rdDesc.Usage = D3D11_USAGE_STAGING;
@@ -185,13 +203,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     rdDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     ID3D11Buffer* counterReadBuf;
     device->CreateBuffer(&rdDesc, nullptr, &counterReadBuf);
-    context->CopyResource(counterReadBuf, counterBuf);
     D3D11_MAPPED_SUBRESOURCE mapped;
+    context->CopyResource(counterReadBuf, counterBuf);
     context->Map(counterReadBuf, 0, D3D11_MAP_READ, 0, &mapped);
     vertCount = *(UINT*)mapped.pData;
     context->Unmap(counterReadBuf, 0);
 
-    // 頂点データ読み出し
     std::vector<float> vertices(vertCount * 3);
     D3D11_BUFFER_DESC vbReadDesc = {};
     vbReadDesc.Usage = D3D11_USAGE_STAGING;
