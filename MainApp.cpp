@@ -1,80 +1,118 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
-#include <Windows.h>
-#include <d3d11.h>
-#include <d3dcompiler.h>
+#include <fbxsdk.h>
 #include <vector>
 #include <string>
-#include <fstream>
-#include <sstream>
 #include <ctime>
-#include <fbxsdk.h>
-#pragma comment(lib, "d3d11.lib")
-#pragma comment(lib, "d3dcompiler.lib")
+#include <Windows.h>
 #pragma comment(lib, "libfbxsdk.lib")
 
-#define WIDTH 256
-#define HEIGHT 256
-#define DEPTH 32
-#define MAX_VERTS 300000
-
-std::vector<float> createDistanceMap(const unsigned char* img, int w, int h) {
-    std::vector<float> field(WIDTH * HEIGHT * DEPTH, 0.0f);
-    for (int z = 0; z < DEPTH; ++z)
-        for (int y = 0; y < HEIGHT; ++y)
-            for (int x = 0; x < WIDTH; ++x) {
-                int idx = z * WIDTH * HEIGHT + y * WIDTH + x;
-                int px = x * w / WIDTH, py = y * h / HEIGHT;
-                field[idx] = img[py * w + px] / 255.0f;
-            }
-    return field;
-}
-
-// ファイル選択ダイアログ（PNGのみ）
 std::string OpenPngFileDialog() {
     char filePath[MAX_PATH] = "";
     OPENFILENAMEA ofn = {};
     ofn.lStructSize = sizeof(ofn);
-    ofn.lpstrFilter = "PNGファイル (*.png)\0*.png\0すべてのファイル (*.*)\0*.*\0";
+    ofn.lpstrFilter = "PNGファイル (*.png)\0*.png\0";
     ofn.lpstrFile = filePath;
     ofn.nMaxFile = MAX_PATH;
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
     ofn.lpstrTitle = "PNGファイルを選択";
-    if (GetOpenFileNameA(&ofn)) {
-        return std::string(filePath);
-    }
-    else {
-        return "";
+    if (GetOpenFileNameA(&ofn)) return filePath;
+    return "";
+}
+
+// 画像縮小（最近傍補間）最大96x96
+void resize_nearest(const unsigned char* src, int sw, int sh, int sc, unsigned char* dst, int dw, int dh, int dc) {
+    for (int y = 0; y < dh; ++y) for (int x = 0; x < dw; ++x) {
+        int sx = x * sw / dw, sy = y * sh / dh;
+        for (int c = 0; c < dc; ++c) dst[(y * dw + x) * dc + c] = src[(sy * sw + sx) * sc + c];
     }
 }
 
-// FBX出力関数（省略せず前回のまま）
+// αまたは明度しきい値
+std::vector<bool> createMask(const unsigned char* img, int w, int h, int comp, unsigned char threshold = 32) {
+    std::vector<bool> mask(w * h, false);
+    for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+        int idx = y * w + x;
+        if (comp == 4) mask[idx] = (img[idx * 4 + 3] > threshold);
+        else {
+            int gray = (img[idx * comp + 0] + img[idx * comp + 1] + img[idx * comp + 2]) / 3;
+            mask[idx] = (gray > threshold);
+        }
+    }
+    return mask;
+}
 
-void ExportToFBX(const std::vector<float>& vertices, int vertCount, const std::string& filename) {
+// 画像のシルエット部分を全て押し出し（“板押し出し”立体）
+void CreateExtrudeMesh(const std::vector<bool>& mask, int w, int h, int depth, float scaleXY, float scaleZ,
+    std::vector<float>& outVertices, std::vector<int>& outIndices)
+{
+    auto idx = [=](int x, int y, int z) { return z * w * h + y * w + x; };
+    // 頂点生成
+    for (int z = 0; z <= depth; ++z) {
+        float zz = ((float)z / depth - 0.5f) * scaleZ;
+        for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+            float xx = ((float)x / (w - 1) - 0.5f) * scaleXY;
+            float yy = ((float)(h - 1 - y) / (h - 1) - 0.5f) * scaleXY;
+            outVertices.push_back(xx);
+            outVertices.push_back(yy);
+            outVertices.push_back(zz);
+        }
+    }
+    // 面生成（シルエット部分のみ立方体ボクセルを並べる）
+    for (int z = 0; z < depth; ++z)
+        for (int y = 0; y < h - 1; ++y)
+            for (int x = 0; x < w - 1; ++x) {
+                if (mask[y * w + x]) {
+                    // 押し出しキューブ6面を三角形で作る
+                    int v0 = idx(x, y, z);
+                    int v1 = idx(x + 1, y, z);
+                    int v2 = idx(x + 1, y + 1, z);
+                    int v3 = idx(x, y + 1, z);
+                    int v4 = idx(x, y, z + 1);
+                    int v5 = idx(x + 1, y, z + 1);
+                    int v6 = idx(x + 1, y + 1, z + 1);
+                    int v7 = idx(x, y + 1, z + 1);
+                    // 12三角面
+                    // 前
+                    outIndices.insert(outIndices.end(), { v0,v1,v2, v0,v2,v3 });
+                    // 後
+                    outIndices.insert(outIndices.end(), { v4,v7,v6, v4,v6,v5 });
+                    // 左
+                    outIndices.insert(outIndices.end(), { v0,v3,v7, v0,v7,v4 });
+                    // 右
+                    outIndices.insert(outIndices.end(), { v1,v5,v6, v1,v6,v2 });
+                    // 上
+                    outIndices.insert(outIndices.end(), { v3,v2,v6, v3,v6,v7 });
+                    // 下
+                    outIndices.insert(outIndices.end(), { v0,v4,v5, v0,v5,v1 });
+                }
+            }
+}
+
+// FBX出力
+void ExportToFBX(const std::vector<float>& vertices, const std::vector<int>& indices, const std::string& filename) {
     FbxManager* lSdkManager = FbxManager::Create();
     FbxIOSettings* ios = FbxIOSettings::Create(lSdkManager, IOSROOT);
     lSdkManager->SetIOSettings(ios);
     FbxScene* lScene = FbxScene::Create(lSdkManager, "Scene");
-
     FbxNode* lRootNode = lScene->GetRootNode();
-    FbxMesh* lMesh = FbxMesh::Create(lScene, "MarchingCubesMesh");
-    lMesh->InitControlPoints(vertCount);
-    for (int i = 0; i < vertCount; ++i) {
+    FbxMesh* lMesh = FbxMesh::Create(lScene, "ExtrudedMesh");
+    int nVerts = vertices.size() / 3;
+    lMesh->InitControlPoints(nVerts);
+    for (int i = 0; i < nVerts; ++i)
         lMesh->SetControlPointAt(FbxVector4(vertices[i * 3], vertices[i * 3 + 1], vertices[i * 3 + 2]), i);
-    }
-    for (int i = 0; i < vertCount; i += 3) {
+    int nTris = indices.size() / 3;
+    for (int i = 0; i < nTris; ++i) {
         lMesh->BeginPolygon();
-        lMesh->AddPolygon(i + 0);
-        lMesh->AddPolygon(i + 1);
-        lMesh->AddPolygon(i + 2);
+        lMesh->AddPolygon(indices[i * 3 + 0]);
+        lMesh->AddPolygon(indices[i * 3 + 1]);
+        lMesh->AddPolygon(indices[i * 3 + 2]);
         lMesh->EndPolygon();
     }
     FbxNode* lMeshNode = FbxNode::Create(lScene, "MeshNode");
     lMeshNode->SetNodeAttribute(lMesh);
     lRootNode->AddChild(lMeshNode);
-
     FbxExporter* lExporter = FbxExporter::Create(lSdkManager, "");
     if (!lExporter->Initialize(filename.c_str(), -1, lSdkManager->GetIOSettings())) {
         std::string err = "FBXExporter Initialize failed: ";
@@ -96,138 +134,41 @@ void ExportToFBX(const std::vector<float>& vertices, int vertCount, const std::s
 }
 
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
-    // PNGファイル選択
     std::string pngfile = OpenPngFileDialog();
     if (pngfile.empty()) {
         MessageBoxA(0, "PNGファイルが選択されませんでした", "Error", 0);
         return 1;
     }
     int w, h, comp;
-    unsigned char* img = stbi_load(pngfile.c_str(), &w, &h, &comp, 1);
-    if (!img) {
+    unsigned char* img0 = stbi_load(pngfile.c_str(), &w, &h, &comp, 0);
+    if (!img0) {
         MessageBoxA(0, "PNGファイルが読めません", "Error", 0);
         return 1;
     }
-    auto distanceMap = createDistanceMap(img, w, h);
-    stbi_image_free(img);
-
-    // D3D11初期化、バッファ生成、ComputeShader実行（前回と同じ）
-
-    D3D_FEATURE_LEVEL fl;
-    ID3D11Device* device;
-    ID3D11DeviceContext* context;
-    D3D11CreateDevice(0, D3D_DRIVER_TYPE_HARDWARE, 0, 0, 0, 0, D3D11_SDK_VERSION, &device, &fl, &context);
-
-    D3D11_BUFFER_DESC bufDesc = {};
-    bufDesc.Usage = D3D11_USAGE_DEFAULT;
-    bufDesc.ByteWidth = sizeof(float) * distanceMap.size();
-    bufDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    bufDesc.StructureByteStride = sizeof(float);
-    bufDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    D3D11_SUBRESOURCE_DATA srd = {};
-    srd.pSysMem = distanceMap.data();
-    ID3D11Buffer* volBuf;
-    device->CreateBuffer(&bufDesc, &srd, &volBuf);
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    srvDesc.Buffer.FirstElement = 0;
-    srvDesc.Buffer.NumElements = distanceMap.size();
-    ID3D11ShaderResourceView* volSRV;
-    device->CreateShaderResourceView(volBuf, &srvDesc, &volSRV);
-
-    D3D11_BUFFER_DESC vbd = {};
-    vbd.Usage = D3D11_USAGE_DEFAULT;
-    vbd.ByteWidth = sizeof(float) * 3 * MAX_VERTS;
-    vbd.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-    vbd.StructureByteStride = sizeof(float) * 3;
-    vbd.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    ID3D11Buffer* vertBuf;
-    device->CreateBuffer(&vbd, nullptr, &vertBuf);
-
-    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = MAX_VERTS;
-    ID3D11UnorderedAccessView* vertUAV;
-    device->CreateUnorderedAccessView(vertBuf, &uavDesc, &vertUAV);
-
-    UINT zero = 0;
-    D3D11_BUFFER_DESC cbd = {};
-    cbd.Usage = D3D11_USAGE_DEFAULT;
-    cbd.ByteWidth = sizeof(UINT);
-    cbd.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
-    cbd.StructureByteStride = sizeof(UINT);
-    cbd.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    D3D11_SUBRESOURCE_DATA csd = {};
-    csd.pSysMem = &zero;
-    ID3D11Buffer* counterBuf;
-    device->CreateBuffer(&cbd, &csd, &counterBuf);
-
-    D3D11_UNORDERED_ACCESS_VIEW_DESC cuavDesc = {};
-    cuavDesc.Format = DXGI_FORMAT_UNKNOWN;
-    cuavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    cuavDesc.Buffer.FirstElement = 0;
-    cuavDesc.Buffer.NumElements = 1;
-    ID3D11UnorderedAccessView* counterUAV;
-    device->CreateUnorderedAccessView(counterBuf, &cuavDesc, &counterUAV);
-
-    ID3DBlob* csBlob = nullptr;
-    HRESULT hr = D3DCompileFromFile(
-        L"MarchingCubes.compute.hlsl",
-        nullptr, nullptr, "main", "cs_5_0", 0, 0, &csBlob, nullptr
-    );
-    if (FAILED(hr)) {
-        MessageBoxA(0, "HLSLのコンパイル失敗", "Error", 0);
-        return 1;
+    // 最大96x96へ縮小
+    int tw = w, th = h;
+    if (w > 96 || h > 96) {
+        float aspect = (float)w / h;
+        if (w > h) { tw = 96; th = (int)(96 / aspect); }
+        else { th = 96; tw = (int)(96 * aspect); }
     }
-    ID3D11ComputeShader* cs;
-    device->CreateComputeShader(csBlob->GetBufferPointer(), csBlob->GetBufferSize(), nullptr, &cs);
+    std::vector<unsigned char> img(tw * th * comp);
+    resize_nearest(img0, w, h, comp, img.data(), tw, th, comp);
+    stbi_image_free(img0);
 
-    ID3D11ShaderResourceView* srvs[1] = { volSRV };
-    ID3D11UnorderedAccessView* uavs[2] = { vertUAV, counterUAV };
-    context->CSSetShaderResources(0, 1, srvs);
-    context->CSSetUnorderedAccessViews(0, 2, uavs, nullptr);
-    context->CSSetShader(cs, nullptr, 0);
+    std::vector<bool> mask = createMask(img.data(), tw, th, comp);
+    int depth = 8;      // 3D厚み
+    float scaleXY = 1.0f;
+    float scaleZ = 0.2f;
 
-    context->Dispatch((WIDTH + 7) / 8, (HEIGHT + 7) / 8, (DEPTH + 7) / 8);
+    std::vector<float> vertices;
+    std::vector<int> indices;
+    CreateExtrudeMesh(mask, tw, th, depth, scaleXY, scaleZ, vertices, indices);
 
-    UINT vertCount = 0;
-    D3D11_BUFFER_DESC rdDesc = {};
-    rdDesc.Usage = D3D11_USAGE_STAGING;
-    rdDesc.ByteWidth = sizeof(UINT);
-    rdDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    rdDesc.StructureByteStride = sizeof(UINT);
-    rdDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    ID3D11Buffer* counterReadBuf;
-    device->CreateBuffer(&rdDesc, nullptr, &counterReadBuf);
-    D3D11_MAPPED_SUBRESOURCE mapped;
-    context->CopyResource(counterReadBuf, counterBuf);
-    context->Map(counterReadBuf, 0, D3D11_MAP_READ, 0, &mapped);
-    vertCount = *(UINT*)mapped.pData;
-    context->Unmap(counterReadBuf, 0);
-
-    std::vector<float> vertices(vertCount * 3);
-    D3D11_BUFFER_DESC vbReadDesc = {};
-    vbReadDesc.Usage = D3D11_USAGE_STAGING;
-    vbReadDesc.ByteWidth = sizeof(float) * 3 * vertCount;
-    vbReadDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-    vbReadDesc.StructureByteStride = sizeof(float) * 3;
-    vbReadDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    ID3D11Buffer* vertReadBuf;
-    device->CreateBuffer(&vbReadDesc, nullptr, &vertReadBuf);
-    context->CopyResource(vertReadBuf, vertBuf);
-    context->Map(vertReadBuf, 0, D3D11_MAP_READ, 0, &mapped);
-    memcpy(vertices.data(), mapped.pData, sizeof(float) * 3 * vertCount);
-    context->Unmap(vertReadBuf, 0);
-
-    // FBX出力
     char filename[256];
     std::time_t t = std::time(nullptr);
     sprintf(filename, "output_%lld.fbx", (long long)t);
-    ExportToFBX(vertices, vertCount, filename);
+    ExportToFBX(vertices, indices, filename);
 
     MessageBoxA(0, "完了", "OK", 0);
     return 0;
