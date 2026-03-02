@@ -1,7 +1,39 @@
 ﻿  MainApp.cpp
-  コード生成しています。
-  683 of 771 functions (88.6%) were compiled, the rest were copied from previous compilation.
-    417 functions were new in current compilation
-    20 functions had inline decision re-evaluated but remain unchanged
-  コード生成が終了しました。
-  Make3D.vcxproj -> C:\Users\kyose\source\repos\Make3D\x64\Release\Make3D.exe
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(1,1): warning C4819: ファイルは、現在のコード ページ (932) で表示できない文字を含んでいます。データの損失を防ぐために、ファイルを Unicode 形式で保存してください。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(112,19): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(113,5): error C2143: 構文エラー: ')' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(113,5): error C2143: 構文エラー: ';' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(114,19): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(115,5): error C2143: 構文エラー: ')' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(115,5): error C2143: 構文エラー: ';' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(116,19): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(117,5): error C2143: 構文エラー: ')' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(117,5): error C2143: 構文エラー: ';' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(118,19): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(119,5): error C2143: 構文エラー: ')' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(119,5): error C2143: 構文エラー: ';' が '}' の前にありません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(221,13): error C2267: 'CopyTextureBesideObj': ブロック スコープを伴う関数は、static として宣言できません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(221,13): error C2601: 'CopyTextureBesideObj': ローカル関数の定義が正しくありません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(215,37):
+      この行に含まれる '{' に対応するものがありません
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(226,13): error C2267: 'BuildModel': ブロック スコープを伴う関数は、static として宣言できません。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(226,13): error C2601: 'BuildModel': ローカル関数の定義が正しくありません。
+      C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(215,37):
+      この行に含まれる '{' に対応するものがありません
+  
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(251,33): error C3872: '0x80': この文字を識別子で使用することはできません
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(251,259): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(282,131): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(283,46): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(320,9): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(337,9): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(338,1): warning C4003: 関数に似たマクロ呼び出し 'CreateWindowW' の引数が不足しています
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(352,63): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(353,63): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(354,63): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(361,9): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(362,1): warning C4003: 関数に似たマクロ呼び出し 'CreateWindowW' の引数が不足しています
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(366,9): error C2001: 定数が 2 行目に続いています。
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(367,1): warning C4003: 関数に似たマクロ呼び出し 'CreateWindowW' の引数が不足しています
+C:\Users\kyose\source\repos\Make3D\Make3D\MainApp.cpp(354,21): error C1075: '(': 一致するトークンが見つかりませんでした
