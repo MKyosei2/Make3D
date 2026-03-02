@@ -61,6 +61,13 @@ struct MeshData {
     std::vector<int> indices;
 };
 
+struct PreviewVertex2D {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float shade = 1.0f;
+};
+
 struct VideoReconstructionSettings {
     int targetFrameCount = 24;
     int voxelResolution = 84;
@@ -68,6 +75,12 @@ struct VideoReconstructionSettings {
     int morphologyPasses = 2;
     int meshSmoothIterations = 3;
 };
+
+
+static void ClearPreviewControl(HWND ctrl, HBITMAP& slot);
+static void StorePreviewMesh(const MeshData& mesh);
+static void UpdateModelPreviewBitmap();
+static bool IsBuildReady(std::string* reason = nullptr);
 
 static void ShowError(const std::string& message) {
     MessageBoxA(nullptr, message.c_str(), "Make3D Portable", MB_ICONERROR | MB_OK);
@@ -790,6 +803,7 @@ static int RunPngDepthFusionMode(const PortableConfig& cfg) {
     SmoothDepthEdgeAware(fused, alphaMask, w, h);
     MeshData mesh = BuildClosedDepthMesh(fused, alphaMask, w, h, 1.0f, 0.55f, 0.08f);
     RecomputeNormals(mesh);
+    StorePreviewMesh(mesh);
     if (mesh.indices.empty()) { ShowError("Mesh generation failed. Check the alpha area in the PNG files."); return 1; }
 
     fs::path outputDir = ResolveOutputDir(cfg);
@@ -886,18 +900,33 @@ struct GuiState {
     HWND outputEdit = nullptr;
     HWND chooseOutputButton = nullptr;
     HWND sampleButton = nullptr;
+    HWND openSamplesButton = nullptr;
+    HWND helpButton = nullptr;
+    HWND advancedCheck = nullptr;
     HWND resetButton = nullptr;
     HWND runButton = nullptr;
     HWND openOutputButton = nullptr;
     HWND logEdit = nullptr;
     HWND statusLabel = nullptr;
+    HWND summaryLabel = nullptr;
+    HWND quickTipsLabel = nullptr;
+    HWND readinessLabel = nullptr;
+    HWND checklistLabel = nullptr;
+    HWND autoOpenCheck = nullptr;
     HWND progressBar = nullptr;
     HWND previewColor = nullptr;
     HWND previewDepth = nullptr;
     HWND previewVideo = nullptr;
+    HWND previewModel = nullptr;
     HBITMAP colorBitmap = nullptr;
     HBITMAP depthBitmap = nullptr;
     HBITMAP videoBitmap = nullptr;
+    HBITMAP modelBitmap = nullptr;
+    std::mutex previewMutex;
+    MeshData previewMesh;
+    bool hasPreviewMesh = false;
+    float previewYaw = 28.0f;
+    float previewPitch = 18.0f;
     std::atomic<bool> isBusy = false;
     std::thread worker;
     int lastResultCode = 1;
@@ -926,18 +955,26 @@ enum ControlId {
     IDC_OUTPUT_EDIT,
     IDC_OUTPUT_BROWSE,
     IDC_USE_SAMPLES,
+    IDC_OPEN_SAMPLES,
+    IDC_HELP_BUTTON,
+    IDC_ADVANCED_CHECK,
     IDC_RESET_FORM,
     IDC_RUN,
     IDC_OPEN_OUTPUT,
     IDC_LOG,
     IDC_PROGRESS,
     IDC_STATUS,
+    IDC_READYNESS_LABEL,
+    IDC_CHECKLIST_LABEL,
+    IDC_AUTO_OPEN_CHECK,
     IDC_PREVIEW_COLOR,
     IDC_PREVIEW_DEPTH,
-    IDC_PREVIEW_VIDEO
+    IDC_PREVIEW_VIDEO,
+    IDC_PREVIEW_MODEL
 };
 
 static constexpr UINT WM_APP_BUILD_DONE = WM_APP + 1;
+static constexpr UINT_PTR IDT_MODEL_PREVIEW = 41;
 
 static std::wstring ToWide(const std::string& s) {
     if (s.empty()) return {};
@@ -971,6 +1008,111 @@ static void DestroyBitmap(HBITMAP& bmp) {
         DeleteObject(bmp);
         bmp = nullptr;
     }
+}
+
+static float EdgeFunction(float ax, float ay, float bx, float by, float px, float py) {
+    return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+}
+
+static std::optional<ImageRGBA> RenderMeshPreviewImage(const MeshData& mesh, int width, int height, float yawDeg, float pitchDeg) {
+    if (mesh.positions.empty() || mesh.indices.empty() || width <= 0 || height <= 0) return std::nullopt;
+    ImageRGBA img;
+    img.width = width;
+    img.height = height;
+    img.pixels.assign((size_t)width * height * 4, 0);
+    std::vector<float> depth((size_t)width * height, 1e30f);
+
+    const float yaw = yawDeg * 3.14159265f / 180.0f;
+    const float pitch = pitchDeg * 3.14159265f / 180.0f;
+    const float cy = std::cos(yaw), sy = std::sin(yaw);
+    const float cp = std::cos(pitch), sp = std::sin(pitch);
+
+    float minX = 1e30f, minY = 1e30f, minZ = 1e30f;
+    float maxX = -1e30f, maxY = -1e30f, maxZ = -1e30f;
+    for (size_t i = 0; i < mesh.positions.size(); i += 3) {
+        minX = std::min(minX, mesh.positions[i + 0]); maxX = std::max(maxX, mesh.positions[i + 0]);
+        minY = std::min(minY, mesh.positions[i + 1]); maxY = std::max(maxY, mesh.positions[i + 1]);
+        minZ = std::min(minZ, mesh.positions[i + 2]); maxZ = std::max(maxZ, mesh.positions[i + 2]);
+    }
+    const float cx0 = (minX + maxX) * 0.5f;
+    const float cy0 = (minY + maxY) * 0.5f;
+    const float cz0 = (minZ + maxZ) * 0.5f;
+    const float extent = std::max({maxX - minX, maxY - minY, maxZ - minZ, 0.001f});
+    const float scale = 0.78f * std::min(width, height) / extent;
+
+    std::vector<PreviewVertex2D> verts(mesh.positions.size() / 3);
+    for (size_t i = 0; i < verts.size(); ++i) {
+        float x = mesh.positions[i * 3 + 0] - cx0;
+        float y = mesh.positions[i * 3 + 1] - cy0;
+        float z = mesh.positions[i * 3 + 2] - cz0;
+        float x1 = cy * x + sy * z;
+        float z1 = -sy * x + cy * z;
+        float y2 = cp * y - sp * z1;
+        float z2 = sp * y + cp * z1;
+        float perspective = 1.0f / (1.8f + z2 * 0.15f);
+        verts[i].x = width * 0.5f + x1 * scale * perspective;
+        verts[i].y = height * 0.54f - y2 * scale * perspective;
+        verts[i].z = z2;
+        float nx = 0.0f, ny = 0.0f, nz = 1.0f;
+        if (mesh.normals.size() >= (i + 1) * 3) {
+            nx = mesh.normals[i * 3 + 0]; ny = mesh.normals[i * 3 + 1]; nz = mesh.normals[i * 3 + 2];
+        }
+        float nx1 = cy * nx + sy * nz;
+        float nz1 = -sy * nx + cy * nz;
+        float ny2 = cp * ny - sp * nz1;
+        float nz2 = sp * ny + cp * nz1;
+        float len = std::sqrt(nx1 * nx1 + ny2 * ny2 + nz2 * nz2);
+        if (len > 1e-5f) { nx1 /= len; ny2 /= len; nz2 /= len; }
+        float lx = -0.4f, ly = 0.65f, lz = 0.65f;
+        float llen = std::sqrt(lx * lx + ly * ly + lz * lz); lx/=llen; ly/=llen; lz/=llen;
+        verts[i].shade = std::clamp(0.25f + std::max(0.0f, nx1 * lx + ny2 * ly + nz2 * lz) * 0.9f, 0.0f, 1.0f);
+    }
+
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        int ia = mesh.indices[i + 0], ib = mesh.indices[i + 1], ic = mesh.indices[i + 2];
+        if (ia < 0 || ib < 0 || ic < 0 || ia >= (int)verts.size() || ib >= (int)verts.size() || ic >= (int)verts.size()) continue;
+        const auto& a = verts[ia]; const auto& b = verts[ib]; const auto& c = verts[ic];
+        float area = EdgeFunction(a.x, a.y, b.x, b.y, c.x, c.y);
+        if (std::abs(area) < 1e-5f) continue;
+        if (area < 0.0f) continue;
+        int minPx = std::max(0, (int)std::floor(std::min({a.x, b.x, c.x})));
+        int maxPx = std::min(width - 1, (int)std::ceil(std::max({a.x, b.x, c.x})));
+        int minPy = std::max(0, (int)std::floor(std::min({a.y, b.y, c.y})));
+        int maxPy = std::min(height - 1, (int)std::ceil(std::max({a.y, b.y, c.y})));
+        const float invArea = 1.0f / area;
+        for (int y = minPy; y <= maxPy; ++y) {
+            for (int x = minPx; x <= maxPx; ++x) {
+                float px = x + 0.5f, py = y + 0.5f;
+                float w0 = EdgeFunction(b.x, b.y, c.x, c.y, px, py) * invArea;
+                float w1 = EdgeFunction(c.x, c.y, a.x, a.y, px, py) * invArea;
+                float w2 = EdgeFunction(a.x, a.y, b.x, b.y, px, py) * invArea;
+                if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) continue;
+                float z = w0 * a.z + w1 * b.z + w2 * c.z;
+                size_t idx = (size_t)y * width + x;
+                if (z >= depth[idx]) continue;
+                depth[idx] = z;
+                float shade = std::clamp(w0 * a.shade + w1 * b.shade + w2 * c.shade, 0.0f, 1.0f);
+                unsigned char base = (unsigned char)(65 + shade * 165);
+                img.pixels[idx * 4 + 0] = (unsigned char)std::min(255, (int)base + 18);
+                img.pixels[idx * 4 + 1] = (unsigned char)std::min(255, (int)base + 8);
+                img.pixels[idx * 4 + 2] = base;
+                img.pixels[idx * 4 + 3] = 255;
+            }
+        }
+    }
+
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            size_t idx = (size_t)y * width + x;
+            if (img.pixels[idx * 4 + 3] != 0) continue;
+            unsigned char bg = (unsigned char)(20 + (float)y / std::max(1, height - 1) * 28);
+            img.pixels[idx * 4 + 0] = bg;
+            img.pixels[idx * 4 + 1] = bg;
+            img.pixels[idx * 4 + 2] = (unsigned char)std::min(255, (int)bg + 6);
+            img.pixels[idx * 4 + 3] = 255;
+        }
+    }
+    return img;
 }
 
 static HBITMAP CreatePreviewBitmap(const ImageRGBA& img, int targetW, int targetH) {
@@ -1009,6 +1151,43 @@ static void ApplyBitmapToControl(HWND ctrl, HBITMAP& slot, HBITMAP bmp) {
     SendMessageW(ctrl, STM_SETIMAGE, IMAGE_BITMAP, (LPARAM)bmp);
 }
 
+static void StorePreviewMesh(const MeshData& mesh) {
+    if (!g_gui) return;
+    std::lock_guard<std::mutex> lock(g_gui->previewMutex);
+    g_gui->previewMesh = mesh;
+    g_gui->hasPreviewMesh = !mesh.positions.empty() && !mesh.indices.empty();
+}
+
+static void UpdateModelPreviewBitmap() {
+    if (!g_gui || !g_gui->previewModel) return;
+    RECT rc = {};
+    GetClientRect(g_gui->previewModel, &rc);
+    int width = std::max<int>(1, (int)(rc.right - rc.left));
+    int height = std::max<int>(1, (int)(rc.bottom - rc.top));
+
+    MeshData mesh;
+    {
+        std::lock_guard<std::mutex> lock(g_gui->previewMutex);
+        if (!g_gui->hasPreviewMesh || g_gui->previewMesh.positions.empty() || g_gui->previewMesh.indices.empty()) {
+            ClearPreviewControl(g_gui->previewModel, g_gui->modelBitmap);
+            return;
+        }
+        mesh = g_gui->previewMesh;
+    }
+
+    auto rendered = RenderMeshPreviewImage(mesh, width, height, g_gui->previewYaw, g_gui->previewPitch);
+    if (!rendered) {
+        ClearPreviewControl(g_gui->previewModel, g_gui->modelBitmap);
+        return;
+    }
+    HBITMAP bmp = CreatePreviewBitmap(*rendered, width, height);
+    if (!bmp) {
+        ClearPreviewControl(g_gui->previewModel, g_gui->modelBitmap);
+        return;
+    }
+    ApplyBitmapToControl(g_gui->previewModel, g_gui->modelBitmap, bmp);
+}
+
 static std::optional<std::string> BrowseForFolder(HWND owner, const std::wstring& title) {
     BROWSEINFOW bi = {};
     bi.hwndOwner = owner;
@@ -1044,10 +1223,13 @@ static void SetStatusText(const std::string& text) {
     if (g_gui && g_gui->statusLabel) SetText(g_gui->statusLabel, text);
 }
 
+
 static void SetBusyUI(bool busy, const std::string& status) {
     if (!g_gui) return;
     g_gui->isBusy = busy;
-    EnableWindow(g_gui->runButton, busy ? FALSE : TRUE);
+    std::string reason;
+    bool ready = IsBuildReady(&reason);
+    EnableWindow(g_gui->runButton, (!busy && ready) ? TRUE : FALSE);
     EnableWindow(g_gui->openOutputButton, busy ? FALSE : TRUE);
     EnableWindow(g_gui->modeImages, busy ? FALSE : TRUE);
     EnableWindow(g_gui->modeVideo, busy ? FALSE : TRUE);
@@ -1078,7 +1260,73 @@ static void AppendLog(const std::string& line) {
 static bool IsVideoMode() {
     return SendMessageW(g_gui->modeVideo, BM_GETCHECK, 0, 0) == BST_CHECKED;
 }
+
+static std::string GetChecklistText() {
+    if (!g_gui) return {};
+    std::ostringstream oss;
+    if (IsVideoMode()) {
+        oss << ((g_gui->videoPath.empty()) ? "[ ] Add 1 video file\n" : "[x] Add 1 video file\n");
+        oss << "[x] Check preview\n";
+        oss << "[x] Click Build 3D";
+    } else {
+        oss << ((g_gui->colorPaths.empty()) ? "[ ] Add color PNG files\n" : "[x] Add color PNG files\n");
+        oss << ((g_gui->depthPaths.empty()) ? "[ ] Add matching depth PNG files\n" : "[x] Add matching depth PNG files\n");
+        oss << "[x] Click Build 3D";
+    }
+    return oss.str();
+}
+
+static bool IsBuildReady(std::string* reason) {
+    if (!g_gui) { if (reason) *reason = "GUI is not ready."; return false; }
+    if (IsVideoMode()) {
+        if (g_gui->videoPath.empty()) { if (reason) *reason = "Add one video file to continue."; return false; }
+        if (!fs::exists(g_gui->videoPath)) { if (reason) *reason = "The selected video file could not be found."; return false; }
+        return true;
+    }
+    if (g_gui->colorPaths.empty()) { if (reason) *reason = "Add one or more color PNG files."; return false; }
+    if (g_gui->depthPaths.empty()) { if (reason) *reason = "Add matching depth PNG files."; return false; }
+    if (g_gui->colorPaths.size() != g_gui->depthPaths.size()) { if (reason) *reason = "The number of color PNG files and depth PNG files must match."; return false; }
+    for (const auto& p : g_gui->colorPaths) { if (!fs::exists(p)) { if (reason) *reason = "One of the selected color PNG files could not be found."; return false; } }
+    for (const auto& p : g_gui->depthPaths) { if (!fs::exists(p)) { if (reason) *reason = "One of the selected depth PNG files could not be found."; return false; } }
+    return true;
+}
+
+static void UpdateReadinessUI() {
+    if (!g_gui) return;
+    std::string reason;
+    const bool ready = IsBuildReady(&reason);
+    const std::string text = ready ? "Ready to export: all required inputs are set." : ("Next step: " + reason);
+    if (g_gui->readinessLabel) SetText(g_gui->readinessLabel, text);
+    if (g_gui->checklistLabel) SetText(g_gui->checklistLabel, GetChecklistText());
+    if (g_gui->runButton && !g_gui->isBusy) EnableWindow(g_gui->runButton, ready ? TRUE : FALSE);
+}
 static void RefreshModeUI();
+static void SetAdvancedVisible(bool visible) {
+    if (!g_gui) return;
+    int show = visible ? SW_SHOW : SW_HIDE;
+    ShowWindow(g_gui->presetCombo, show);
+    ShowWindow(g_gui->frameEdit, show);
+    ShowWindow(g_gui->voxelEdit, show);
+    ShowWindow(g_gui->thresholdEdit, show);
+    ShowWindow(g_gui->smoothEdit, show);
+    ShowWindow(GetDlgItem(g_gui->hwnd, IDC_PRESET_COMBO), show);
+}
+static void UpdateSummaryCard() {
+    if (!g_gui || !g_gui->summaryLabel || !g_gui->quickTipsLabel) return;
+    std::ostringstream summary;
+    if (IsVideoMode()) {
+        summary << "Current workflow: Video turntable -> silhouette extraction -> closed OBJ mesh\n";
+        if (g_gui->videoPath.empty()) summary << "Needed now: add 1 video file.";
+        else summary << "Input ready: 1 video selected. Output: OBJ + MTL + diagnostic images.";
+        SetText(g_gui->quickTipsLabel, "Best results: one object, plain background, fixed camera, object fills most of the frame.");
+    } else {
+        summary << "Current workflow: Color PNG + Depth PNG -> fused relief mesh -> closed OBJ mesh\n";
+        summary << "Inputs: " << g_gui->colorPaths.size() << " color / " << g_gui->depthPaths.size() << " depth";
+        if (!g_gui->colorPaths.empty() && g_gui->depthPaths.empty()) summary << "  |  Next: add matching depth PNG files.";
+        SetText(g_gui->quickTipsLabel, "Tip: when you drag files in, names containing 'depth' go to the depth list automatically.");
+    }
+    SetText(g_gui->summaryLabel, summary.str());
+}
 
 static void AutoSwitchMode(bool video) {
     SendMessageW(g_gui->modeVideo, BM_SETCHECK, video ? BST_CHECKED : BST_UNCHECKED, 0);
@@ -1090,14 +1338,16 @@ static void UpdateGuidance() {
     if (!g_gui) return;
     std::string status = "Ready";
     if (IsVideoMode()) {
-        if (g_gui->videoPath.empty()) status = "Step 1: choose one turntable video.";
-        else status = "Ready to build from video. Press Build 3D.";
+        if (g_gui->videoPath.empty()) status = "Step 1 / 3: add one turntable video file.";
+        else status = "Step 2 / 3: check the preview and settings, then Step 3 / 3: export the 3D model.";
     } else {
-        if (g_gui->colorPaths.empty()) status = "Step 1: choose color PNG files.";
-        else if (g_gui->depthPaths.empty()) status = "Step 2: choose matching depth PNG files.";
-        else status = "Ready to build from PNG + depth files.";
+        if (g_gui->colorPaths.empty()) status = "Step 1 / 3: add your color PNG files.";
+        else if (g_gui->depthPaths.empty()) status = "Step 2 / 3: add matching depth PNG files.";
+        else status = "Step 3 / 3: check the preview and export the 3D model.";
     }
     SetStatusText(status);
+    UpdateSummaryCard();
+    UpdateReadinessUI();
 }
 
 static void RefreshModeUI() {
@@ -1108,11 +1358,9 @@ static void RefreshModeUI() {
     EnableWindow(GetDlgItem(g_gui->hwnd, IDC_DEPTH_BROWSE), !video);
     EnableWindow(g_gui->videoEdit, video);
     EnableWindow(GetDlgItem(g_gui->hwnd, IDC_VIDEO_BROWSE), video);
-    EnableWindow(g_gui->presetCombo, video);
-    EnableWindow(g_gui->frameEdit, video);
-    EnableWindow(g_gui->voxelEdit, video);
-    EnableWindow(g_gui->thresholdEdit, video);
-    EnableWindow(g_gui->smoothEdit, video);
+    EnableWindow(g_gui->advancedCheck, video);
+    bool advanced = g_gui->advancedCheck && (SendMessageW(g_gui->advancedCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+    SetAdvancedVisible(video && advanced);
     ShowWindow(g_gui->previewVideo, video ? SW_SHOW : SW_HIDE);
     ShowWindow(g_gui->previewColor, video ? SW_HIDE : SW_SHOW);
     ShowWindow(g_gui->previewDepth, video ? SW_HIDE : SW_SHOW);
@@ -1142,6 +1390,28 @@ static void OpenOutputFolder() {
     EnsureDirectory(out);
     ShellExecuteW(nullptr, L"open", out.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
+static void OpenSamplesFolder() {
+    fs::path samples = FindProjectRoot() / "samples";
+    EnsureDirectory(samples);
+    ShellExecuteW(nullptr, L"open", ToWide(samples.string()).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+static void ShowHelpDialog() {
+    const char* msg =
+        "Quick guide\n\n"
+        "Images + depth maps:\n"
+        "1. Add color PNG files.\n"
+        "2. Add matching depth PNG files in the same order.\n"
+        "3. Check the preview.\n"
+        "4. Click Export 3D model.\n\n"
+        "One video:\n"
+        "1. Add one turntable video.\n"
+        "2. Keep the object centered with a simple background.\n"
+        "3. Check the preview and quality preset.\n"
+        "4. Click Export 3D model.\n\n"
+        "Export result:\n"
+        "OBJ + MTL + texture + diagnostics.";
+    ShowInfo(msg);
+}
 static int RunPngDepthFusionModeWithInputs(const PortableConfig& cfg, const std::vector<std::string>& colorPaths, const std::vector<std::string>& depthPaths) {
     std::vector<ImageRGBA> colors; std::vector<DepthImage> depths;
     for (const auto& p : colorPaths) { auto img = LoadRGBA(p); if (!img) { ShowError("Failed to read color image:\n" + p); return 1; } colors.push_back(std::move(*img)); }
@@ -1155,6 +1425,7 @@ static int RunPngDepthFusionModeWithInputs(const PortableConfig& cfg, const std:
     SmoothDepthEdgeAware(fused, alphaMask, w, h);
     MeshData mesh = BuildClosedDepthMesh(fused, alphaMask, w, h, 1.0f, 0.55f, 0.08f);
     RecomputeNormals(mesh);
+    StorePreviewMesh(mesh);
     if (mesh.indices.empty()) { ShowError("Mesh generation failed. Check the alpha area in the PNG files."); return 1; }
 
     fs::path outputDir = ResolveOutputDir(cfg);
@@ -1262,19 +1533,17 @@ static void StartGuiBuildAsync() {
 static void RunFromGui() {
     PortableConfig cfg = g_gui->cfg;
     cfg.outputFolder = GetText(g_gui->outputEdit);
+    std::string reason;
+    if (!IsBuildReady(&reason)) {
+        ShowError(reason);
+        UpdateReadinessUI();
+        return;
+    }
     if (IsVideoMode()) {
-        if (g_gui->videoPath.empty()) {
-            ShowError("Select a source video first.");
-            return;
-        }
         VideoReconstructionSettings s = ReadVideoSettingsFromUI();
         AppendLog("Mode: single video turntable reconstruction");
         AppendLog("Frames: " + std::to_string(s.targetFrameCount) + ", voxel resolution: " + std::to_string(s.voxelResolution));
     } else {
-        if (g_gui->colorPaths.empty() || g_gui->depthPaths.empty()) {
-            ShowError("Select both color PNG files and matching depth PNG files.");
-            return;
-        }
         AppendLog("Mode: multi-image PNG + depth fusion");
         AppendLog("Color files: " + std::to_string(g_gui->colorPaths.size()) + ", Depth files: " + std::to_string(g_gui->depthPaths.size()));
     }
@@ -1291,75 +1560,94 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         auto addLabel=[&](int x,int y,int w,int h,const wchar_t* labelText){HWND ctrl=CreateWindowW(L"STATIC",labelText,WS_CHILD|WS_VISIBLE,x,y,w,h,hwnd,nullptr,nullptr,nullptr);SendMessageW(ctrl,WM_SETFONT,(WPARAM)font,TRUE);return ctrl;};
         auto addEdit=[&](int id,int x,int y,int w,int h,DWORD style=0){HWND ctrl=CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_AUTOHSCROLL|style,x,y,w,h,hwnd,(HMENU)(INT_PTR)id,nullptr,nullptr);SendMessageW(ctrl,WM_SETFONT,(WPARAM)font,TRUE);return ctrl;};
         auto addBtn=[&](int id,int x,int y,int w,int h,const wchar_t* buttonText,DWORD style=BS_PUSHBUTTON){HWND ctrl=CreateWindowW(L"BUTTON",buttonText,WS_CHILD|WS_VISIBLE|style,x,y,w,h,hwnd,(HMENU)(INT_PTR)id,nullptr,nullptr);SendMessageW(ctrl,WM_SETFONT,(WPARAM)font,TRUE);return ctrl;};
-        addLabel(16,10,500,20,L"Make3D Portable - intuitive 2D to 3D tool");
-        addLabel(16,30,640,18,L"1) Choose a mode  2) Add inputs  3) Adjust quality if needed  4) Click Build 3D");
-        gui->modeImages = addBtn(IDC_MODE_IMAGES,18,58,260,20,L"Use color PNG files + matching depth PNG files",BS_AUTORADIOBUTTON);
-        gui->modeVideo  = addBtn(IDC_MODE_VIDEO,300,58,250,20,L"Use one turntable video",BS_AUTORADIOBUTTON);
+        addLabel(16,10,560,22,L"Make3D  |  Turn images or one video into a simple 3D model");
+        addLabel(16,32,620,18,L"Start here: 1. Choose workflow  2. Add files  3. Check preview  4. Export 3D model");
+        gui->helpButton = addBtn(IDC_HELP_BUTTON,560,10,108,26,L"Quick help");
+
+        CreateWindowW(L"BUTTON",L"Step 1. Choose workflow",WS_CHILD|WS_VISIBLE|BS_GROUPBOX,12,56,664,58,hwnd,nullptr,nullptr,nullptr);
+        gui->modeImages = addBtn(IDC_MODE_IMAGES,28,80,300,22,L"Images + depth maps  |  Use color PNG files and matching depth PNG files",BS_AUTORADIOBUTTON);
+        gui->modeVideo  = addBtn(IDC_MODE_VIDEO,350,80,290,22,L"One video  |  Use one turntable video of the object",BS_AUTORADIOBUTTON);
         SendMessageW(gui->modeVideo, BM_SETCHECK, BST_CHECKED, 0);
 
-        addLabel(16,86,220,18,L"Color PNG files");
-        addLabel(16,104,420,16,L"Tip: drag & drop files here, or click Browse.");
-        gui->colorEdit = CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_MULTILINE|ES_AUTOVSCROLL|ES_READONLY|WS_VSCROLL,16,122,520,52,hwnd,(HMENU)IDC_COLOR_EDIT,nullptr,nullptr);
+        CreateWindowW(L"BUTTON",L"What this workflow does",WS_CHILD|WS_VISIBLE|BS_GROUPBOX,12,118,664,62,hwnd,nullptr,nullptr,nullptr);
+        gui->summaryLabel = addLabel(24,140,630,30,L"Choose a workflow above. The app will explain the required input and the export result here.");
+
+        CreateWindowW(L"BUTTON",L"Step 2. Add your files",WS_CHILD|WS_VISIBLE|BS_GROUPBOX,12,186,664,194,hwnd,nullptr,nullptr,nullptr);
+        addLabel(24,208,220,18,L"Color PNG files (the source images)");
+        gui->colorEdit = CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_MULTILINE|ES_AUTOVSCROLL|ES_READONLY|WS_VSCROLL,24,230,500,52,hwnd,(HMENU)IDC_COLOR_EDIT,nullptr,nullptr);
         SendMessageW(gui->colorEdit,WM_SETFONT,(WPARAM)font,TRUE);
-        addBtn(IDC_COLOR_BROWSE,548,122,120,28,L"Browse...");
+        addBtn(IDC_COLOR_BROWSE,536,230,124,30,L"Add color files");
 
-        addLabel(16,184,220,18,L"Matching depth PNG files");
-        gui->depthEdit = CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_MULTILINE|ES_AUTOVSCROLL|ES_READONLY|WS_VSCROLL,16,208,520,52,hwnd,(HMENU)IDC_DEPTH_EDIT,nullptr,nullptr);
+        addLabel(24,290,240,18,L"Matching depth PNG files (same order as color files)");
+        gui->depthEdit = CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_MULTILINE|ES_AUTOVSCROLL|ES_READONLY|WS_VSCROLL,24,312,500,52,hwnd,(HMENU)IDC_DEPTH_EDIT,nullptr,nullptr);
         SendMessageW(gui->depthEdit,WM_SETFONT,(WPARAM)font,TRUE);
-        addBtn(IDC_DEPTH_BROWSE,548,208,120,28,L"Browse...");
+        addBtn(IDC_DEPTH_BROWSE,536,312,124,30,L"Add depth files");
 
-        addLabel(16,272,220,18,L"Turntable video");
-        addLabel(16,290,460,16,L"Best results: fixed camera, simple background, object centered.");
-        gui->videoEdit = addEdit(IDC_VIDEO_EDIT,16,312,520,24,ES_READONLY);
-        addBtn(IDC_VIDEO_BROWSE,548,310,120,28,L"Browse...");
+        addLabel(24,208,220,18,L"Turntable video (one file)");
+        gui->videoEdit = addEdit(IDC_VIDEO_EDIT,24,230,500,24,ES_READONLY);
+        addBtn(IDC_VIDEO_BROWSE,536,228,124,30,L"Add video file");
+        addLabel(24,260,620,18,L"You can also drag and drop files onto this window. If you want a quick demo, click Use sample files.");
+        gui->sampleButton = addBtn(IDC_USE_SAMPLES,24,344,126,28,L"Use sample files now");
+        gui->openSamplesButton = addBtn(IDC_OPEN_SAMPLES,158,344,126,28,L"Open sample folder");
+        gui->resetButton = addBtn(IDC_RESET_FORM,292,344,104,28,L"Clear all");
+        gui->quickTipsLabel = addLabel(410,346,250,20,L"Tip: you can drag files here.");
 
-        addLabel(16,350,200,18,L"Quality preset");
-        gui->presetCombo = CreateWindowW(L"COMBOBOX",L"",WS_CHILD|WS_VISIBLE|CBS_DROPDOWNLIST,16,372,160,200,hwnd,(HMENU)IDC_PRESET_COMBO,nullptr,nullptr);
+        CreateWindowW(L"BUTTON",L"Step 3. Choose output and quality",WS_CHILD|WS_VISIBLE|BS_GROUPBOX,12,388,664,136,hwnd,nullptr,nullptr,nullptr);
+        addLabel(24,412,140,18,L"Output folder");
+        gui->outputEdit = addEdit(IDC_OUTPUT_EDIT,24,434,290,24);
+        gui->chooseOutputButton = addBtn(IDC_OUTPUT_BROWSE,322,432,94,28,L"Choose folder");
+        gui->openOutputButton = addBtn(IDC_OPEN_OUTPUT,422,432,96,28,L"Open output folder");
+        gui->advancedCheck = addBtn(IDC_ADVANCED_CHECK,536,432,124,24,L"Show advanced settings",BS_AUTOCHECKBOX);
+        addLabel(24,466,96,18,L"Quality preset");
+        gui->presetCombo = CreateWindowW(L"COMBOBOX",L"",WS_CHILD|WS_VISIBLE|CBS_DROPDOWNLIST,24,486,150,200,hwnd,(HMENU)IDC_PRESET_COMBO,nullptr,nullptr);
         SendMessageW(gui->presetCombo,WM_SETFONT,(WPARAM)font,TRUE);
         SendMessageW(gui->presetCombo,CB_ADDSTRING,0,(LPARAM)L"High quality");
         SendMessageW(gui->presetCombo,CB_ADDSTRING,0,(LPARAM)L"Standard");
         SendMessageW(gui->presetCombo,CB_ADDSTRING,0,(LPARAM)L"Fast preview");
         SendMessageW(gui->presetCombo,CB_SETCURSEL,1,0);
+        addLabel(188,466,70,18,L"Frames"); gui->frameEdit = addEdit(IDC_FRAMES_EDIT,188,486,66,24);
+        addLabel(266,466,94,18,L"Voxel"); gui->voxelEdit = addEdit(IDC_VOXEL_EDIT,266,486,66,24);
+        addLabel(344,466,94,18,L"Mask threshold"); gui->thresholdEdit = addEdit(IDC_THRESHOLD_EDIT,344,486,72,24);
+        addLabel(430,466,94,18,L"Smoothing"); gui->smoothEdit = addEdit(IDC_SMOOTH_EDIT,430,486,72,24);
+        gui->autoOpenCheck = addBtn(IDC_AUTO_OPEN_CHECK,24,510,200,22,L"Open output folder after export",BS_AUTOCHECKBOX);
+        gui->readinessLabel = addLabel(236,510,424,22,L"Next step: choose a workflow above.");
 
-        addLabel(200,350,80,18,L"Frames"); gui->frameEdit = addEdit(IDC_FRAMES_EDIT,200,372,70,24);
-        addLabel(286,350,120,18,L"Voxel resolution"); gui->voxelEdit = addEdit(IDC_VOXEL_EDIT,286,372,90,24);
-        addLabel(392,350,120,18,L"Threshold"); gui->thresholdEdit = addEdit(IDC_THRESHOLD_EDIT,392,372,70,24);
-        addLabel(478,350,120,18,L"Smooth iters"); gui->smoothEdit = addEdit(IDC_SMOOTH_EDIT,478,372,58,24);
+        CreateWindowW(L"BUTTON",L"Step 4. Preview and ready check",WS_CHILD|WS_VISIBLE|BS_GROUPBOX,12,530,664,210,hwnd,nullptr,nullptr,nullptr);
+        addLabel(24,552,220,18,L"Preview and result check");
+        gui->previewColor = CreateWindowW(L"STATIC",L"",WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_CENTERIMAGE|SS_SUNKEN,24,574,150,96,hwnd,(HMENU)IDC_PREVIEW_COLOR,nullptr,nullptr);
+        gui->previewDepth = CreateWindowW(L"STATIC",L"",WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_CENTERIMAGE|SS_SUNKEN,188,574,150,96,hwnd,(HMENU)IDC_PREVIEW_DEPTH,nullptr,nullptr);
+        gui->previewVideo = CreateWindowW(L"STATIC",L"",WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_CENTERIMAGE|SS_SUNKEN,352,574,150,96,hwnd,(HMENU)IDC_PREVIEW_VIDEO,nullptr,nullptr);
+        gui->previewModel = CreateWindowW(L"STATIC",L"",WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_CENTERIMAGE|SS_SUNKEN,516,574,136,126,hwnd,(HMENU)IDC_PREVIEW_MODEL,nullptr,nullptr);
+        addLabel(24,670,150,16,L"Source image");
+        addLabel(188,670,150,16,L"Depth");
+        addLabel(352,670,150,16,L"Video frame");
+        addLabel(516,704,136,16,L"3D model preview");
+        gui->checklistLabel = addLabel(24,688,300,40,L"[ ] Add files\n[ ] Review preview\n[x] Export 3D model");
+        addLabel(352,688,148,32,L"If the source preview looks right, the 3D preview should update after export.");
+        addLabel(516,722,136,16,L"Auto-rotates after export.");
 
-        addLabel(16,408,140,18,L"Output folder");
-        gui->outputEdit = addEdit(IDC_OUTPUT_EDIT,16,430,300,24);
-        gui->chooseOutputButton = addBtn(IDC_OUTPUT_BROWSE,324,428,92,28,L"Choose...");
-        gui->openOutputButton = addBtn(IDC_OPEN_OUTPUT,428,428,110,28,L"Open output");
-        gui->sampleButton = addBtn(IDC_USE_SAMPLES,548,428,120,28,L"Use samples");
-        gui->resetButton = addBtn(IDC_RESET_FORM,548,462,120,28,L"Reset");
-        gui->runButton = addBtn(IDC_RUN,548,496,120,36,L"Build 3D");
-
-        addLabel(16,466,120,18,L"Status");
-        gui->statusLabel = addEdit(IDC_STATUS,70,462,468,24,ES_READONLY);
-        gui->progressBar = CreateWindowExW(0, PROGRESS_CLASSW, L"", WS_CHILD|WS_VISIBLE|PBS_MARQUEE, 16, 496, 522, 20, hwnd, (HMENU)(INT_PTR)IDC_PROGRESS, nullptr, nullptr);
+        CreateWindowW(L"BUTTON",L"Export and activity log",WS_CHILD|WS_VISIBLE|BS_GROUPBOX,12,748,664,154,hwnd,nullptr,nullptr,nullptr);
+        gui->runButton = addBtn(IDC_RUN,24,772,190,38,L"Export 3D model",BS_DEFPUSHBUTTON);
+        gui->statusLabel = addLabel(230,774,430,18,L"Ready. Add files to begin.");
+        gui->progressBar = CreateWindowExW(0,PROGRESS_CLASSW,L"",WS_CHILD|WS_VISIBLE|PBS_MARQUEE,230,798,430,18,hwnd,(HMENU)IDC_PROGRESS,nullptr,nullptr);
+        gui->logEdit = CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_MULTILINE|ES_AUTOVSCROLL|ES_READONLY|WS_VSCROLL,24,824,636,62,hwnd,(HMENU)IDC_LOG,nullptr,nullptr);
+        SendMessageW(gui->logEdit,WM_SETFONT,(WPARAM)font,TRUE);
+        ShowWindow(gui->progressBar, SW_SHOW);
         SendMessageW(gui->progressBar, PBM_SETMARQUEE, FALSE, 0);
 
-        addLabel(16,526,120,18,L"Preview");
-        addLabel(16,546,120,18,L"Color");
-        addLabel(236,546,120,18,L"Depth");
-        addLabel(456,546,120,18,L"Video");
-        gui->previewColor = CreateWindowW(L"STATIC", L"", WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_BLACKFRAME, 16, 566, 210, 118, hwnd, (HMENU)(INT_PTR)IDC_PREVIEW_COLOR, nullptr, nullptr);
-        gui->previewDepth = CreateWindowW(L"STATIC", L"", WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_BLACKFRAME, 236, 566, 210, 118, hwnd, (HMENU)(INT_PTR)IDC_PREVIEW_DEPTH, nullptr, nullptr);
-        gui->previewVideo = CreateWindowW(L"STATIC", L"", WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_BLACKFRAME, 456, 566, 212, 118, hwnd, (HMENU)(INT_PTR)IDC_PREVIEW_VIDEO, nullptr, nullptr);
-
-        addLabel(16,694,280,18,L"Activity log and next-step hints");
-        gui->logEdit = CreateWindowExW(WS_EX_CLIENTEDGE,L"EDIT",L"",WS_CHILD|WS_VISIBLE|ES_MULTILINE|ES_AUTOVSCROLL|ES_READONLY|WS_VSCROLL,16,716,652,90,hwnd,(HMENU)(INT_PTR)IDC_LOG,nullptr,nullptr);
-        SendMessageW(gui->logEdit,WM_SETFONT,(WPARAM)font,TRUE);
-
-        SetText(gui->outputEdit, gui->cfg.outputFolder);
         ApplyPresetToControls(1);
-        SetStatusText("Step 1: choose a mode.");
+        SetStatusText("Step 1: choose a workflow.");
         AppendLog("Welcome to Make3D Portable.");
-        AppendLog("Quick start: choose a mode, add files, then press Build 3D.");
+        AppendLog("Quick start: choose a workflow, add files, then click Export 3D model.");
         AppendLog("You can drag and drop PNG files or one video onto this window.");
         AppendLog("Tip: Use the bundled sample files if you want to test the app first.");
+        AppendLog("The app shows a ready check so you always know the next step.");
+        SetText(gui->outputEdit, gui->cfg.outputFolder);
+        SendMessageW(gui->advancedCheck, BM_SETCHECK, BST_UNCHECKED, 0);
+        if (gui->autoOpenCheck) SendMessageW(gui->autoOpenCheck, BM_SETCHECK, BST_CHECKED, 0);
         DragAcceptFiles(hwnd, TRUE);
         RefreshModeUI();
+        UpdateSummaryCard();
         return 0;
     }
     case WM_COMMAND: {
@@ -1390,6 +1678,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             auto folder = BrowseForFolder(hwnd, L"Choose an output folder");
             if (folder) { SetText(g_gui->outputEdit, *folder); AppendLog("Updated output folder."); UpdateGuidance(); }
             break; }
+        case IDC_HELP_BUTTON:
+            ShowHelpDialog();
+            break;
+        case IDC_OPEN_SAMPLES:
+            OpenSamplesFolder();
+            AppendLog("Opened the samples folder.");
+            break;
+        case IDC_ADVANCED_CHECK:
+            RefreshModeUI();
+            AppendLog((SendMessageW(g_gui->advancedCheck, BM_GETCHECK, 0, 0) == BST_CHECKED) ? "Advanced controls shown." : "Advanced controls hidden.");
+            break;
+        case IDC_AUTO_OPEN_CHECK:
+            AppendLog((SendMessageW(g_gui->autoOpenCheck, BM_GETCHECK, 0, 0) == BST_CHECKED) ? "The output folder will open automatically after a successful build." : "Auto-open output is now off.");
+            break;
         case IDC_USE_SAMPLES: {
             fs::path root = FindProjectRoot();
             fs::path samples = root / "samples";
@@ -1417,6 +1719,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             ClearPreviewControl(g_gui->previewColor, g_gui->colorBitmap);
             ClearPreviewControl(g_gui->previewDepth, g_gui->depthBitmap);
             ClearPreviewControl(g_gui->previewVideo, g_gui->videoBitmap);
+            ClearPreviewControl(g_gui->previewModel, g_gui->modelBitmap);
+            { std::lock_guard<std::mutex> lock(g_gui->previewMutex); g_gui->previewMesh = {}; g_gui->hasPreviewMesh = false; g_gui->previewYaw = 28.0f; }
+            SendMessageW(g_gui->advancedCheck, BM_SETCHECK, BST_UNCHECKED, 0);
             ApplyPresetToControls(1);
             AutoSwitchMode(true);
             AppendLog("Reset inputs and quality settings.");
@@ -1478,7 +1783,23 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     }
     case WM_APP_BUILD_DONE:
         SetBusyUI(false, ((int)wParam == 0) ? "Build completed" : "Build failed");
-        AppendLog(((int)wParam == 0) ? "Finished successfully. Open the output folder to inspect the OBJ and reports." : "Export failed. Check the message and try a simpler input.");
+        AppendLog(((int)wParam == 0) ? "Finished successfully. The in-app 3D preview has been refreshed." : "Export failed. Check the message and try a simpler input.");
+        if ((int)wParam == 0) {
+            g_gui->previewYaw = 26.0f;
+            UpdateModelPreviewBitmap();
+            SetTimer(hwnd, IDT_MODEL_PREVIEW, 120, nullptr);
+        }
+        UpdateReadinessUI();
+        if ((int)wParam == 0 && g_gui && g_gui->autoOpenCheck && SendMessageW(g_gui->autoOpenCheck, BM_GETCHECK, 0, 0) == BST_CHECKED) {
+            OpenOutputFolder();
+        }
+        return 0;
+    case WM_TIMER:
+        if (wParam == IDT_MODEL_PREVIEW && g_gui && !g_gui->isBusy) {
+            g_gui->previewYaw += 4.0f;
+            if (g_gui->previewYaw >= 360.0f) g_gui->previewYaw -= 360.0f;
+            UpdateModelPreviewBitmap();
+        }
         return 0;
     case WM_CLOSE:
         DestroyWindow(hwnd);
@@ -1486,9 +1807,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     case WM_DESTROY:
         if (g_gui) {
             if (g_gui->worker.joinable()) g_gui->worker.join();
+            KillTimer(hwnd, IDT_MODEL_PREVIEW);
             DestroyBitmap(g_gui->colorBitmap);
             DestroyBitmap(g_gui->depthBitmap);
             DestroyBitmap(g_gui->videoBitmap);
+            DestroyBitmap(g_gui->modelBitmap);
         }
         PostQuitMessage(0);
         return 0;
@@ -1516,7 +1839,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nCmdShow
     RegisterClassW(&wc);
 
     HWND hwnd = CreateWindowW(wc.lpszClassName, L"Make3D Portable GUI", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-                              CW_USEDEFAULT, CW_USEDEFAULT, 700, 860, nullptr, nullptr, hInstance, &gui);
+                              CW_USEDEFAULT, CW_USEDEFAULT, 700, 940, nullptr, nullptr, hInstance, &gui);
     if (!hwnd) return 1;
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
