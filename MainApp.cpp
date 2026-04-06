@@ -1,7 +1,11 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define NOMINMAX
 #define STB_IMAGE_IMPLEMENTATION
+#pragma warning(push)
+#pragma warning(disable: 26819) // stb_image.h intentional fallthroughs
+#pragma warning(disable: 6262)  // stb_image.h large stack usage in decoder internals
 #include "stb_image.h"
+#pragma warning(pop)
 
 #include <windows.h>
 #include <commctrl.h>
@@ -22,6 +26,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -299,23 +304,35 @@ static bool ExtractRepresentativeVideoFrame(const std::string& path, ImageRGBA& 
         if (FAILED(hr) || !buffer) { SafeRelease(sample); continue; }
         BYTE* raw = nullptr; DWORD maxLen = 0; DWORD curLen = 0;
         hr = buffer->Lock(&raw, &maxLen, &curLen);
-        if (SUCCEEDED(hr) && raw && curLen >= 16) {
+        if (SUCCEEDED(hr) && raw) {
             IMFMediaType* current = nullptr;
             UINT32 w = 0, h = 0;
             if (SUCCEEDED(reader->GetCurrentMediaType((DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, &current))) {
                 MFGetAttributeSize(current, MF_MT_FRAME_SIZE, &w, &h);
             }
             SafeRelease(current);
-            if (w > 0 && h > 0 && curLen >= w * h * 4) {
-                outImage.width = (int)w;
-                outImage.height = (int)h;
-                outImage.pixels.resize((size_t)w * h * 4);
-                for (UINT32 i = 0; i < w * h; ++i) {
-                    outImage.pixels[i * 4 + 0] = raw[i * 4 + 2];
-                    outImage.pixels[i * 4 + 1] = raw[i * 4 + 1];
-                    outImage.pixels[i * 4 + 2] = raw[i * 4 + 0];
-                    outImage.pixels[i * 4 + 3] = 255;
+
+            const size_t pixelCount = static_cast<size_t>(w) * static_cast<size_t>(h);
+            const size_t expectedBytes = (pixelCount <= (std::numeric_limits<size_t>::max)() / 4u) ? (pixelCount * 4u) : 0u;
+            const size_t availableBytes = std::min<size_t>(static_cast<size_t>(curLen), static_cast<size_t>(maxLen));
+
+            if (w > 0 && h > 0 && expectedBytes != 0u && availableBytes >= expectedBytes) {
+                outImage.width = static_cast<int>(w);
+                outImage.height = static_cast<int>(h);
+                outImage.pixels.resize(expectedBytes);
+
+                const BYTE* src = raw;
+                const BYTE* const srcEnd = raw + expectedBytes;
+                unsigned char* dst = outImage.pixels.data();
+                while (src + 3 < srcEnd) {
+                    dst[0] = src[2];
+                    dst[1] = src[1];
+                    dst[2] = src[0];
+                    dst[3] = 255;
+                    src += 4;
+                    dst += 4;
                 }
+
                 buffer->Unlock();
                 SafeRelease(buffer);
                 SafeRelease(sample);
@@ -474,7 +491,29 @@ static void SmoothDepth(std::vector<float>& depth, const std::vector<unsigned ch
 }
 
 static void AppendTri(std::vector<int>& indices, int a, int b, int c) {
+    if (a < 0 || b < 0 || c < 0) return;
+    if (a == b || b == c || c == a) return;
     indices.push_back(a); indices.push_back(b); indices.push_back(c);
+}
+
+static bool IsValidVertexIndex(const MeshData& mesh, int index) {
+    return index >= 0 && (size_t)index * 3 + 2 < mesh.positions.size();
+}
+
+static void RemoveInvalidTriangles(MeshData& mesh) {
+    std::vector<int> cleaned;
+    cleaned.reserve(mesh.indices.size());
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
+        int a = mesh.indices[i + 0];
+        int b = mesh.indices[i + 1];
+        int c = mesh.indices[i + 2];
+        if (!IsValidVertexIndex(mesh, a) || !IsValidVertexIndex(mesh, b) || !IsValidVertexIndex(mesh, c)) continue;
+        if (a == b || b == c || c == a) continue;
+        cleaned.push_back(a);
+        cleaned.push_back(b);
+        cleaned.push_back(c);
+    }
+    mesh.indices.swap(cleaned);
 }
 
 static MeshData BuildClosedDepthMesh(const std::vector<float>& depth, const std::vector<unsigned char>& mask, int w, int h, float xyScale, float depthScale, float thickness) {
@@ -530,7 +569,7 @@ static MeshData BuildClosedDepthMesh(const std::vector<float>& depth, const std:
             }
             if (x == w - 1 || !mask[(size_t)(y * w + (x + 1))]) {
                 int n = (y + 1 < h) ? ((y + 1) * w + x) : -1;
-                if (n >= 0) {
+                if (n >= 0 && front[(size_t)i] >= 0 && back[(size_t)i] >= 0 && front[(size_t)n] >= 0 && back[(size_t)n] >= 0) {
                     AppendTri(mesh.indices, front[(size_t)i], back[(size_t)n], front[(size_t)n]);
                     AppendTri(mesh.indices, front[(size_t)i], back[(size_t)i], back[(size_t)n]);
                 }
@@ -541,13 +580,14 @@ static MeshData BuildClosedDepthMesh(const std::vector<float>& depth, const std:
             }
             if (y == h - 1 || !mask[(size_t)((y + 1) * w + x)]) {
                 int n = (x + 1 < w) ? (y * w + x + 1) : -1;
-                if (n >= 0) {
+                if (n >= 0 && front[(size_t)i] >= 0 && back[(size_t)i] >= 0 && front[(size_t)n] >= 0 && back[(size_t)n] >= 0) {
                     AppendTri(mesh.indices, front[(size_t)i], front[(size_t)n], back[(size_t)n]);
                     AppendTri(mesh.indices, front[(size_t)i], back[(size_t)n], back[(size_t)i]);
                 }
             }
         }
     }
+    RemoveInvalidTriangles(mesh);
     return mesh;
 }
 
@@ -555,6 +595,7 @@ static void RecomputeNormals(MeshData& mesh) {
     std::fill(mesh.normals.begin(), mesh.normals.end(), 0.0f);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         int ia = mesh.indices[i], ib = mesh.indices[i + 1], ic = mesh.indices[i + 2];
+        if (!IsValidVertexIndex(mesh, ia) || !IsValidVertexIndex(mesh, ib) || !IsValidVertexIndex(mesh, ic)) continue;
         float ax = mesh.positions[(size_t)ia * 3 + 0], ay = mesh.positions[(size_t)ia * 3 + 1], az = mesh.positions[(size_t)ia * 3 + 2];
         float bx = mesh.positions[(size_t)ib * 3 + 0], by = mesh.positions[(size_t)ib * 3 + 1], bz = mesh.positions[(size_t)ib * 3 + 2];
         float cx = mesh.positions[(size_t)ic * 3 + 0], cy = mesh.positions[(size_t)ic * 3 + 1], cz = mesh.positions[(size_t)ic * 3 + 2];
@@ -582,8 +623,10 @@ static void LaplacianSmooth(MeshData& mesh, int iterations, float alpha) {
     int count = (int)(mesh.positions.size() / 3);
     if (iterations <= 0 || count <= 0) return;
     std::vector<std::vector<int>> neighbors((size_t)count);
+    RemoveInvalidTriangles(mesh);
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         int a = mesh.indices[i], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
+        if (!IsValidVertexIndex(mesh, a) || !IsValidVertexIndex(mesh, b) || !IsValidVertexIndex(mesh, c)) continue;
         neighbors[(size_t)a].push_back(b); neighbors[(size_t)a].push_back(c);
         neighbors[(size_t)b].push_back(a); neighbors[(size_t)b].push_back(c);
         neighbors[(size_t)c].push_back(a); neighbors[(size_t)c].push_back(b);
@@ -638,7 +681,9 @@ static bool ExportOBJ(const MeshData& mesh, const fs::path& objPath, const std::
     for (size_t i = 0; i < mesh.normals.size(); i += 3) obj << "vn " << mesh.normals[i] << ' ' << mesh.normals[i + 1] << ' ' << mesh.normals[i + 2] << "\n";
     obj << "usemtl Material0\n";
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        int a = mesh.indices[i] + 1, b = mesh.indices[i + 1] + 1, c = mesh.indices[i + 2] + 1;
+        int ia = mesh.indices[i + 0], ib = mesh.indices[i + 1], ic = mesh.indices[i + 2];
+        if (!IsValidVertexIndex(mesh, ia) || !IsValidVertexIndex(mesh, ib) || !IsValidVertexIndex(mesh, ic)) continue;
+        int a = ia + 1, b = ib + 1, c = ic + 1;
         obj << "f " << a << '/' << a << '/' << a << ' ' << b << '/' << b << '/' << b << ' ' << c << '/' << c << '/' << c << "\n";
     }
     std::ofstream mtl(objPath.parent_path() / mtlName, std::ios::binary);
@@ -730,6 +775,7 @@ static HBITMAP RenderMeshPreviewBitmap(const MeshData& mesh, int width, int heig
         int ia = mesh.indices[ti + 0];
         int ib = mesh.indices[ti + 1];
         int ic = mesh.indices[ti + 2];
+        if (!IsValidVertexIndex(mesh, ia) || !IsValidVertexIndex(mesh, ib) || !IsValidVertexIndex(mesh, ic)) continue;
         V3 a = transformed[(size_t)ia];
         V3 b = transformed[(size_t)ib];
         V3 c = transformed[(size_t)ic];
@@ -825,18 +871,18 @@ static void SetReadyText(const std::string& text) {
 }
 
 static std::vector<std::string> OpenMultiplePngFiles(const char* title) {
-    char buffer[65536] = {};
+    std::vector<char> buffer(65536, '\0');
     OPENFILENAMEA ofn = {};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = g.hwnd;
     ofn.lpstrFilter = "PNG Files (*.png)\0*.png\0All Files (*.*)\0*.*\0";
-    ofn.lpstrFile = buffer;
-    ofn.nMaxFile = sizeof(buffer);
+    ofn.lpstrFile = buffer.data();
+    ofn.nMaxFile = static_cast<DWORD>(buffer.size());
     ofn.Flags = OFN_EXPLORER | OFN_ALLOWMULTISELECT | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
     ofn.lpstrTitle = title;
     if (!GetOpenFileNameA(&ofn)) return {};
     std::vector<std::string> result;
-    const char* ptr = buffer;
+    const char* ptr = buffer.data();
     std::string first = ptr;
     ptr += first.size() + 1;
     if (*ptr == '\0') {
@@ -1350,7 +1396,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE, LPSTR, int nCmdShow) {
+int WINAPI WinMain(_In_ HINSTANCE hInst, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int nCmdShow) {
     INITCOMMONCONTROLSEX icc = {};
     icc.dwSize = sizeof(icc);
     icc.dwICC = ICC_STANDARD_CLASSES | ICC_PROGRESS_CLASS;
