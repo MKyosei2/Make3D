@@ -78,6 +78,13 @@ enum class QualityPreset {
     Detailed
 };
 
+enum class ReconstructionPreset {
+    Auto,
+    Relief,
+    PrimitiveBox,
+    HumanoidProxy
+};
+
 struct AppState {
     HWND hwnd = nullptr;
     HWND lblTitle = nullptr;
@@ -96,6 +103,7 @@ struct AppState {
     HWND listFiles = nullptr;
 
     HWND grpOutput = nullptr;
+    HWND comboReconstruction = nullptr;
     HWND comboQuality = nullptr;
     HWND editOutput = nullptr;
     HWND btnChooseOutput = nullptr;
@@ -114,6 +122,7 @@ struct AppState {
 
     WorkflowMode mode = WorkflowMode::ImageDepth;
     QualityPreset quality = QualityPreset::Recommended;
+    ReconstructionPreset reconstruction = ReconstructionPreset::Auto;
     PortableConfig cfg;
     std::vector<std::string> colorFiles;
     std::vector<std::string> depthFiles;
@@ -147,6 +156,7 @@ static void SetStatusText(const std::string& text);
 static void SetReadyText(const std::string& text);
 static void ShowFriendlyError(const std::string& title, const std::string& body);
 static void StartBuildAsync();
+static ReconstructionPreset CurrentReconstructionModeFromUI();
 
 static std::string Narrow(const std::wstring& ws) {
     if (ws.empty()) return {};
@@ -347,6 +357,124 @@ static bool ExtractRepresentativeVideoFrame(const std::string& path, ImageRGBA& 
     SafeRelease(reader);
     reason = "動画からプレビュー用フレームを取り出せませんでした。";
     return false;
+}
+
+struct Vec3 { float x = 0.0f, y = 0.0f, z = 0.0f; };
+struct BBox2i { int minX = 0, minY = 0, maxX = -1, maxY = -1; bool valid = false; };
+struct ShapeAnalysis {
+    BBox2i bbox;
+    int area = 0;
+    float rectangularity = 0.0f;
+    float aspect = 1.0f;
+    float headWidth = 0.0f;
+    float shoulderWidth = 0.0f;
+    float waistWidth = 0.0f;
+    float hipWidth = 0.0f;
+    float lowerGapRatio = 0.0f;
+    float meanDepth = 0.0f;
+    bool likelyHuman = false;
+    bool likelyBox = false;
+};
+
+static Vec3 MakeVec3(float x, float y, float z) { return Vec3{x, y, z}; }
+static Vec3 operator+(const Vec3& a, const Vec3& b) { return MakeVec3(a.x + b.x, a.y + b.y, a.z + b.z); }
+static Vec3 operator-(const Vec3& a, const Vec3& b) { return MakeVec3(a.x - b.x, a.y - b.y, a.z - b.z); }
+static Vec3 operator*(const Vec3& a, float s) { return MakeVec3(a.x * s, a.y * s, a.z * s); }
+static Vec3 operator/(const Vec3& a, float s) { return MakeVec3(a.x / s, a.y / s, a.z / s); }
+static float Dot(const Vec3& a, const Vec3& b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
+static Vec3 Cross(const Vec3& a, const Vec3& b) { return MakeVec3(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x); }
+static float Length(const Vec3& v) { return std::sqrt(Dot(v,v)); }
+static Vec3 Normalize(const Vec3& v) { float len = Length(v); return len > 1e-6f ? (v / len) : MakeVec3(0.0f,1.0f,0.0f); }
+
+static int AddVertex(MeshData& mesh, float x, float y, float z, float u, float v) {
+    int idx = (int)(mesh.positions.size() / 3);
+    mesh.positions.push_back(x); mesh.positions.push_back(y); mesh.positions.push_back(z);
+    mesh.normals.push_back(0.0f); mesh.normals.push_back(0.0f); mesh.normals.push_back(0.0f);
+    mesh.uvs.push_back(u); mesh.uvs.push_back(v);
+    return idx;
+}
+
+static void AppendMesh(MeshData& dst, const MeshData& src) {
+    int base = (int)(dst.positions.size() / 3);
+    dst.positions.insert(dst.positions.end(), src.positions.begin(), src.positions.end());
+    dst.normals.insert(dst.normals.end(), src.normals.begin(), src.normals.end());
+    dst.uvs.insert(dst.uvs.end(), src.uvs.begin(), src.uvs.end());
+    for (int idx : src.indices) dst.indices.push_back(base + idx);
+}
+
+static std::vector<unsigned char> BuildAlphaMaskUnion(const std::vector<ImageRGBA>& colors);
+
+static std::vector<unsigned char> EstimateForegroundFromOpaqueImage(const ImageRGBA& image) {
+    int w = image.width;
+    int h = image.height;
+    std::vector<unsigned char> mask((size_t)w * h, 0);
+    if (w <= 0 || h <= 0 || image.pixels.size() < (size_t)w * h * 4) return mask;
+
+    std::array<float, 3> bg = {0.0f, 0.0f, 0.0f};
+    std::array<float, 3> bgSq = {0.0f, 0.0f, 0.0f};
+    int borderCount = 0;
+    auto accumulatePixel = [&](int x, int y) {
+        size_t idx = ((size_t)y * w + x) * 4;
+        for (int c = 0; c < 3; ++c) {
+            float v = (float)image.pixels[idx + c];
+            bg[c] += v;
+            bgSq[c] += v * v;
+        }
+        ++borderCount;
+    };
+
+    for (int x = 0; x < w; ++x) { accumulatePixel(x, 0); if (h > 1) accumulatePixel(x, h - 1); }
+    for (int y = 1; y < h - 1; ++y) { accumulatePixel(0, y); if (w > 1) accumulatePixel(w - 1, y); }
+    if (borderCount == 0) return mask;
+
+    float stddev = 0.0f;
+    for (int c = 0; c < 3; ++c) {
+        bg[c] /= (float)borderCount;
+        float meanSq = bgSq[c] / (float)borderCount;
+        stddev += std::max(0.0f, meanSq - bg[c] * bg[c]);
+    }
+    stddev = std::sqrt(stddev / 3.0f);
+    float threshold = std::max(22.0f, stddev * 2.4f + 14.0f);
+
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            size_t idx = ((size_t)y * w + x) * 4;
+            float dr = (float)image.pixels[idx + 0] - bg[0];
+            float dg = (float)image.pixels[idx + 1] - bg[1];
+            float db = (float)image.pixels[idx + 2] - bg[2];
+            float distance = std::sqrt(dr*dr + dg*dg + db*db);
+            if (distance > threshold) mask[(size_t)y * w + x] = 255;
+        }
+    }
+
+    auto copy = mask;
+    for (int pass = 0; pass < 2; ++pass) {
+        copy = mask;
+        for (int y = 1; y < h - 1; ++y) {
+            for (int x = 1; x < w - 1; ++x) {
+                int onCount = 0;
+                for (int oy = -1; oy <= 1; ++oy) for (int ox = -1; ox <= 1; ++ox) if (copy[(size_t)(y + oy) * w + (x + ox)] > 0) ++onCount;
+                mask[(size_t)y * w + x] = (onCount >= 5) ? 255 : 0;
+            }
+        }
+    }
+    return mask;
+}
+
+static size_t CountMaskPixels(const std::vector<unsigned char>& mask) {
+    size_t count = 0; for (auto v : mask) if (v) ++count; return count;
+}
+
+static std::vector<unsigned char> BuildForegroundMaskForColors(const std::vector<ImageRGBA>& colors) {
+    auto mask = BuildAlphaMaskUnion(colors);
+    const size_t maskCount = CountMaskPixels(mask);
+    if (!colors.empty()) {
+        const size_t total = (size_t)colors.front().width * colors.front().height;
+        if (maskCount == 0 || maskCount > total * 98 / 100) {
+            return EstimateForegroundFromOpaqueImage(colors.front());
+        }
+    }
+    return mask;
 }
 
 static std::vector<unsigned char> BuildAlphaMaskUnion(const std::vector<ImageRGBA>& colors) {
@@ -589,6 +717,269 @@ static MeshData BuildClosedDepthMesh(const std::vector<float>& depth, const std:
     }
     RemoveInvalidTriangles(mesh);
     return mesh;
+}
+
+static BBox2i ComputeMaskBBox(const std::vector<unsigned char>& mask, int w, int h) {
+    BBox2i box;
+    box.minX = w; box.minY = h; box.maxX = -1; box.maxY = -1;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            if (!mask[(size_t)y * w + x]) continue;
+            box.valid = true;
+            box.minX = std::min(box.minX, x); box.minY = std::min(box.minY, y);
+            box.maxX = std::max(box.maxX, x); box.maxY = std::max(box.maxY, y);
+        }
+    }
+    if (!box.valid) { box.minX = box.minY = 0; box.maxX = box.maxY = -1; }
+    return box;
+}
+
+static std::vector<float> BuildRowWidths(const std::vector<unsigned char>& mask, int w, int h, const BBox2i& bbox) {
+    std::vector<float> widths((size_t)h, 0.0f);
+    if (!bbox.valid) return widths;
+    for (int y = bbox.minY; y <= bbox.maxY; ++y) {
+        int left = w, right = -1;
+        for (int x = bbox.minX; x <= bbox.maxX; ++x) {
+            if (!mask[(size_t)y * w + x]) continue;
+            left = std::min(left, x);
+            right = std::max(right, x);
+        }
+        if (right >= left) widths[(size_t)y] = (float)(right - left + 1);
+    }
+    std::vector<float> smooth = widths;
+    for (int y = bbox.minY; y <= bbox.maxY; ++y) {
+        float sum = 0.0f, weight = 0.0f;
+        for (int oy = -2; oy <= 2; ++oy) {
+            int yy = std::clamp(y + oy, bbox.minY, bbox.maxY);
+            float wgt = (oy == 0) ? 2.0f : 1.0f;
+            sum += widths[(size_t)yy] * wgt;
+            weight += wgt;
+        }
+        smooth[(size_t)y] = weight > 0.0f ? sum / weight : widths[(size_t)y];
+    }
+    return smooth;
+}
+
+static float SampleRangeExtrema(const std::vector<float>& values, int start, int end, bool findMax) {
+    if (values.empty()) return 0.0f;
+    start = std::max(0, start); end = std::min((int)values.size() - 1, end);
+    if (start > end) return 0.0f;
+    float out = values[(size_t)start];
+    for (int i = start + 1; i <= end; ++i) out = findMax ? std::max(out, values[(size_t)i]) : std::min(out, values[(size_t)i]);
+    return out;
+}
+
+static ShapeAnalysis AnalyzeShape(const std::vector<float>& fusedDepth, const std::vector<unsigned char>& mask, int w, int h) {
+    ShapeAnalysis analysis;
+    analysis.bbox = ComputeMaskBBox(mask, w, h);
+    if (!analysis.bbox.valid) return analysis;
+    int bboxW = analysis.bbox.maxX - analysis.bbox.minX + 1;
+    int bboxH = analysis.bbox.maxY - analysis.bbox.minY + 1;
+    analysis.aspect = bboxW > 0 ? (float)bboxH / (float)bboxW : 1.0f;
+
+    double depthSum = 0.0;
+    for (int y = analysis.bbox.minY; y <= analysis.bbox.maxY; ++y) {
+        for (int x = analysis.bbox.minX; x <= analysis.bbox.maxX; ++x) {
+            size_t idx = (size_t)y * w + x;
+            if (!mask[idx]) continue;
+            ++analysis.area;
+            depthSum += fusedDepth[idx];
+        }
+    }
+    float bboxArea = (float)std::max(1, bboxW * bboxH);
+    analysis.rectangularity = analysis.area / bboxArea;
+    if (analysis.area > 0) analysis.meanDepth = (float)(depthSum / analysis.area);
+
+    auto rowWidths = BuildRowWidths(mask, w, h, analysis.bbox);
+    int top = analysis.bbox.minY, bottom = analysis.bbox.maxY, bodyH = std::max(1, bottom - top + 1);
+    auto relY = [&](float t) { return top + std::clamp((int)std::round(t * (bodyH - 1)), 0, bodyH - 1); };
+    analysis.headWidth = SampleRangeExtrema(rowWidths, relY(0.03f), relY(0.18f), true);
+    analysis.shoulderWidth = SampleRangeExtrema(rowWidths, relY(0.18f), relY(0.34f), true);
+    analysis.waistWidth = SampleRangeExtrema(rowWidths, relY(0.40f), relY(0.55f), false);
+    analysis.hipWidth = SampleRangeExtrema(rowWidths, relY(0.55f), relY(0.72f), true);
+
+    int gapY = relY(0.84f);
+    int gap = 0, longestGap = 0, midX = (analysis.bbox.minX + analysis.bbox.maxX) / 2;
+    for (int x = analysis.bbox.minX; x <= analysis.bbox.maxX; ++x) {
+        bool inside = mask[(size_t)gapY * w + x] != 0;
+        if (!inside) { ++gap; if (std::abs(x - midX) < bboxW / 4) longestGap = std::max(longestGap, gap); }
+        else gap = 0;
+    }
+    analysis.lowerGapRatio = bboxW > 0 ? (float)longestGap / bboxW : 0.0f;
+
+    bool proportionsHumanoid =
+        analysis.aspect > 1.35f && analysis.aspect < 4.5f &&
+        analysis.shoulderWidth > 0.0f && analysis.headWidth > 0.0f &&
+        analysis.shoulderWidth > analysis.headWidth * 1.12f &&
+        analysis.shoulderWidth > analysis.waistWidth * 1.08f &&
+        analysis.hipWidth > analysis.waistWidth * 1.02f;
+    analysis.likelyHuman = proportionsHumanoid;
+
+    bool nearlySquare = bboxH > 0 && std::abs((float)bboxW / bboxH - 1.0f) < 0.18f;
+    bool blockyRows = analysis.headWidth > 0.0f && analysis.hipWidth > 0.0f && std::abs(analysis.headWidth - analysis.hipWidth) < std::max(4.0f, analysis.headWidth * 0.08f);
+    analysis.likelyBox = analysis.rectangularity > 0.94f && nearlySquare && blockyRows;
+    return analysis;
+}
+
+static float PixelToWorldX(float x, int w, float xyScale) { float denomW = w > 1 ? (float)(w - 1) : 1.0f; return (x / denomW - 0.5f) * xyScale; }
+static float PixelToWorldY(float y, int h, float xyScale) { float denomH = h > 1 ? (float)(h - 1) : 1.0f; return (((float)(h - 1) - y) / denomH - 0.5f) * xyScale; }
+static float PixelWidthToWorld(float px, int w, float xyScale) { float denomW = w > 1 ? (float)(w - 1) : 1.0f; return px / denomW * xyScale; }
+static float PixelHeightToWorld(float px, int h, float xyScale) { float denomH = h > 1 ? (float)(h - 1) : 1.0f; return px / denomH * xyScale; }
+
+static void AppendQuad(MeshData& mesh, int a, int b, int c, int d) { AppendTri(mesh.indices, a, b, c); AppendTri(mesh.indices, a, c, d); }
+
+static std::vector<float> BuildPseudoDepthFromMask(const std::vector<unsigned char>& mask, int w, int h) {
+    const float kInf = 1.0e20f;
+    std::vector<float> dist((size_t)w * h, 0.0f);
+    if (mask.empty()) return dist;
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int idx = y * w + x;
+            if (!mask[(size_t)idx]) { dist[(size_t)idx] = 0.0f; continue; }
+            bool boundary = (x == 0 || y == 0 || x == w - 1 || y == h - 1);
+            if (!boundary) boundary = !mask[(size_t)(y * w + x - 1)] || !mask[(size_t)(y * w + x + 1)] || !mask[(size_t)((y - 1) * w + x)] || !mask[(size_t)((y + 1) * w + x)];
+            dist[(size_t)idx] = boundary ? 0.0f : kInf;
+        }
+    }
+    auto relax = [&](int x, int y, int nx, int ny, float cost) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+        int idx = y * w + x; int nidx = ny * w + nx;
+        if (!mask[(size_t)idx] || !mask[(size_t)nidx]) return;
+        dist[(size_t)idx] = std::min(dist[(size_t)idx], dist[(size_t)nidx] + cost);
+    };
+    for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) { relax(x,y,x-1,y,1.0f); relax(x,y,x,y-1,1.0f); relax(x,y,x-1,y-1,1.4142f); relax(x,y,x+1,y-1,1.4142f); }
+    for (int y = h - 1; y >= 0; --y) for (int x = w - 1; x >= 0; --x) { relax(x,y,x+1,y,1.0f); relax(x,y,x,y+1,1.0f); relax(x,y,x+1,y+1,1.4142f); relax(x,y,x-1,y+1,1.4142f); }
+    float maxDist = 0.0f;
+    for (size_t i = 0; i < dist.size(); ++i) if (mask[i] && dist[i] < kInf) maxDist = std::max(maxDist, dist[i]);
+    maxDist = std::max(maxDist, 1.0f);
+    for (size_t i = 0; i < dist.size(); ++i) {
+        if (!mask[i]) dist[i] = 0.0f;
+        else { float t = std::max(0.0f, std::min(1.0f, dist[i] / maxDist)); dist[i] = std::pow(t, 0.85f); }
+    }
+    return dist;
+}
+
+static MeshData BuildBoxPrimitive(const ShapeAnalysis& analysis, int w, int h, float xyScale, float depthScale, float thickness) {
+    MeshData mesh;
+    if (!analysis.bbox.valid) return mesh;
+    float x0 = PixelToWorldX((float)analysis.bbox.minX, w, xyScale);
+    float x1 = PixelToWorldX((float)analysis.bbox.maxX, w, xyScale);
+    float y0 = PixelToWorldY((float)analysis.bbox.maxY, h, xyScale);
+    float y1 = PixelToWorldY((float)analysis.bbox.minY, h, xyScale);
+    float sx = std::max(0.02f, x1 - x0);
+    float sy = std::max(0.02f, y1 - y0);
+    float sz = (sx + sy) * 0.5f;
+    float aspect = sy > 1e-6f ? sx / sy : 1.0f;
+    if (std::abs(aspect - 1.0f) > 0.12f) sz = std::max(thickness * 2.5f, std::min(sx, sy));
+    float cx = (x0 + x1) * 0.5f; float cy = (y0 + y1) * 0.5f; float cz = std::max(analysis.meanDepth * depthScale, sz * 0.5f);
+    float minX = cx - sx * 0.5f, maxX = cx + sx * 0.5f;
+    float minY = cy - sy * 0.5f, maxY = cy + sy * 0.5f;
+    float minZ = cz - sz * 0.5f, maxZ = cz + sz * 0.5f;
+    auto face = [&](Vec3 a, Vec3 b, Vec3 c, Vec3 d) { int i0 = AddVertex(mesh,a.x,a.y,a.z,0,0); int i1 = AddVertex(mesh,b.x,b.y,b.z,1,0); int i2 = AddVertex(mesh,c.x,c.y,c.z,1,1); int i3 = AddVertex(mesh,d.x,d.y,d.z,0,1); AppendQuad(mesh,i0,i1,i2,i3); };
+    face(MakeVec3(minX,minY,maxZ), MakeVec3(maxX,minY,maxZ), MakeVec3(maxX,maxY,maxZ), MakeVec3(minX,maxY,maxZ));
+    face(MakeVec3(maxX,minY,minZ), MakeVec3(minX,minY,minZ), MakeVec3(minX,maxY,minZ), MakeVec3(maxX,maxY,minZ));
+    face(MakeVec3(minX,minY,minZ), MakeVec3(minX,minY,maxZ), MakeVec3(minX,maxY,maxZ), MakeVec3(minX,maxY,minZ));
+    face(MakeVec3(maxX,minY,maxZ), MakeVec3(maxX,minY,minZ), MakeVec3(maxX,maxY,minZ), MakeVec3(maxX,maxY,maxZ));
+    face(MakeVec3(minX,maxY,maxZ), MakeVec3(maxX,maxY,maxZ), MakeVec3(maxX,maxY,minZ), MakeVec3(minX,maxY,minZ));
+    face(MakeVec3(minX,minY,minZ), MakeVec3(maxX,minY,minZ), MakeVec3(maxX,minY,maxZ), MakeVec3(minX,minY,maxZ));
+    return mesh;
+}
+
+static MeshData BuildEllipsoid(const Vec3& center, float rx, float ry, float rz, int slices, int stacks) {
+    MeshData mesh; slices = std::max(6, slices); stacks = std::max(4, stacks);
+    const float kPi = 3.14159265358979323846f;
+    for (int iy = 0; iy <= stacks; ++iy) {
+        float v = (float)iy / stacks; float phi = v * kPi; float sy = std::cos(phi); float sr = std::sin(phi);
+        for (int ix = 0; ix <= slices; ++ix) {
+            float u = (float)ix / slices; float theta = u * 2.0f * kPi; float cx = std::cos(theta); float cz = std::sin(theta);
+            AddVertex(mesh, center.x + cx * sr * rx, center.y + sy * ry, center.z + cz * sr * rz, u, v);
+        }
+    }
+    int row = slices + 1;
+    for (int iy = 0; iy < stacks; ++iy) for (int ix = 0; ix < slices; ++ix) { int a = iy * row + ix; int b = a + 1; int c = a + row + 1; int d = a + row; AppendQuad(mesh,a,b,c,d); }
+    return mesh;
+}
+
+static MeshData BuildCylinderBetween(const Vec3& a, const Vec3& b, float rx, float rz, int sides) {
+    MeshData mesh; sides = std::max(6, sides); const float kPi = 3.14159265358979323846f;
+    Vec3 axis = Normalize(b - a); Vec3 helper = std::abs(axis.y) > 0.95f ? MakeVec3(1,0,0) : MakeVec3(0,1,0);
+    Vec3 tangent = Normalize(Cross(helper, axis)); Vec3 bitangent = Normalize(Cross(axis, tangent));
+    std::vector<int> ringA; std::vector<int> ringB; ringA.reserve((size_t)sides); ringB.reserve((size_t)sides);
+    for (int i = 0; i < sides; ++i) {
+        float u = (float)i / sides; float ang = u * 2.0f * kPi; float c = std::cos(ang); float s = std::sin(ang);
+        Vec3 offset = tangent * (c * rx) + bitangent * (s * rz);
+        ringA.push_back(AddVertex(mesh, a.x + offset.x, a.y + offset.y, a.z + offset.z, u, 0.0f));
+        ringB.push_back(AddVertex(mesh, b.x + offset.x, b.y + offset.y, b.z + offset.z, u, 1.0f));
+    }
+    for (int i = 0; i < sides; ++i) { int n = (i + 1) % sides; AppendQuad(mesh, ringA[i], ringA[n], ringB[n], ringB[i]); }
+    int centerA = AddVertex(mesh, a.x, a.y, a.z, 0.5f, 0.5f); int centerB = AddVertex(mesh, b.x, b.y, b.z, 0.5f, 0.5f);
+    for (int i = 0; i < sides; ++i) { int n = (i + 1) % sides; AppendTri(mesh.indices, centerA, ringA[n], ringA[i]); AppendTri(mesh.indices, centerB, ringB[i], ringB[n]); }
+    return mesh;
+}
+
+static MeshData BuildHumanoidProxy(const ShapeAnalysis& analysis, int w, int h, float xyScale, float depthScale) {
+    MeshData out; if (!analysis.bbox.valid) return out;
+    int top = analysis.bbox.minY, bottom = analysis.bbox.maxY, left = analysis.bbox.minX, right = analysis.bbox.maxX;
+    float bodyHpx = (float)(bottom - top + 1); float centerXPx = (left + right) * 0.5f; float centerX = PixelToWorldX(centerXPx, w, xyScale);
+    float depthCenter = std::max(0.0f, analysis.meanDepth * depthScale);
+    auto worldYAt = [&](float rel) { return PixelToWorldY(top + rel * (bodyHpx - 1.0f), h, xyScale); };
+    auto widthToWorld = [&](float px) { return PixelWidthToWorld(px, w, xyScale); };
+    float shoulderW = std::max(widthToWorld(analysis.shoulderWidth), widthToWorld((right - left + 1) * 0.42f));
+    float waistW = std::max(widthToWorld(analysis.waistWidth), shoulderW * 0.58f);
+    float hipW = std::max(widthToWorld(analysis.hipWidth), shoulderW * 0.72f);
+    float headW = std::max(widthToWorld(analysis.headWidth), shoulderW * 0.36f);
+    float worldH = PixelHeightToWorld(bodyHpx, h, xyScale);
+    Vec3 headC = MakeVec3(centerX, worldYAt(0.10f), depthCenter + headW * 0.03f);
+    Vec3 torsoC = MakeVec3(centerX, worldYAt(0.37f), depthCenter);
+    Vec3 pelvisC = MakeVec3(centerX, worldYAt(0.60f), depthCenter - hipW * 0.03f);
+    AppendMesh(out, BuildEllipsoid(headC, headW * 0.42f, worldH * 0.09f, headW * 0.34f, 18, 10));
+    AppendMesh(out, BuildCylinderBetween(MakeVec3(centerX, worldYAt(0.18f), depthCenter), MakeVec3(centerX, worldYAt(0.24f), depthCenter), headW * 0.12f, headW * 0.10f, 12));
+    AppendMesh(out, BuildEllipsoid(torsoC, shoulderW * 0.34f, worldH * 0.17f, shoulderW * 0.22f, 22, 12));
+    AppendMesh(out, BuildEllipsoid(pelvisC, hipW * 0.31f, worldH * 0.11f, hipW * 0.22f, 20, 10));
+    float shoulderY = worldYAt(0.26f), elbowY = worldYAt(0.47f), wristY = worldYAt(0.68f), shoulderOffset = shoulderW * 0.38f, armRadius = shoulderW * 0.08f;
+    for (int side : {-1, 1}) {
+        float sgn = (float)side; Vec3 shoulder = MakeVec3(centerX + sgn * shoulderOffset, shoulderY, depthCenter); Vec3 elbow = MakeVec3(centerX + sgn * shoulderW * 0.48f, elbowY, depthCenter); Vec3 wrist = MakeVec3(centerX + sgn * shoulderW * 0.42f, wristY, depthCenter);
+        AppendMesh(out, BuildCylinderBetween(shoulder, elbow, armRadius, armRadius * 0.85f, 12));
+        AppendMesh(out, BuildCylinderBetween(elbow, wrist, armRadius * 0.82f, armRadius * 0.72f, 12));
+        AppendMesh(out, BuildEllipsoid(wrist, armRadius * 0.85f, armRadius * 0.95f, armRadius * 0.65f, 10, 8));
+    }
+    float legGap = std::max(hipW * (analysis.lowerGapRatio > 0.04f ? 0.20f : 0.12f), hipW * 0.10f);
+    float hipY = worldYAt(0.66f), kneeY = worldYAt(0.84f), ankleY = worldYAt(0.98f), thighRadius = hipW * 0.12f, calfRadius = hipW * 0.09f;
+    for (int side : {-1, 1}) {
+        float sgn = (float)side; float x = centerX + sgn * legGap; Vec3 hip = MakeVec3(x, hipY, depthCenter - hipW * 0.02f); Vec3 knee = MakeVec3(x, kneeY, depthCenter); Vec3 ankle = MakeVec3(x, ankleY, depthCenter + hipW * 0.03f);
+        AppendMesh(out, BuildCylinderBetween(hip, knee, thighRadius, thighRadius * 0.92f, 14));
+        AppendMesh(out, BuildCylinderBetween(knee, ankle, calfRadius, calfRadius * 0.84f, 14));
+        AppendMesh(out, BuildEllipsoid(ankle + MakeVec3(0.0f, -worldH * 0.012f, hipW * 0.05f), calfRadius * 1.25f, worldH * 0.025f, calfRadius * 1.7f, 12, 8));
+    }
+    RemoveInvalidTriangles(out);
+    return out;
+}
+
+static MeshData BuildSemanticMesh(const std::vector<float>& depth, const std::vector<unsigned char>& mask, int w, int h, float xyScale, float depthScale, float thickness, ReconstructionPreset preset) {
+    std::vector<float> usableDepth = depth;
+    bool hasDepth = usableDepth.size() == mask.size();
+    float minDepth = 1.0f, maxDepth = 0.0f;
+    if (hasDepth) {
+        bool seen = false;
+        for (size_t i = 0; i < usableDepth.size(); ++i) {
+            if (!mask[i]) continue;
+            minDepth = std::min(minDepth, usableDepth[i]);
+            maxDepth = std::max(maxDepth, usableDepth[i]);
+            seen = true;
+        }
+        hasDepth = seen && (maxDepth - minDepth) >= 0.02f;
+    }
+    if (!hasDepth) usableDepth = BuildPseudoDepthFromMask(mask, w, h);
+    ShapeAnalysis analysis = AnalyzeShape(usableDepth, mask, w, h);
+    ReconstructionPreset resolved = preset;
+    if (resolved == ReconstructionPreset::Auto) {
+        if (analysis.likelyBox) resolved = ReconstructionPreset::PrimitiveBox;
+        else if (analysis.likelyHuman) resolved = ReconstructionPreset::HumanoidProxy;
+        else resolved = ReconstructionPreset::Relief;
+    }
+    if (resolved == ReconstructionPreset::PrimitiveBox) return BuildBoxPrimitive(analysis, w, h, xyScale, depthScale, thickness);
+    if (resolved == ReconstructionPreset::HumanoidProxy) return BuildHumanoidProxy(analysis, w, h, xyScale, depthScale);
+    return BuildClosedDepthMesh(usableDepth, mask, w, h, xyScale, depthScale, thickness);
 }
 
 static void RecomputeNormals(MeshData& mesh) {
@@ -933,6 +1324,9 @@ static void RefreshFileList() {
             std::wstring line = L"深度画像: " + Widen(FileNameOnly(f));
             SendMessageW(g.listFiles, LB_ADDSTRING, 0, (LPARAM)line.c_str());
         }
+        if (g.depthFiles.empty()) {
+            SendMessageW(g.listFiles, LB_ADDSTRING, 0, (LPARAM)L"深度画像: なし（単画像から自動生成）");
+        }
     } else {
         if (g.videoFile) {
             std::wstring line = L"動画: " + Widen(FileNameOnly(*g.videoFile));
@@ -979,15 +1373,17 @@ static void AutoClassifyDroppedFiles(HDROP drop) {
 }
 
 static bool IsReady(std::string& reason) {
-    if (g.building) { reason = "今は処理中です。完了まで少し待ってください。"; return false; }
+    if (g.building) { reason = "今は処理中です。"; return false; }
     if (g.mode == WorkflowMode::ImageDepth) {
         if (g.colorFiles.empty()) { reason = "通常画像を追加してください。"; return false; }
-        if (g.depthFiles.empty()) { reason = "深度画像を追加してください。"; return false; }
-        if (g.colorFiles.size() != g.depthFiles.size()) { reason = "通常画像と深度画像の枚数を同じにしてください。"; return false; }
-    } else {
-        if (!g.videoFile) { reason = "動画ファイルを1本追加してください。"; return false; }
+        if (!g.depthFiles.empty() && g.colorFiles.size() != g.depthFiles.size()) { reason = "深度画像を使う場合は、通常画像と深度画像の枚数を同じにしてください。"; return false; }
+        reason = g.depthFiles.empty()
+            ? "準備ができました。単画像から立体化できます。"
+            : "準備ができました。通常画像と深度画像の組み合わせで立体化できます。";
+        return true;
     }
-    reason = "準備ができました。『3Dモデルを作る』を押してください。";
+    if (!g.videoFile) { reason = "動画ファイルを1本追加してください。"; return false; }
+    reason = "準備ができました。動画から立体化できます。";
     return true;
 }
 
@@ -996,6 +1392,14 @@ static QualityPreset CurrentQualityFromUI() {
     if (sel <= 0) return QualityPreset::Easy;
     if (sel == 1) return QualityPreset::Recommended;
     return QualityPreset::Detailed;
+}
+
+static ReconstructionPreset CurrentReconstructionModeFromUI() {
+    int sel = (int)SendMessage(g.comboReconstruction, CB_GETCURSEL, 0, 0);
+    if (sel <= 0) return ReconstructionPreset::Auto;
+    if (sel == 1) return ReconstructionPreset::Relief;
+    if (sel == 2) return ReconstructionPreset::PrimitiveBox;
+    return ReconstructionPreset::HumanoidProxy;
 }
 
 static BuildResult BuildFromImages(QualityPreset preset) {
@@ -1013,10 +1417,18 @@ static BuildResult BuildFromImages(QualityPreset preset) {
         depths.push_back(*dep);
     }
     std::string reason;
-    if (!ValidatePairDimensions(colors, depths, reason)) { result.message = reason; return result; }
+    if (!depths.empty() && !ValidatePairDimensions(colors, depths, reason)) { result.message = reason; return result; }
 
-    auto mask = BuildAlphaMaskUnion(colors);
-    auto fused = FuseDepthMedianWeighted(depths);
+    auto mask = BuildForegroundMaskForColors(colors);
+    if (CountMaskPixels(mask) == 0) {
+        result.message = "前景を抽出できませんでした。背景が単純なPNGか、アルファ付きPNGを試してください。";
+        return result;
+    }
+
+    std::vector<float> fused;
+    if (!depths.empty()) fused = FuseDepthMedianWeighted(depths);
+    else fused = BuildPseudoDepthFromMask(mask, colors.front().width, colors.front().height);
+
     FillDepthHoles(fused, mask, colors.front().width, colors.front().height);
     int smoothPasses = (preset == QualityPreset::Easy) ? 1 : (preset == QualityPreset::Recommended ? 2 : 3);
     SmoothDepth(fused, mask, colors.front().width, colors.front().height, smoothPasses);
@@ -1024,8 +1436,9 @@ static BuildResult BuildFromImages(QualityPreset preset) {
     float xyScale = 2.2f;
     float depthScale = (preset == QualityPreset::Easy) ? 0.9f : (preset == QualityPreset::Recommended ? 1.1f : 1.35f);
     float thickness = 0.12f;
-    MeshData mesh = BuildClosedDepthMesh(fused, mask, colors.front().width, colors.front().height, xyScale, depthScale, thickness);
-    int lap = (preset == QualityPreset::Easy) ? 0 : (preset == QualityPreset::Recommended ? 1 : 2);
+    ReconstructionPreset rec = CurrentReconstructionModeFromUI();
+    MeshData mesh = BuildSemanticMesh(fused, mask, colors.front().width, colors.front().height, xyScale, depthScale, thickness, rec);
+    int lap = (rec == ReconstructionPreset::PrimitiveBox) ? 0 : ((preset == QualityPreset::Easy) ? 0 : (preset == QualityPreset::Recommended ? 1 : 2));
     RecomputeNormals(mesh);
     LaplacianSmooth(mesh, lap, 0.18f);
 
@@ -1033,13 +1446,14 @@ static BuildResult BuildFromImages(QualityPreset preset) {
     fs::path texturePath = out / fs::path(g.colorFiles.front()).filename();
     std::error_code ec;
     fs::copy_file(g.colorFiles.front(), texturePath, fs::copy_options::overwrite_existing, ec);
-    fs::path objPath = out / "model.obj";
+    std::string stem = (rec == ReconstructionPreset::PrimitiveBox) ? "model_box" : (rec == ReconstructionPreset::HumanoidProxy ? "model_human" : (rec == ReconstructionPreset::Relief ? "model_relief" : "model_auto"));
+    fs::path objPath = out / (stem + ".obj");
     if (!ExportOBJ(mesh, objPath, texturePath.filename().u8string())) {
         result.message = "OBJファイルの書き出しに失敗しました。";
         return result;
     }
     result.ok = true;
-    result.message = "3Dモデルを書き出しました。";
+    result.message = depths.empty() ? "単画像から3Dモデルを書き出しました。" : "画像と深度画像から3Dモデルを書き出しました。";
     result.objPath = objPath;
     result.previewMesh = mesh;
     return result;
@@ -1057,7 +1471,12 @@ static BuildResult BuildFromVideo(QualityPreset preset) {
     FillDepthHoles(fused, mask, frame.width, frame.height);
     int smoothPasses = (preset == QualityPreset::Easy) ? 1 : (preset == QualityPreset::Recommended ? 2 : 3);
     SmoothDepth(fused, mask, frame.width, frame.height, smoothPasses);
-    MeshData mesh = BuildClosedDepthMesh(fused, mask, frame.width, frame.height, 2.2f, 1.2f, 0.12f);
+    ReconstructionPreset rec = CurrentReconstructionModeFromUI();
+    if (rec == ReconstructionPreset::PrimitiveBox || rec == ReconstructionPreset::HumanoidProxy) {
+        // 動画はまずフレームからの形状推定を優先し、必要なら auto に戻します。
+        rec = ReconstructionPreset::Auto;
+    }
+    MeshData mesh = BuildSemanticMesh(fused, mask, frame.width, frame.height, 2.2f, 1.2f, 0.12f, rec);
     RecomputeNormals(mesh);
     LaplacianSmooth(mesh, (preset == QualityPreset::Detailed ? 2 : 1), 0.16f);
 
@@ -1090,10 +1509,11 @@ static void StartBuildAsync() {
     }
     g.building = true;
     EnableWindow(g.btnBuild, FALSE);
-    SetStatusText("処理中です… 完了までそのままお待ちください。");
+    SetStatusText("処理中です… 入力に応じて3D形状を生成しています。");
     SendMessage(g.progress, PBM_SETRANGE, 0, MAKELPARAM(0, 100));
     SendMessage(g.progress, PBM_SETPOS, 30, 0);
     QualityPreset preset = CurrentQualityFromUI();
+    g.reconstruction = CurrentReconstructionModeFromUI();
     BuildResult result;
     try {
         result = (g.mode == WorkflowMode::ImageDepth) ? BuildFromImages(preset) : BuildFromVideo(preset);
@@ -1126,13 +1546,14 @@ static void LoadSamples() {
     fs::path base = fs::current_path() / "samples";
     fs::path color = base / "input.png";
     fs::path depth = base / "depth.png";
-    if (!fs::exists(color) || !fs::exists(depth)) {
-        ShowFriendlyError("サンプルが見つかりません", "samples フォルダ内に input.png と depth.png が必要です。");
+    if (!fs::exists(color)) {
+        ShowFriendlyError("サンプルが見つかりません", "samples フォルダ内に input.png が必要です。");
         return;
     }
     g.mode = WorkflowMode::ImageDepth;
     g.colorFiles = { color.u8string() };
-    g.depthFiles = { depth.u8string() };
+    g.depthFiles.clear();
+    if (fs::exists(depth)) g.depthFiles = { depth.u8string() };
     g.videoFile.reset();
     g.inputPreview = LoadRGBA(g.colorFiles.front());
     UpdateUI();
@@ -1159,6 +1580,8 @@ static void UpdateModeControls() {
 
 static void UpdateUI() {
     UpdateModeControls();
+    SendMessage(g.comboReconstruction, CB_SETCURSEL, (WPARAM)((int)g.reconstruction), 0);
+    SendMessage(g.comboQuality, CB_SETCURSEL, (WPARAM)((int)g.quality), 0);
     RefreshFileList();
     UpdateInputPreviewBitmap();
     UpdateModelPreviewBitmap();
@@ -1174,10 +1597,11 @@ static void DoQuickHelp() {
         "使い方",
         "1. 上で『画像から作る』または『動画から作る』を選びます。\n"
         "2. ファイルを追加するか、『サンプルで試す』を押します。\n"
-        "3. 仕上がりを選びます。迷ったら『おすすめ』のままで大丈夫です。\n"
+        "3. 形状タイプと品質を選びます。迷ったら『自動判定（おすすめ）』で大丈夫です。\n"
         "4. 『3Dモデルを作る』を押します。\n\n"
-        "画像モードでは、通常画像と深度画像の枚数を同じにしてください。\n"
-        "動画モードでは、1本の動画だけで作れます。"
+        "画像モードでは、通常画像だけでも立体化できます。深度画像は任意です。\n"
+        "『箱 / 直方体』は四角シルエット向け、『人体プロキシ』は人の正面画像向けです。\n"
+        "動画モードでは、1本の動画から代表フレームを使って立体化します。"
     );
 }
 
@@ -1218,12 +1642,13 @@ static void LayoutControls(HWND hwnd) {
     MoveWindow(g.listFiles, pad + 16, y + 98, colLeft - 32, 108, TRUE);
 
     y += 232;
-    MoveWindow(g.grpOutput, pad, y, colLeft, 188, TRUE);
-    MoveWindow(g.comboQuality, pad + 16, y + 30, 160, 180, TRUE);
-    MoveWindow(g.editOutput, pad + 16, y + 68, colLeft - 130, 24, TRUE);
-    MoveWindow(g.btnChooseOutput, pad + colLeft - 106, y + 66, 90, 28, TRUE);
-    MoveWindow(g.btnBuild, pad + 16, y + 108, 150, 34, TRUE);
-    MoveWindow(g.btnOpenOutput, pad + 174, y + 108, 150, 34, TRUE);
+    MoveWindow(g.grpOutput, pad, y, colLeft, 220, TRUE);
+    MoveWindow(g.comboReconstruction, pad + 16, y + 30, colLeft - 32, 220, TRUE);
+    MoveWindow(g.comboQuality, pad + 16, y + 68, 160, 180, TRUE);
+    MoveWindow(g.editOutput, pad + 16, y + 106, colLeft - 32, 24, TRUE);
+    MoveWindow(g.btnChooseOutput, pad + 16, y + 140, 150, 28, TRUE);
+    MoveWindow(g.btnOpenOutput, pad + 174, y + 140, 150, 28, TRUE);
+    MoveWindow(g.btnBuild, pad + 16, y + 174, colLeft - 32, 34, TRUE);
 
     MoveWindow(g.lblReady, pad, H - 90, W - pad * 2, 20, TRUE);
     MoveWindow(g.progress, pad, H - 64, W - pad * 2, 18, TRUE);
@@ -1253,12 +1678,18 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         g.grpInput = CreateWindowW(L"BUTTON", L"2. 素材を入れる", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 0, 0, 0, 0, hwnd, nullptr, nullptr, nullptr);
         g.btnAddColor = CreateWindowW(L"BUTTON", L"通常画像を追加", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, (HMENU)1101, nullptr, nullptr);
-        g.btnAddDepth = CreateWindowW(L"BUTTON", L"深度画像を追加", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, (HMENU)1102, nullptr, nullptr);
+        g.btnAddDepth = CreateWindowW(L"BUTTON", L"深度画像を追加（任意）", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, (HMENU)1102, nullptr, nullptr);
         g.btnAddVideo = CreateWindowW(L"BUTTON", L"動画を追加", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, (HMENU)1103, nullptr, nullptr);
         g.btnReset = CreateWindowW(L"BUTTON", L"リセット", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd, (HMENU)1104, nullptr, nullptr);
         g.listFiles = CreateWindowW(L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | LBS_NOTIFY | WS_BORDER | WS_VSCROLL, 0, 0, 0, 0, hwnd, (HMENU)1105, nullptr, nullptr);
 
         g.grpOutput = CreateWindowW(L"BUTTON", L"3. 仕上がりを選んで書き出す", WS_CHILD | WS_VISIBLE | BS_GROUPBOX, 0, 0, 0, 0, hwnd, nullptr, nullptr, nullptr);
+        g.comboReconstruction = CreateWindowW(WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd, (HMENU)1200, nullptr, nullptr);
+        SendMessageW(g.comboReconstruction, CB_ADDSTRING, 0, (LPARAM)L"自動判定（おすすめ）");
+        SendMessageW(g.comboReconstruction, CB_ADDSTRING, 0, (LPARAM)L"レリーフ / 立体化");
+        SendMessageW(g.comboReconstruction, CB_ADDSTRING, 0, (LPARAM)L"箱 / 直方体");
+        SendMessageW(g.comboReconstruction, CB_ADDSTRING, 0, (LPARAM)L"人体プロキシ");
+        SendMessage(g.comboReconstruction, CB_SETCURSEL, 0, 0);
         g.comboQuality = CreateWindowW(WC_COMBOBOXW, L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL, 0, 0, 0, 0, hwnd, (HMENU)1201, nullptr, nullptr);
         SendMessageW(g.comboQuality, CB_ADDSTRING, 0, (LPARAM)L"かんたん");
         SendMessageW(g.comboQuality, CB_ADDSTRING, 0, (LPARAM)L"おすすめ");
@@ -1281,7 +1712,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 
         for (HWND h : { g.lblTitle, g.lblSubtitle, g.grpWorkflow, g.btnModeImage, g.btnModeVideo, g.btnUseSamples, g.btnHelp,
                          g.grpInput, g.btnAddColor, g.btnAddDepth, g.btnAddVideo, g.btnReset, g.listFiles,
-                         g.grpOutput, g.comboQuality, g.editOutput, g.btnChooseOutput, g.btnBuild, g.btnOpenOutput,
+                         g.grpOutput, g.comboReconstruction, g.comboQuality, g.editOutput, g.btnChooseOutput, g.btnBuild, g.btnOpenOutput,
                          g.grpPreview, g.lblInputPreview, g.lblModelPreview, g.imgInput, g.imgModel, g.lblReady, g.progress, g.lblStatus }) {
             SendMessage(h, WM_SETFONT, (WPARAM)font, TRUE);
         }
@@ -1351,6 +1782,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             break;
         }
         case 1104: ResetAllInputs(); break;
+        case 1200:
+            if (code == CBN_SELCHANGE) {
+                g.reconstruction = CurrentReconstructionModeFromUI();
+                UpdateUI();
+            }
+            break;
         case 1201:
             if (code == CBN_SELCHANGE) {
                 g.quality = CurrentQualityFromUI();
