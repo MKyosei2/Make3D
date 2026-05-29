@@ -1,20 +1,68 @@
 # Make3D
 
-## 企画書
+This README is the single documentation entry point for this repository. It works as both a project proposal and a wiki-like document.
 
-Make3D は、3D制作・変換・検証を将来的に扱いやすく整理するためのプロジェクトです。
+## Contents
 
-## 理想像
+- [Page 1: Project Plan](#page-1-project-plan)
+- [Page 2: Ideal Vision](#page-2-ideal-vision)
+- [Page 3: Structure](#page-3-structure)
+- [Page 4: Usage](#page-4-usage)
+- [Page 5: Notes](#page-5-notes)
+- [Page 6: Rules](#page-6-rules)
+- [Page 7: Roadmap](#page-7-roadmap)
+- [Page 8: Log](#page-8-log)
 
-- 3D関連の目的と成果物が一目で分かる
-- 入力・出力・手順が整理されている
-- 再利用しやすい構成になっている
-- 制作や検証の流れを追いやすい
+## Page 1: Project Plan
 
-## 目指す状態
+Make3D is planned as a project that can grow from the current state into a clear and organized final form.
 
-このリポジトリは、3D制作や検証の知見を蓄積し、継続的に改善できる状態を目指します。
+## Page 2: Ideal Vision
 
-## Wiki
+- Clear purpose
+- Organized files
+- Easy maintenance
+- Easy future expansion
 
-詳細な使い方、仕様、作業メモ、運用ルールは GitHub Wiki にまとめます。
+## Page 3: Structure
+
+```text
+Make3D/
+├─ README.md
+├─ src/
+├─ docs/
+├─ assets/
+└─ tests/
+```
+
+## Page 4: Usage
+
+Usage steps will be added here.
+
+## Page 5: Notes
+
+- Main features: TBD
+- Inputs: TBD
+- Outputs: TBD
+- Requirements: TBD
+
+## Page 6: Rules
+
+- Keep changes understandable
+- Avoid unnecessary files
+- Record why changes were made
+- Keep this README updated
+
+## Page 7: Roadmap
+
+- [ ] Clarify the purpose
+- [ ] Organize the structure
+- [ ] Add usage steps
+- [ ] Add technical notes
+- [ ] Add examples
+
+## Page 8: Log
+
+| Date | Note |
+|---|---|
+| TBD | README expanded into a wiki-like document |
