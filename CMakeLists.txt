@@ -41,6 +41,12 @@ add_executable(Make3DGenerateAdvancedSamples
 
 target_link_libraries(Make3DGenerateAdvancedSamples PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DGenerateMeshQualityReport
+    tools/GenerateMeshQualityReport.cpp
+)
+
+target_link_libraries(Make3DGenerateMeshQualityReport PRIVATE Make3DAdvancedCore)
+
 add_executable(Make3DAdvancedCoreSmokeTest
     tests/Make3DAdvancedCoreSmokeTest.cpp
 )
@@ -60,6 +66,7 @@ if (MSVC)
         target_compile_options(Make3DAdvancedGui PRIVATE /W4 /permissive-)
     endif()
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DGenerateMeshQualityReport PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DMeshToolsTest PRIVATE /W4 /permissive-)
 else()
@@ -69,6 +76,7 @@ else()
         target_compile_options(Make3DAdvancedGui PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DGenerateMeshQualityReport PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DMeshToolsTest PRIVATE -Wall -Wextra -Wpedantic)
 endif()
@@ -77,8 +85,9 @@ enable_testing()
 add_test(NAME Make3DAdvancedCoreSmokeTest COMMAND Make3DAdvancedCoreSmokeTest)
 add_test(NAME Make3DMeshToolsTest COMMAND Make3DMeshToolsTest)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
+add_test(NAME Make3DGenerateMeshQualityReport COMMAND Make3DGenerateMeshQualityReport ${CMAKE_CURRENT_BINARY_DIR}/mesh_quality)
 
-install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples RUNTIME DESTINATION bin)
+install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport RUNTIME DESTINATION bin)
 if (TARGET Make3DAdvancedGui)
     install(TARGETS Make3DAdvancedGui RUNTIME DESTINATION bin)
 endif()
