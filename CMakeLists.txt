@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(Make3DAdvancedCore STATIC
     src/Make3DAdvancedCore.cpp
     src/Make3DGuiAdapter.cpp
+    src/Make3DMeshTools.cpp
 )
 
 target_include_directories(Make3DAdvancedCore PUBLIC
@@ -46,6 +47,12 @@ add_executable(Make3DAdvancedCoreSmokeTest
 
 target_link_libraries(Make3DAdvancedCoreSmokeTest PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DMeshToolsTest
+    tests/Make3DMeshToolsTest.cpp
+)
+
+target_link_libraries(Make3DMeshToolsTest PRIVATE Make3DAdvancedCore)
+
 if (MSVC)
     target_compile_options(Make3DAdvancedCore PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCLI PRIVATE /W4 /permissive-)
@@ -54,6 +61,7 @@ if (MSVC)
     endif()
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DMeshToolsTest PRIVATE /W4 /permissive-)
 else()
     target_compile_options(Make3DAdvancedCore PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCLI PRIVATE -Wall -Wextra -Wpedantic)
@@ -62,10 +70,12 @@ else()
     endif()
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DMeshToolsTest PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 enable_testing()
 add_test(NAME Make3DAdvancedCoreSmokeTest COMMAND Make3DAdvancedCoreSmokeTest)
+add_test(NAME Make3DMeshToolsTest COMMAND Make3DMeshToolsTest)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
 
 install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples RUNTIME DESTINATION bin)
