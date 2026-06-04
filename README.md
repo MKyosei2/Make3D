@@ -31,6 +31,9 @@ Make3D
 ├─ MainApp.cpp
 │  └─ Existing Win32 GUI and legacy reconstruction path
 │
+├─ src/Make3DAdvancedGui.cpp
+│  └─ Lightweight Win32 GUI directly using the advanced backend
+│
 ├─ src/Make3DAdvancedCore.h
 ├─ src/Make3DAdvancedCore.cpp
 │  └─ Advanced reconstruction backend
@@ -40,7 +43,7 @@ Make3D
 │
 ├─ src/Make3DGuiAdapter.h
 ├─ src/Make3DGuiAdapter.cpp
-│  └─ Adapter for wiring the advanced backend into the GUI
+│  └─ Adapter for mapping GUI selections to advanced backend options
 │
 ├─ tools/GenerateAdvancedSamples.cpp
 │  └─ Synthetic sample generator
@@ -120,7 +123,8 @@ SilhouetteVolume と ReliefSurface を組み合わせます。単画像からで
 
 | Feature | Status | Notes |
 |---|---:|---|
-| Win32 GUI | Implemented | `MainApp.cpp` に既存GUIあり |
+| Legacy Win32 GUI | Implemented | `MainApp.cpp` に既存GUIあり |
+| Advanced Win32 GUI | Implemented | `Make3DAdvancedGui` target |
 | PNG / image loading | Implemented | `stb_image` 使用 |
 | Video representative frame | Implemented | Media Foundation使用、既存GUI側 |
 | Foreground mask | Implemented | alpha / background estimation |
@@ -138,7 +142,6 @@ SilhouetteVolume と ReliefSurface を組み合わせます。単画像からで
 | Smoke test | Implemented | synthetic image → mesh → OBJ/glTF |
 | Sample generator | Implemented | synthetic character / box samples |
 | CI | Implemented | Windows build/test/sample generation |
-| Full GUI integration | In progress | adapter added; direct `MainApp.cpp` connection is next |
 | Texture/material glTF export | Partial | geometry buffer export is implemented; material texture expansion remains |
 | Production validation | In progress | real sample set and screenshots are still needed |
 
@@ -151,11 +154,42 @@ cmake -S . -B build
 cmake --build build --config Release
 ```
 
+Build targets:
+
+```text
+Make3DAdvancedGui
+Make3DAdvancedCLI
+Make3DGenerateAdvancedSamples
+Make3DAdvancedCoreSmokeTest
+```
+
 Run tests:
 
 ```bash
 ctest --test-dir build -C Release --output-on-failure
 ```
+
+---
+
+## Advanced GUI usage
+
+After building on Windows, run:
+
+```text
+build/Release/Make3DAdvancedGui.exe
+```
+
+Workflow:
+
+1. Choose a color image.
+2. Optionally choose a depth image.
+3. Choose output folder.
+4. Select reconstruction mode: Auto / Relief Surface / Silhouette Volume / Hybrid Volume.
+5. Select quality: Draft / Standard / Detailed.
+6. Click `Build Advanced 3D`.
+7. Open the output folder and inspect OBJ, glTF, debug images, and reports.
+
+The advanced GUI directly uses `Make3DGuiAdapter` and `Make3DAdvancedCore`.
 
 ---
 
@@ -250,34 +284,10 @@ Artifacts:
 
 ---
 
-## GUI integration status
-
-The old Win32 GUI remains in `MainApp.cpp`. The advanced backend is not hard-wired into every GUI path yet, but the adapter is already added:
-
-```text
-src/Make3DGuiAdapter.h
-src/Make3DGuiAdapter.cpp
-```
-
-The adapter maps GUI selections into advanced backend options:
-
-| Existing GUI selection | Advanced backend |
-|---|---|
-| Auto | Auto |
-| Relief | ReliefSurface |
-| PrimitiveBox | SilhouetteVolume |
-| HumanoidProxy | HybridVolume |
-| Easy | Draft |
-| Recommended | Standard |
-| Detailed | Detailed |
-
-Next step is to update `MainApp.cpp` so the build button can choose the advanced backend directly.
-
----
-
 ## Technical highlights
 
 - C++17 standalone reconstruction backend
+- Lightweight Win32 GUI for the advanced backend
 - Namespaced core types to avoid collision with legacy GUI types
 - Deterministic foreground extraction
 - Single-image pseudo-depth estimation
@@ -299,7 +309,7 @@ Current limitations:
 - Single-image reconstruction cannot infer hidden backside details.
 - glTF export currently focuses on geometry and external binary buffer; texture/material expansion remains.
 - Real-world photo backgrounds may require better segmentation.
-- Existing GUI is still partly using the legacy reconstruction path.
+- The original `MainApp.cpp` GUI still exists as a legacy path; the new `Make3DAdvancedGui` is the advanced path.
 - Video workflow still uses representative-frame logic in the legacy GUI path.
 - Automated tests are smoke tests, not full geometry correctness tests.
 
@@ -323,10 +333,9 @@ The second claim is too broad. The project is strongest when presented as an ins
 
 ## Next roadmap
 
-1. Fully wire the advanced backend into `MainApp.cpp`.
-2. Add real image samples and generated outputs to the repository or Releases.
-3. Add README screenshots/GIFs.
-4. Expand glTF material and texture export.
-5. Add mesh cleanup: duplicate merge, manifold checks, decimation.
-6. Add multi-frame video sampling.
-7. Add more tests for depth, mesh integrity, and export correctness.
+1. Add real image samples and generated outputs to the repository or Releases.
+2. Add README screenshots/GIFs.
+3. Expand glTF material and texture export.
+4. Add mesh cleanup: duplicate merge, manifold checks, decimation.
+5. Add multi-frame video sampling.
+6. Add more tests for depth, mesh integrity, and export correctness.
