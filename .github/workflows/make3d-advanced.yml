@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-test:
-    name: Build and test advanced reconstruction core
+    name: Build, test, and generate samples
     runs-on: windows-latest
 
     steps:
@@ -24,10 +24,21 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Generate portfolio samples
+        run: build/Release/Make3DGenerateAdvancedSamples.exe build/generated_samples
+
       - name: Upload smoke-test output
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: make3d-smoke-test-output
           path: build/test_output
+          if-no-files-found: ignore
+
+      - name: Upload generated advanced samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make3d-generated-advanced-samples
+          path: build/generated_samples
           if-no-files-found: ignore
