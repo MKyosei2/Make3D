@@ -20,11 +20,19 @@ add_executable(Make3DAdvancedCLI
 
 target_link_libraries(Make3DAdvancedCLI PRIVATE Make3DAdvancedCore)
 
-add_executable(Make3DAdvancedGui WIN32
-    src/Make3DAdvancedGui.cpp
-)
+if (WIN32)
+    add_executable(Make3DAdvancedGui WIN32
+        src/Make3DAdvancedGui.cpp
+    )
 
-target_link_libraries(Make3DAdvancedGui PRIVATE Make3DAdvancedCore comctl32 shell32 ole32)
+    target_link_libraries(Make3DAdvancedGui PRIVATE
+        Make3DAdvancedCore
+        comctl32
+        comdlg32
+        shell32
+        ole32
+    )
+endif()
 
 add_executable(Make3DGenerateAdvancedSamples
     tools/GenerateAdvancedSamples.cpp
@@ -41,13 +49,17 @@ target_link_libraries(Make3DAdvancedCoreSmokeTest PRIVATE Make3DAdvancedCore)
 if (MSVC)
     target_compile_options(Make3DAdvancedCore PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCLI PRIVATE /W4 /permissive-)
-    target_compile_options(Make3DAdvancedGui PRIVATE /W4 /permissive-)
+    if (TARGET Make3DAdvancedGui)
+        target_compile_options(Make3DAdvancedGui PRIVATE /W4 /permissive-)
+    endif()
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE /W4 /permissive-)
 else()
     target_compile_options(Make3DAdvancedCore PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCLI PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(Make3DAdvancedGui PRIVATE -Wall -Wextra -Wpedantic)
+    if (TARGET Make3DAdvancedGui)
+        target_compile_options(Make3DAdvancedGui PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE -Wall -Wextra -Wpedantic)
 endif()
@@ -55,6 +67,13 @@ endif()
 enable_testing()
 add_test(NAME Make3DAdvancedCoreSmokeTest COMMAND Make3DAdvancedCoreSmokeTest)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
+
+install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples RUNTIME DESTINATION bin)
+if (TARGET Make3DAdvancedGui)
+    install(TARGETS Make3DAdvancedGui RUNTIME DESTINATION bin)
+endif()
+install(FILES README.md DESTINATION .)
+install(DIRECTORY docs DESTINATION .)
 
 # The original Win32 GUI is still kept in MainApp.cpp.
 # Make3DAdvancedGui is a smaller GUI that directly uses the advanced reconstruction backend.
