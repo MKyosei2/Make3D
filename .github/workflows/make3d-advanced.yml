@@ -27,6 +27,9 @@ jobs:
       - name: Generate portfolio samples
         run: build/Release/Make3DGenerateAdvancedSamples.exe build/generated_samples
 
+      - name: Generate mesh quality report
+        run: build/Release/Make3DGenerateMeshQualityReport.exe build/mesh_quality
+
       - name: Stage portable package
         shell: pwsh
         run: |
@@ -34,9 +37,11 @@ jobs:
           Copy-Item build/Release/Make3DAdvancedGui.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DAdvancedCLI.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DGenerateAdvancedSamples.exe package/bin/ -ErrorAction Stop
+          Copy-Item build/Release/Make3DGenerateMeshQualityReport.exe package/bin/ -ErrorAction Stop
           Copy-Item README.md package/ -ErrorAction Stop
           Copy-Item docs package/docs -Recurse -ErrorAction Stop
           Copy-Item build/generated_samples package/generated_samples -Recurse -ErrorAction SilentlyContinue
+          Copy-Item build/mesh_quality package/mesh_quality -Recurse -ErrorAction SilentlyContinue
 
       - name: Upload portable package
         if: always()
@@ -60,4 +65,12 @@ jobs:
         with:
           name: make3d-generated-advanced-samples
           path: build/generated_samples
+          if-no-files-found: ignore
+
+      - name: Upload mesh quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make3d-mesh-quality-report
+          path: build/mesh_quality
           if-no-files-found: ignore
