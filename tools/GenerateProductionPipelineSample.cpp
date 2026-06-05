@@ -102,6 +102,34 @@ static void WriteOpenThisFirstGuide(const fs::path& outDir, const make3d::Produc
     guide << result.productionReportPath.u8string() << "\n";
 }
 
+static void WritePortfolioEvidence(const fs::path& outDir, const make3d::ProductionPipelineResult& result) {
+    std::ofstream evidence(outDir / "PORTFOLIO_EVIDENCE.md", std::ios::binary);
+    evidence << "# Make3D Portfolio Evidence\n\n";
+    evidence << "## Review target\n\n";
+    evidence << "```text\n" << result.heroVertexColorGltfPath.u8string() << "\n```\n\n";
+    evidence << "## Why this artifact exists\n\n";
+    evidence << "This production sample is generated in hero-only review mode. It intentionally skips raw/polished/voxel fallback meshes so the review artifact does not expose broken-looking generic reconstruction as the primary output.\n\n";
+    evidence << "## Implemented stages visible in this artifact\n\n";
+    evidence << "- foreground mask extraction\n";
+    evidence << "- mask refinement\n";
+    evidence << "- pseudo-depth preparation\n";
+    evidence << "- shape inference\n";
+    evidence << "- local learned-shape inference\n";
+    evidence << "- hero character base mesh\n";
+    evidence << "- hair / clothing / hand / foot detail volumes\n";
+    evidence << "- face / hair strand / clothing fold / finger / shoe detail hints\n";
+    evidence << "- semantic vertex-color glTF export with COLOR_0\n";
+    evidence << "- debug mask/depth images\n";
+    evidence << "- Markdown/JSON production report\n\n";
+    evidence << "## Generated files\n\n";
+    evidence << "- " << result.heroObjPath.u8string() << "\n";
+    evidence << "- " << result.heroMaterialGltfPath.u8string() << "\n";
+    evidence << "- " << result.heroVertexColorGltfPath.u8string() << "\n";
+    evidence << "- " << result.productionReportPath.u8string() << "\n\n";
+    evidence << "## Not claimed\n\n";
+    evidence << "Make3D does not claim perfect arbitrary single-image reconstruction, production retopology, true UV unwrapping, or ZBrush-grade sculpt quality. The claim is an inspectable C++ hero-style character asset generation pipeline.\n";
+}
+
 int main(int argc, char** argv) {
     fs::path outDir = argc >= 2 ? fs::path(argv[1]) : fs::path("production_pipeline_sample");
     fs::path weightsPath = argc >= 3 ? fs::path(argv[2]) : fs::path();
@@ -142,10 +170,12 @@ int main(int argc, char** argv) {
     }
 
     WriteOpenThisFirstGuide(outDir, result);
+    WritePortfolioEvidence(outDir, result);
 
     std::cout << result.message << "\n";
     if (!weightsPath.empty()) std::cout << "Learned weights: " << weightsPath.u8string() << "\n";
     std::cout << "OPEN THIS FIRST: " << result.heroVertexColorGltfPath.u8string() << "\n";
+    std::cout << "Portfolio evidence: " << (outDir / "PORTFOLIO_EVIDENCE.md").u8string() << "\n";
     std::cout << "Hero material glTF: " << result.heroMaterialGltfPath.u8string() << "\n";
     std::cout << "Hero OBJ: " << result.heroObjPath.u8string() << "\n";
     std::cout << "Report: " << result.productionReportPath.u8string() << "\n";
