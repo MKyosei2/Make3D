@@ -13,6 +13,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DShapeInference.cpp
     src/Make3DLearnedShapeModel.cpp
     src/Make3DLearnedShapeTrainer.cpp
+    src/Make3DHeroCharacterModel.cpp
     src/Make3DModelPolisher.cpp
     src/Make3DMaskRefiner.cpp
     src/Make3DVoxelVolume.cpp
@@ -110,6 +111,12 @@ add_executable(Make3DLearnedShapeTrainerTest
 
 target_link_libraries(Make3DLearnedShapeTrainerTest PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DHeroCharacterModelTest
+    tests/Make3DHeroCharacterModelTest.cpp
+)
+
+target_link_libraries(Make3DHeroCharacterModelTest PRIVATE Make3DAdvancedCore)
+
 add_executable(Make3DModelPolisherTest
     tests/Make3DModelPolisherTest.cpp
 )
@@ -145,6 +152,7 @@ if (MSVC)
     target_compile_options(Make3DShapeInferenceTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DLearnedShapeModelTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DLearnedShapeTrainerTest PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DHeroCharacterModelTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DModelPolisherTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DMaskRefinerTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE /W4 /permissive-)
@@ -165,6 +173,7 @@ else()
     target_compile_options(Make3DShapeInferenceTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DLearnedShapeModelTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DLearnedShapeTrainerTest PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DHeroCharacterModelTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DModelPolisherTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DMaskRefinerTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE -Wall -Wextra -Wpedantic)
@@ -178,6 +187,7 @@ add_test(NAME Make3DVertexColorGltfExporterTest COMMAND Make3DVertexColorGltfExp
 add_test(NAME Make3DShapeInferenceTest COMMAND Make3DShapeInferenceTest)
 add_test(NAME Make3DLearnedShapeModelTest COMMAND Make3DLearnedShapeModelTest)
 add_test(NAME Make3DLearnedShapeTrainerTest COMMAND Make3DLearnedShapeTrainerTest)
+add_test(NAME Make3DHeroCharacterModelTest COMMAND Make3DHeroCharacterModelTest)
 add_test(NAME Make3DModelPolisherTest COMMAND Make3DModelPolisherTest)
 add_test(NAME Make3DMaskRefinerTest COMMAND Make3DMaskRefinerTest)
 add_test(NAME Make3DVoxelVolumeTest COMMAND Make3DVoxelVolumeTest)
