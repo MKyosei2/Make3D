@@ -1,4 +1,5 @@
 #include "Make3DAdvancedCore.h"
+#include "Make3DGltfMaterialExporter.h"
 #include "Make3DMeshTools.h"
 
 #include <filesystem>
@@ -121,19 +122,33 @@ int main(int argc, char** argv) {
         return 4;
     }
 
+    make3d::GltfMaterialOptions material;
+    material.materialName = "Make3DCleanedMaterial";
+    if (!make3d::ExportGLTFWithMaterial(cleaned, outDir / "cleaned" / "make3d_cleaned_material.gltf", material, &error)) {
+        std::cerr << error << "\n";
+        return 5;
+    }
+
     std::ofstream md(outDir / "mesh_quality_report.md", std::ios::binary);
     md << "# Make3D Mesh Quality Report\n\n";
     md << "## Before cleanup\n\n" << before.ToMarkdown() << "\n";
     md << "## After cleanup\n\n" << after.ToMarkdown() << "\n";
+    md << "## Exported files\n\n";
+    md << "- raw/make3d_advanced.obj\n";
+    md << "- raw/make3d_advanced.gltf\n";
+    md << "- cleaned/make3d_cleaned.obj\n";
+    md << "- cleaned/make3d_cleaned.gltf\n";
+    md << "- cleaned/make3d_cleaned_material.gltf\n";
 
     std::ofstream js(outDir / "mesh_quality_report.json", std::ios::binary);
     js << "{\n";
     js << "  \"before\": " << before.ToJson() << ",\n";
-    js << "  \"after\": " << after.ToJson() << "\n";
+    js << "  \"after\": " << after.ToJson() << ",\n";
+    js << "  \"cleanedMaterialGltf\": \"cleaned/make3d_cleaned_material.gltf\"\n";
     js << "}\n";
 
     std::cout << "Generated mesh quality report: " << (outDir / "mesh_quality_report.md").u8string() << "\n";
     std::cout << "Cleaned OBJ: " << (outDir / "cleaned" / "make3d_cleaned.obj").u8string() << "\n";
-    std::cout << "Cleaned glTF: " << (outDir / "cleaned" / "make3d_cleaned.gltf").u8string() << "\n";
+    std::cout << "Cleaned material glTF: " << (outDir / "cleaned" / "make3d_cleaned_material.gltf").u8string() << "\n";
     return 0;
 }
