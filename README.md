@@ -2,7 +2,7 @@
 
 **Make3D** は、画像・深度画像・動画フレームからゲーム開発向けの **3D proxy asset** を生成する C++ / Win32 製ツールです。
 
-このプロジェクトは、単に画像を前後へ押し出すだけのデモではなく、前景抽出、疑似 depth 推定、relief / volume / hybrid mesh reconstruction、OBJ / glTF 出力、debug image、Markdown / JSON report までを持つ、検証可能な画像→3D生成パイプラインを目指しています。
+このプロジェクトは、単に画像を前後へ押し出すだけのデモではなく、前景抽出、疑似 depth 推定、relief / volume / hybrid mesh reconstruction、OBJ / glTF / material glTF 出力、debug image、mesh quality report までを持つ、検証可能な画像→3D生成パイプラインを目指しています。
 
 > Note: Make3D は、任意の画像から完全な production-ready 3D モデルを復元する生成 AI ではありません。現在の主目的は、ゲーム制作の初期検証やプロキシアセット生成に使える deterministic / inspectable な 3D asset generation tool を C++ で実装することです。
 
@@ -20,6 +20,7 @@ Make3D は以下の課題を扱います。
 - depth画像がない場合でも疑似depthでプロキシ形状を作りたい
 - 出力結果を Unity / Blender / Maya / DCC で確認したい
 - 生成過程を debug mask / debug depth / report で説明できるようにしたい
+- 生成meshをvalidation / cleanupしてから確認したい
 - GUIだけでなくCLI/CIで再現可能にしたい
 
 ---
@@ -45,14 +46,27 @@ Make3D
 ├─ src/Make3DGuiAdapter.cpp
 │  └─ Adapter for mapping GUI selections to advanced backend options
 │
+├─ src/Make3DMeshTools.h
+├─ src/Make3DMeshTools.cpp
+│  └─ Mesh validation and cleanup tools
+│
+├─ src/Make3DGltfMaterialExporter.h
+├─ src/Make3DGltfMaterialExporter.cpp
+│  └─ glTF exporter with material / PBR metadata support
+│
 ├─ tools/GenerateAdvancedSamples.cpp
 │  └─ Synthetic sample generator
 │
-├─ tests/Make3DAdvancedCoreSmokeTest.cpp
-│  └─ Smoke test for mask/depth/mesh/export pipeline
+├─ tools/GenerateMeshQualityReport.cpp
+│  └─ Raw/cleaned mesh quality report generator
+│
+├─ tests/
+│  ├─ Make3DAdvancedCoreSmokeTest.cpp
+│  ├─ Make3DMeshToolsTest.cpp
+│  └─ Make3DGltfMaterialExporterTest.cpp
 │
 └─ .github/workflows/make3d-advanced.yml
-   └─ CI build, test, and sample generation
+   └─ CI build, test, package, sample generation, and quality report generation
 ```
 
 ---
@@ -87,7 +101,8 @@ NormalizeMesh
   ↓
 Export
   ├─ OBJ / MTL
-  ├─ glTF + .bin
+  ├─ geometry glTF + .bin
+  ├─ material glTF + .bin
   ├─ debug_mask.ppm
   ├─ debug_depth.ppm
   ├─ make3d_report.md
@@ -135,14 +150,17 @@ SilhouetteVolume と ReliefSurface を組み合わせます。単画像からで
 | Silhouette volume | Implemented | row-width based radial volume |
 | Hybrid volume | Implemented | volume + relief |
 | OBJ / MTL export | Implemented | geometry export |
-| glTF export | Implemented | geometry + external binary buffer |
+| geometry glTF export | Implemented | geometry + external binary buffer |
+| material glTF export | Implemented | material, baseColorFactor, roughness, metallic, doubleSided, optional texture URI |
+| Mesh validation | Implemented | invalid triangle, degenerate triangle, boundary edge, non-manifold edge checks |
+| Mesh cleanup | Implemented | invalid/degenerate triangle removal and unused vertex compaction |
 | Debug mask/depth images | Implemented | PPM output |
-| Markdown / JSON report | Implemented | mesh stats and warnings |
+| Markdown / JSON reconstruction report | Implemented | mesh stats and warnings |
+| Mesh quality report | Implemented | before/after validation report with cleaned OBJ/glTF outputs |
 | CLI | Implemented | `Make3DAdvancedCLI` |
 | Smoke test | Implemented | synthetic image → mesh → OBJ/glTF |
 | Sample generator | Implemented | synthetic character / box samples |
-| CI | Implemented | Windows build/test/sample generation |
-| Texture/material glTF export | Partial | geometry buffer export is implemented; material texture expansion remains |
+| CI | Implemented | Windows build/test/package/sample/quality-report generation |
 | Production validation | In progress | real sample set and screenshots are still needed |
 
 ---
@@ -160,7 +178,10 @@ Build targets:
 Make3DAdvancedGui
 Make3DAdvancedCLI
 Make3DGenerateAdvancedSamples
+Make3DGenerateMeshQualityReport
 Make3DAdvancedCoreSmokeTest
+Make3DMeshToolsTest
+Make3DGltfMaterialExporterTest
 ```
 
 Run tests:
@@ -187,9 +208,9 @@ Workflow:
 4. Select reconstruction mode: Auto / Relief Surface / Silhouette Volume / Hybrid Volume.
 5. Select quality: Draft / Standard / Detailed.
 6. Click `Build Advanced 3D`.
-7. Open the output folder and inspect OBJ, glTF, debug images, and reports.
+7. Open the output folder and inspect OBJ, geometry glTF, material glTF, debug images, and reports.
 
-The advanced GUI directly uses `Make3DGuiAdapter` and `Make3DAdvancedCore`.
+The advanced GUI directly uses `Make3DGuiAdapter` and `Make3DAdvancedCore`. The adapter also writes `make3d_advanced_material.gltf` for easier DCC/runtime inspection.
 
 ---
 
@@ -217,6 +238,21 @@ Options:
 --no-debug
 ```
 
+Typical output files:
+
+```text
+make3d_advanced.obj
+make3d_advanced.mtl
+make3d_advanced.gltf
+make3d_advanced.bin
+make3d_advanced_material.gltf
+make3d_advanced_material.bin
+debug_mask.ppm
+debug_depth.ppm
+make3d_report.md
+make3d_report.json
+```
+
 ---
 
 ## Generate samples
@@ -233,6 +269,8 @@ output/make3d_advanced.obj
 output/make3d_advanced.mtl
 output/make3d_advanced.gltf
 output/make3d_advanced.bin
+output/make3d_advanced_material.gltf
+output/make3d_advanced_material.bin
 output/debug_mask.ppm
 output/debug_depth.ppm
 output/make3d_report.md
@@ -240,6 +278,58 @@ output/make3d_report.json
 ```
 
 CI uploads these generated samples as an artifact.
+
+---
+
+## Mesh quality report
+
+```bash
+Make3DGenerateMeshQualityReport output/mesh_quality
+```
+
+This tool generates a synthetic input, reconstructs a raw mesh, validates it, cleans it, validates the cleaned mesh, and writes both geometry and material glTF outputs.
+
+Output structure:
+
+```text
+mesh_quality_report.md
+mesh_quality_report.json
+quality_input.ppm
+raw/make3d_advanced.obj
+raw/make3d_advanced.gltf
+cleaned/make3d_cleaned.obj
+cleaned/make3d_cleaned.gltf
+cleaned/make3d_cleaned_material.gltf
+```
+
+The report compares:
+
+- vertices before / after cleanup
+- triangles before / after cleanup
+- invalid triangles
+- degenerate triangles
+- boundary edges
+- non-manifold edges
+- surface area
+- export validity
+- watertight-candidate status
+
+---
+
+## glTF material export
+
+`Make3DGltfMaterialExporter` writes glTF 2.0 files with:
+
+- `materials`
+- `pbrMetallicRoughness`
+- `baseColorFactor`
+- `metallicFactor`
+- `roughnessFactor`
+- `doubleSided`
+- optional `baseColorTexture`
+- optional `images` and `textures`
+
+This makes generated assets easier to inspect in Blender, Unity, and glTF viewers than geometry-only output.
 
 ---
 
@@ -274,13 +364,17 @@ cmake configure
 cmake build
 ctest
 sample generation
+mesh quality report generation
+portable package staging
 artifact upload
 ```
 
 Artifacts:
 
+- `make3d-advanced-portable-package`
 - `make3d-smoke-test-output`
 - `make3d-generated-advanced-samples`
+- `make3d-mesh-quality-report`
 
 ---
 
@@ -293,10 +387,12 @@ Artifacts:
 - Single-image pseudo-depth estimation
 - Volume reconstruction from silhouette row profiles
 - Hybrid volume + relief generation
-- OBJ and glTF geometry export
-- Markdown/JSON validation report
-- CMake build and CTest smoke test
-- GitHub Actions build/test/sample generation
+- OBJ and geometry glTF export
+- material glTF export with PBR metadata
+- mesh validation and cleanup module
+- Markdown/JSON reconstruction and quality reports
+- CMake build and CTest smoke tests
+- GitHub Actions build/test/sample/package pipeline
 
 ---
 
@@ -307,11 +403,11 @@ Make3D is not yet a full production 3D reconstruction system.
 Current limitations:
 
 - Single-image reconstruction cannot infer hidden backside details.
-- glTF export currently focuses on geometry and external binary buffer; texture/material expansion remains.
+- Texture image generation/copying is still limited; material glTF currently supports material factors and optional texture URI.
 - Real-world photo backgrounds may require better segmentation.
 - The original `MainApp.cpp` GUI still exists as a legacy path; the new `Make3DAdvancedGui` is the advanced path.
 - Video workflow still uses representative-frame logic in the legacy GUI path.
-- Automated tests are smoke tests, not full geometry correctness tests.
+- Automated tests are smoke/integration tests, not full geometry correctness tests.
 
 These limitations are intentionally documented to keep the portfolio claim defensible.
 
@@ -321,7 +417,7 @@ These limitations are intentionally documented to keep the portfolio claim defen
 
 Strong wording:
 
-> Make3D is a deterministic C++ image-to-3D proxy asset generator. It extracts foreground regions, estimates or consumes depth, reconstructs relief / volume / hybrid meshes, exports OBJ and glTF, and writes debug artifacts and reports so the generation process can be inspected.
+> Make3D is a deterministic C++ image-to-3D proxy asset generator. It extracts foreground regions, estimates or consumes depth, reconstructs relief / volume / hybrid meshes, exports OBJ and glTF, writes material glTF outputs, and generates debug artifacts and mesh quality reports so the generation process can be inspected.
 
 Avoid wording:
 
@@ -335,7 +431,7 @@ The second claim is too broad. The project is strongest when presented as an ins
 
 1. Add real image samples and generated outputs to the repository or Releases.
 2. Add README screenshots/GIFs.
-3. Expand glTF material and texture export.
-4. Add mesh cleanup: duplicate merge, manifold checks, decimation.
+3. Add texture image copying into the material glTF output folder.
+4. Add stronger mesh cleanup: duplicate merge, manifold repair, decimation.
 5. Add multi-frame video sampling.
 6. Add more tests for depth, mesh integrity, and export correctness.
