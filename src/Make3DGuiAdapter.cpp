@@ -1,4 +1,5 @@
 #include "Make3DGuiAdapter.h"
+#include "Make3DGltfMaterialExporter.h"
 
 #include <sstream>
 
@@ -68,11 +69,22 @@ GuiBuildSummary BuildAdvancedFromGuiRequest(const GuiBuildRequest& request) {
         return summary;
     }
 
+    if (request.exportGltf) {
+        GltfMaterialOptions material;
+        material.materialName = "Make3DGeneratedMaterial";
+        std::filesystem::path materialGltf = request.outputDir / "make3d_advanced_material.gltf";
+        std::string materialError;
+        if (ExportGLTFWithMaterial(output.mesh, materialGltf, material, &materialError)) {
+            summary.gltfPath = materialGltf;
+        }
+    }
+
     std::ostringstream oss;
     oss << "Advanced reconstruction finished. "
         << "vertices=" << output.report.vertices
         << ", triangles=" << output.report.triangles
         << ", mode=" << output.report.reconstructionMode;
+    if (!summary.gltfPath.empty()) oss << ", glTF=" << summary.gltfPath.u8string();
     if (!output.report.reportPath.empty()) oss << ", report=" << output.report.reportPath.u8string();
     if (!output.report.warnings.empty()) oss << ", warnings=" << output.report.warnings.size();
     summary.message = oss.str();
