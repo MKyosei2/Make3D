@@ -7,10 +7,12 @@
 
 #include "Make3DGuiAdapter.h"
 
+#include <exception>
 #include <filesystem>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -47,6 +49,7 @@ GuiState g;
 std::wstring Widen(const std::string& s) {
     if (s.empty()) return {};
     int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), nullptr, 0);
+    if (len <= 0) return {};
     std::wstring out(static_cast<size_t>(len), L'\0');
     MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), out.data(), len);
     return out;
@@ -55,17 +58,24 @@ std::wstring Widen(const std::string& s) {
 std::string Narrow(const std::wstring& s) {
     if (s.empty()) return {};
     int len = WideCharToMultiByte(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), nullptr, 0, nullptr, nullptr);
+    if (len <= 0) return {};
     std::string out(static_cast<size_t>(len), '\0');
     WideCharToMultiByte(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), out.data(), len, nullptr, nullptr);
     return out;
 }
 
-std::string GetWindowTextUtf8(HWND hwnd) {
+std::wstring GetWindowTextWide(HWND hwnd) {
     int len = GetWindowTextLengthW(hwnd);
     if (len <= 0) return {};
     std::wstring text(static_cast<size_t>(len), L'\0');
-    GetWindowTextW(hwnd, text.data(), len + 1);
-    return Narrow(text);
+    std::vector<wchar_t> buffer(static_cast<size_t>(len) + 1, L'\0');
+    GetWindowTextW(hwnd, buffer.data(), len + 1);
+    text.assign(buffer.data());
+    return text;
+}
+
+std::string GetWindowTextUtf8(HWND hwnd) {
+    return Narrow(GetWindowTextWide(hwnd));
 }
 
 void SetWindowTextUtf8(HWND hwnd, const std::string& text) {
@@ -75,6 +85,16 @@ void SetWindowTextUtf8(HWND hwnd, const std::string& text) {
 
 void SetStatus(const std::string& text) {
     SetWindowTextUtf8(g.status, text);
+}
+
+fs::path DefaultOutputDir() {
+    wchar_t exePath[MAX_PATH] = {};
+    DWORD len = GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    if (len > 0 && len < MAX_PATH) {
+        fs::path p(exePath);
+        return p.parent_path() / L"advanced_output";
+    }
+    return fs::path(L"advanced_output");
 }
 
 std::optional<fs::path> OpenImageDialog(HWND owner, const wchar_t* title) {
@@ -119,21 +139,28 @@ void EnableUi(bool enable) {
     EnableWindow(g.buildButton, enable ? TRUE : FALSE);
 }
 
-void DoBuild() {
-    std::string color = GetWindowTextUtf8(g.colorPath);
-    std::string depth = GetWindowTextUtf8(g.depthPath);
-    std::string output = GetWindowTextUtf8(g.outputPath);
+void ShowCaughtError(const char* title, const std::string& message) {
+    SetStatus(std::string("Failed: ") + message);
+    MessageBoxW(g.hwnd, Widen(message).c_str(), Widen(title).c_str(), MB_OK | MB_ICONERROR);
+}
 
-    if (color.empty()) {
+void DoBuildImpl() {
+    std::wstring colorText = GetWindowTextWide(g.colorPath);
+    std::wstring depthText = GetWindowTextWide(g.depthPath);
+    std::wstring outputText = GetWindowTextWide(g.outputPath);
+
+    if (colorText.empty()) {
         MessageBoxW(g.hwnd, L"Choose a color image first.", L"Make3D Advanced", MB_OK | MB_ICONWARNING);
         return;
     }
-    if (output.empty()) output = (fs::current_path() / "advanced_output").u8string();
+
+    fs::path output = outputText.empty() ? DefaultOutputDir() : fs::path(outputText);
+    SetWindowTextW(g.outputPath, output.wstring().c_str());
 
     make3d::gui::GuiBuildRequest request;
-    request.colorPath = fs::path(color);
-    if (!depth.empty()) request.depthPath = fs::path(depth);
-    request.outputDir = fs::path(output);
+    request.colorPath = fs::path(colorText);
+    if (!depthText.empty()) request.depthPath = fs::path(depthText);
+    request.outputDir = output;
     request.guiReconstructionIndex = ComboIndex(g.modeCombo, 0);
     request.guiQualityIndex = ComboIndex(g.qualityCombo, 1);
     request.exportObj = true;
@@ -161,10 +188,29 @@ void DoBuild() {
     MessageBoxW(g.hwnd, Widen(oss.str()).c_str(), L"Build finished", MB_OK | MB_ICONINFORMATION);
 }
 
+void DoBuild() {
+    try {
+        DoBuildImpl();
+    } catch (const std::system_error& e) {
+        EnableUi(true);
+        ShowCaughtError("System error", std::string("A filesystem or Windows path error occurred: ") + e.what());
+    } catch (const std::exception& e) {
+        EnableUi(true);
+        ShowCaughtError("Build error", std::string("An unexpected C++ error occurred: ") + e.what());
+    } catch (...) {
+        EnableUi(true);
+        ShowCaughtError("Build error", "An unknown error occurred while building.");
+    }
+}
+
 void OpenLastOutput() {
-    std::string output = GetWindowTextUtf8(g.outputPath);
-    fs::path path = !output.empty() ? fs::path(output) : (g.lastOutput ? *g.lastOutput : fs::current_path() / "advanced_output");
-    ShellExecuteW(g.hwnd, L"open", path.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    try {
+        std::wstring output = GetWindowTextWide(g.outputPath);
+        fs::path path = !output.empty() ? fs::path(output) : (g.lastOutput ? *g.lastOutput : DefaultOutputDir());
+        ShellExecuteW(g.hwnd, L"open", path.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    } catch (const std::exception& e) {
+        ShowCaughtError("Open output failed", e.what());
+    }
 }
 
 HWND CreateLabel(HWND parent, const wchar_t* text, int x, int y, int w, int h) {
@@ -230,7 +276,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         g.openButton = CreateButton(hwnd, L"Open output", ID_OPEN, 350, 246, 160, 34);
         g.status = CreateWindowW(L"STATIC", L"Ready. Choose an image and build an advanced proxy model.", WS_CHILD | WS_VISIBLE, 16, 300, 620, 64, hwnd, reinterpret_cast<HMENU>(ID_STATUS), nullptr, nullptr);
 
-        SetWindowTextUtf8(g.outputPath, (fs::current_path() / "advanced_output").u8string());
+        SetWindowTextW(g.outputPath, DefaultOutputDir().wstring().c_str());
         HWND controls[] = { g.colorPath, g.depthPath, g.outputPath, g.modeCombo, g.qualityCombo, g.buildButton, g.openButton, g.status };
         for (HWND c : controls) SendMessageW(c, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         Layout(hwnd);
@@ -241,19 +287,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     case WM_COMMAND: {
         int id = LOWORD(wParam);
-        if (id == ID_COLOR) {
-            auto path = OpenImageDialog(hwnd, L"Choose color image");
-            if (path) SetWindowTextW(g.colorPath, path->wstring().c_str());
-        } else if (id == ID_DEPTH) {
-            auto path = OpenImageDialog(hwnd, L"Choose optional depth image");
-            if (path) SetWindowTextW(g.depthPath, path->wstring().c_str());
-        } else if (id == ID_OUTPUT) {
-            auto path = BrowseFolder(hwnd);
-            if (path) SetWindowTextW(g.outputPath, path->wstring().c_str());
-        } else if (id == ID_BUILD) {
-            DoBuild();
-        } else if (id == ID_OPEN) {
-            OpenLastOutput();
+        try {
+            if (id == ID_COLOR) {
+                auto path = OpenImageDialog(hwnd, L"Choose color image");
+                if (path) SetWindowTextW(g.colorPath, path->wstring().c_str());
+            } else if (id == ID_DEPTH) {
+                auto path = OpenImageDialog(hwnd, L"Choose optional depth image");
+                if (path) SetWindowTextW(g.depthPath, path->wstring().c_str());
+            } else if (id == ID_OUTPUT) {
+                auto path = BrowseFolder(hwnd);
+                if (path) SetWindowTextW(g.outputPath, path->wstring().c_str());
+            } else if (id == ID_BUILD) {
+                DoBuild();
+            } else if (id == ID_OPEN) {
+                OpenLastOutput();
+            }
+        } catch (const std::exception& e) {
+            ShowCaughtError("GUI command failed", e.what());
+        } catch (...) {
+            ShowCaughtError("GUI command failed", "Unknown GUI command error.");
         }
         return 0;
     }
