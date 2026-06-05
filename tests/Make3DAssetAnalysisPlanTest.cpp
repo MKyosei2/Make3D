@@ -1,5 +1,4 @@
-#include "Make3DAssetAnalysis.h"
-#include "Make3DAssetPlan.h"
+#include "Make3DGameAssetGenerator.h"
 
 #include <iostream>
 #include <vector>
@@ -88,7 +87,7 @@ int main() {
         return 8;
     }
 
-    std::cout << "[PASS] Make3D asset analysis + plan test\n";
+    std::cout << "[PASS] compact Make3D asset analysis + plan test\n";
     std::cout << analysis.ToMarkdown() << "\n";
     std::cout << plan.ToMarkdown() << "\n";
     return 0;
