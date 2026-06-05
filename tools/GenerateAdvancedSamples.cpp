@@ -1,4 +1,5 @@
 #include "Make3DAdvancedCore.h"
+#include "Make3DGltfMaterialExporter.h"
 
 #include <filesystem>
 #include <fstream>
@@ -115,6 +116,15 @@ static int GenerateOne(const fs::path& root, const std::string& name, const make
         std::cerr << "sample generation failed for " << name << ": " << output.message << "\n";
         return 1;
     }
+
+    make3d::GltfMaterialOptions material;
+    material.materialName = name + "_material";
+    std::string error;
+    if (!make3d::ExportGLTFWithMaterial(output.mesh, sampleDir / "output" / "make3d_advanced_material.gltf", material, &error)) {
+        std::cerr << "material glTF export failed for " << name << ": " << error << "\n";
+        return 1;
+    }
+
     std::cout << name << ": " << output.report.vertices << " vertices, " << output.report.triangles << " triangles\n";
     return 0;
 }
