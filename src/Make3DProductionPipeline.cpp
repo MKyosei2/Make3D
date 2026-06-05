@@ -1,5 +1,6 @@
 #include "Make3DProductionPipeline.h"
 #include "Make3DHeroDetailEnhancer.h"
+#include "Make3DHeroSemanticGltfExporter.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -155,9 +156,10 @@ ProductionPipelineResult BuildProductionModelFromImage(
             if (!ExportOBJ(result.heroMesh, result.heroObjPath, "", &error)) { result.message = error; return result; }
             if (!ExportGLTFWithMaterial(result.heroMesh, result.heroMaterialGltfPath, heroMaterial, &error)) { result.message = error; return result; }
             if (options.exportVertexColorGltf) {
-                VertexColorGltfOptions colorOptions;
-                colorOptions.materialName = "Make3DHeroVertexColorMaterial";
-                if (!ExportGLTFWithVertexColors(result.heroMesh, *color, result.heroVertexColorGltfPath, colorOptions, &error)) { result.message = error; return result; }
+                HeroSemanticPalette palette = ExtractHeroSemanticPalette(*color, mask);
+                HeroSemanticGltfOptions semanticOptions;
+                semanticOptions.materialName = "Make3DHeroSemanticVertexColorMaterial";
+                if (!ExportHeroSemanticGLTF(result.heroMesh, palette, result.heroVertexColorGltfPath, semanticOptions, &error)) { result.message = error; return result; }
             }
         }
     }
