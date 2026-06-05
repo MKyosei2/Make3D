@@ -1,4 +1,4 @@
-#include "Make3DScenePack.h"
+#include "Make3DQualityPack.h"
 
 #include <filesystem>
 #include <fstream>
@@ -35,11 +35,12 @@ static bool SaveTga(const fs::path& path, int w, int h, const std::vector<unsign
     return true;
 }
 
-static fs::path MakeBoxInput(const fs::path& dir, const char* name) {
+static fs::path MakeBoxInput(const fs::path& dir, const char* name, int dx) {
     constexpr int W = 128;
     constexpr int H = 128;
     std::vector<unsigned char> pixels(static_cast<size_t>(W) * H * 4, 0);
     auto set = [&](int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+        x += dx;
         if (x < 0 || y < 0 || x >= W || y >= H) return;
         size_t p = (static_cast<size_t>(y) * W + x) * 4;
         pixels[p + 0] = r;
@@ -82,8 +83,8 @@ int main() {
     options.textureSize = 32;
 
     std::vector<fs::path> frames;
-    frames.push_back(MakeBoxInput(out, "frame0.tga"));
-    frames.push_back(MakeBoxInput(out, "frame1.tga"));
+    frames.push_back(MakeBoxInput(out, "frame0.tga", 0));
+    frames.push_back(MakeBoxInput(out, "frame1.tga", 1));
     make3d::FinalGameAssetResult finalAsset = make3d::BuildFinalGameAssetFromFrames(frames, out / "output", options);
     if (!finalAsset.ok) return Fail(finalAsset.message);
     make3d::DeliveryPackResult delivery = make3d::BuildDeliveryPack(finalAsset, out / "output");
@@ -92,6 +93,8 @@ int main() {
     if (!audit.ok) return Fail("asset audit pack failed");
     make3d::ScenePackResult scene = make3d::BuildScenePack(finalAsset, audit, out / "output");
     if (!scene.ok) return Fail("scene pack failed");
+    make3d::QualityPackResult quality = make3d::BuildQualityPack(finalAsset, frames, out / "output", 32);
+    if (!quality.ok) return Fail("quality pack failed");
 
     const make3d::CompletedGameAssetResult& complete = finalAsset.complete;
     const make3d::GameAssetResult& result = complete.asset;
@@ -134,6 +137,13 @@ int main() {
     if (!fs::exists(scene.materialsPath)) return Fail("scene materials missing");
     if (!fs::exists(scene.scalePath)) return Fail("scene scale report missing");
     if (!fs::exists(scene.placementPath)) return Fail("scene placement missing");
+    if (!fs::exists(quality.uvLayoutPath)) return Fail("UV layout missing");
+    if (!fs::exists(quality.projectedAlbedoPath)) return Fail("projected albedo missing");
+    if (!fs::exists(quality.retopoPlanPath)) return Fail("retopo plan missing");
+    if (!fs::exists(quality.skinWeightsPath)) return Fail("skin weights v2 missing");
+    if (!fs::exists(quality.temporalFusionPath)) return Fail("temporal fusion missing");
+    if (!fs::exists(quality.facadeFeaturesPath)) return Fail("facade features missing");
+    if (!fs::exists(quality.gltfPackagePath)) return Fail("glTF package manifest missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
     if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
@@ -159,6 +169,12 @@ int main() {
     if (!Contains(scene.materialsPath, "scene_materials")) return Fail("scene materials content missing");
     if (!Contains(scene.scalePath, "Scale Report")) return Fail("scene scale content missing");
     if (!Contains(scene.placementPath, "scene_placement")) return Fail("scene placement content missing");
+    if (!Contains(quality.uvLayoutPath, "svg")) return Fail("UV layout content missing");
+    if (!Contains(quality.retopoPlanPath, "retopology_plan")) return Fail("retopo plan content missing");
+    if (!Contains(quality.skinWeightsPath, "skin_weights_v2")) return Fail("skin weights content missing");
+    if (!Contains(quality.temporalFusionPath, "temporal_fusion_report")) return Fail("temporal fusion content missing");
+    if (!Contains(quality.facadeFeaturesPath, "facade_feature_map")) return Fail("facade features content missing");
+    if (!Contains(quality.gltfPackagePath, "gltf_package_manifest")) return Fail("glTF package content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
@@ -168,5 +184,6 @@ int main() {
     std::cout << "Delivery manifest: " << delivery.deliveryManifestPath.u8string() << "\n";
     std::cout << "Asset catalog: " << audit.assetCatalogPath.u8string() << "\n";
     std::cout << "Scene preview: " << scene.previewPath.u8string() << "\n";
+    std::cout << "Quality pack: " << quality.gltfPackagePath.u8string() << "\n";
     return 0;
 }
