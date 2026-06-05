@@ -40,6 +40,7 @@ static void WriteDebugDepth(const fs::path& path, int w, int h, const DepthImage
 static std::string MakeProductionMarkdown(const ProductionPipelineResult& result) {
     std::ostringstream o;
     o << "# Make3D Production Pipeline Report\n\n";
+    o << "## Shape inference\n\n" << result.shapeInferenceReport.ToMarkdown() << "\n";
     o << "## Reconstruction\n\n" << result.reconstructionReport.ToMarkdown() << "\n";
     o << "## Mask refinement\n\n" << result.maskReport.ToMarkdown() << "\n";
     o << "## Mesh polish\n\n" << result.polishReport.ToMarkdown() << "\n";
@@ -55,12 +56,14 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     o << "- voxel/make3d_voxel_volume_vertex_color.gltf\n";
     o << "- debug_mask_refined.ppm\n";
     o << "- debug_depth_refined.ppm\n";
+    o << "- debug_depth_inferred.ppm\n";
     return o.str();
 }
 
 static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     std::ostringstream o;
     o << "{\n";
+    o << "  \"shapeInference\": " << result.shapeInferenceReport.ToJson() << ",\n";
     o << "  \"reconstruction\": " << result.reconstructionReport.ToJson() << ",\n";
     o << "  \"maskRefine\": " << result.maskReport.ToJson() << ",\n";
     o << "  \"polish\": " << result.polishReport.ToJson() << ",\n";
@@ -112,7 +115,15 @@ ProductionPipelineResult BuildProductionModelFromImage(
     result.reconstructionReport.foregroundCoverage = static_cast<float>(result.maskReport.foregroundAfter) / static_cast<float>(color->width * color->height);
 
     DepthImage depth = PrepareDepth(*color, providedDepth, mask, options.reconstruction, &result.reconstructionReport);
-    result.rawMesh = ReconstructMesh(*color, depth, mask, options.reconstruction, &result.reconstructionReport);
+    DepthImage reconstructionDepth = depth;
+    if (options.enableShapeInference) {
+        result.shapeInferenceReport = RunShapeInference(*color, mask, depth, options.shapeInference);
+        if (!result.shapeInferenceReport.adjustedDepth.values.empty()) {
+            reconstructionDepth = result.shapeInferenceReport.adjustedDepth;
+        }
+    }
+
+    result.rawMesh = ReconstructMesh(*color, reconstructionDepth, mask, options.reconstruction, &result.reconstructionReport);
     if (result.rawMesh.positions.empty() || result.rawMesh.indices.empty()) {
         result.message = "Mesh reconstruction failed.";
         return result;
@@ -122,7 +133,7 @@ ProductionPipelineResult BuildProductionModelFromImage(
     result.polishReport = PolishMesh(result.polishedMesh, options.polish);
 
     if (options.exportVoxelVolume) {
-        result.voxelMesh = BuildVoxelVolumeMesh(*color, depth, mask, options.voxel, &result.voxelReport);
+        result.voxelMesh = BuildVoxelVolumeMesh(*color, reconstructionDepth, mask, options.voxel, &result.voxelReport);
         if (!result.voxelMesh.positions.empty() && !result.voxelMesh.indices.empty()) {
             MeshPolishOptions voxelPolish = options.polish;
             voxelPolish.keepLargestComponentOnly = true;
@@ -173,6 +184,7 @@ ProductionPipelineResult BuildProductionModelFromImage(
     if (options.writeDebugImages) {
         WriteDebugMask(outputDir / "debug_mask_refined.ppm", color->width, color->height, mask);
         WriteDebugDepth(outputDir / "debug_depth_refined.ppm", color->width, color->height, depth);
+        WriteDebugDepth(outputDir / "debug_depth_inferred.ppm", color->width, color->height, reconstructionDepth);
     }
 
     if (options.writeReports) {
