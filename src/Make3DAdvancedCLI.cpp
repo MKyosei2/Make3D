@@ -1,4 +1,5 @@
 #include "Make3DAdvancedCore.h"
+#include "Make3DBenchmark.h"
 #include "Make3DProductionPipeline.h"
 
 #include <algorithm>
@@ -22,6 +23,7 @@ void PrintUsage() {
         "  --quality draft|standard|detailed\n"
         "  --grid <number>          Max analysis grid resolution. Default: 192\n"
         "  --segments <number>      Procedural radial segments. Default: 20\n"
+        "  --benchmark              Also run profiled preview/final mesh generation and write benchmark reports\n"
         "  --no-debug               Do not write debug images\n";
 }
 
@@ -40,6 +42,7 @@ int main(int argc, char** argv) {
     std::filesystem::path output = "output_advanced";
     make3d::AdvancedOptions options;
     bool writeDebug = true;
+    bool benchmark = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -86,6 +89,8 @@ int main(int argc, char** argv) {
             auto v = needValue("--segments");
             if (!v) return 2;
             options.volumeRadialSegments = std::max(6, std::atoi(v->c_str()));
+        } else if (Equals(arg, "--benchmark")) {
+            benchmark = true;
         } else if (Equals(arg, "--no-debug")) {
             options.writeDebugImages = false;
             writeDebug = false;
@@ -133,5 +138,21 @@ int main(int argc, char** argv) {
     std::cout << "Game asset report: " << result.gameAssetReportPath.u8string() << "\n";
     std::cout << "Game asset manifest: " << result.gameAssetManifestPath.u8string() << "\n";
     std::cout << "Production report: " << result.productionReportPath.u8string() << "\n";
+
+    if (benchmark) {
+        make3d::AdvancedOptions benchmarkOptions = options;
+        benchmarkOptions.writeDebugImages = writeDebug;
+        std::filesystem::path benchmarkOutput = output / "benchmark";
+        auto profiled = make3d::BuildProfiledModelFromImage(*input, depth, benchmarkOutput, benchmarkOptions);
+        if (!profiled.ok) {
+            std::cerr << "Benchmark generation failed: " << profiled.message << "\n";
+            return 4;
+        }
+        std::cout << "Benchmark report JSON: " << profiled.benchmarkJsonPath.u8string() << "\n";
+        std::cout << "Benchmark report Markdown: " << profiled.benchmarkMarkdownPath.u8string() << "\n";
+        std::cout << "Preview mesh triangles: " << (profiled.previewMesh.indices.size() / 3) << "\n";
+        std::cout << "Final mesh triangles: " << (profiled.finalMesh.indices.size() / 3) << "\n";
+    }
+
     return 0;
 }
