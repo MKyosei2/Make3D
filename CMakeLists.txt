@@ -185,6 +185,12 @@ add_executable(Make3DGameAssetTest
 
 target_link_libraries(Make3DGameAssetTest PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DTypedProceduralAssetsTest
+    tests/Make3DTypedProceduralAssetsTest.cpp
+)
+
+target_link_libraries(Make3DTypedProceduralAssetsTest PRIVATE Make3DAdvancedCore)
+
 if (MSVC)
     target_compile_options(Make3DAdvancedCore PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCLI PRIVATE /W4 /permissive-)
@@ -213,6 +219,7 @@ if (MSVC)
     target_compile_options(Make3DMaskRefinerTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DGameAssetTest PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DTypedProceduralAssetsTest PRIVATE /W4 /permissive-)
 else()
     target_compile_options(Make3DAdvancedCore PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCLI PRIVATE -Wall -Wextra -Wpedantic)
@@ -241,6 +248,7 @@ else()
     target_compile_options(Make3DMaskRefinerTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DGameAssetTest PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DTypedProceduralAssetsTest PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 enable_testing()
@@ -258,6 +266,7 @@ add_test(NAME Make3DModelPolisherTest COMMAND Make3DModelPolisherTest)
 add_test(NAME Make3DMaskRefinerTest COMMAND Make3DMaskRefinerTest)
 add_test(NAME Make3DVoxelVolumeTest COMMAND Make3DVoxelVolumeTest)
 add_test(NAME Make3DGameAssetTest COMMAND Make3DGameAssetTest)
+add_test(NAME Make3DTypedProceduralAssetsTest COMMAND Make3DTypedProceduralAssetsTest)
 add_test(NAME Make3DGameAssetCLIHelp COMMAND Make3DGameAssetCLI --help)
 add_test(NAME Make3DTypedAssetCLIHelp COMMAND Make3DTypedAssetCLI --help)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
