@@ -10,6 +10,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DMeshTools.cpp
     src/Make3DGltfMaterialExporter.cpp
     src/Make3DVertexColorGltfExporter.cpp
+    src/Make3DHeroSemanticGltfExporter.cpp
     src/Make3DShapeInference.cpp
     src/Make3DLearnedShapeModel.cpp
     src/Make3DLearnedShapeTrainer.cpp
@@ -94,6 +95,12 @@ add_executable(Make3DVertexColorGltfExporterTest
 
 target_link_libraries(Make3DVertexColorGltfExporterTest PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DHeroSemanticGltfExporterTest
+    tests/Make3DHeroSemanticGltfExporterTest.cpp
+)
+
+target_link_libraries(Make3DHeroSemanticGltfExporterTest PRIVATE Make3DAdvancedCore)
+
 add_executable(Make3DShapeInferenceTest
     tests/Make3DShapeInferenceTest.cpp
 )
@@ -150,6 +157,7 @@ if (MSVC)
     target_compile_options(Make3DMeshToolsTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DVertexColorGltfExporterTest PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DHeroSemanticGltfExporterTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DShapeInferenceTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DLearnedShapeModelTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DLearnedShapeTrainerTest PRIVATE /W4 /permissive-)
@@ -171,6 +179,7 @@ else()
     target_compile_options(Make3DMeshToolsTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DVertexColorGltfExporterTest PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DHeroSemanticGltfExporterTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DShapeInferenceTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DLearnedShapeModelTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DLearnedShapeTrainerTest PRIVATE -Wall -Wextra -Wpedantic)
@@ -185,6 +194,7 @@ add_test(NAME Make3DAdvancedCoreSmokeTest COMMAND Make3DAdvancedCoreSmokeTest)
 add_test(NAME Make3DMeshToolsTest COMMAND Make3DMeshToolsTest)
 add_test(NAME Make3DGltfMaterialExporterTest COMMAND Make3DGltfMaterialExporterTest)
 add_test(NAME Make3DVertexColorGltfExporterTest COMMAND Make3DVertexColorGltfExporterTest)
+add_test(NAME Make3DHeroSemanticGltfExporterTest COMMAND Make3DHeroSemanticGltfExporterTest)
 add_test(NAME Make3DShapeInferenceTest COMMAND Make3DShapeInferenceTest)
 add_test(NAME Make3DLearnedShapeModelTest COMMAND Make3DLearnedShapeModelTest)
 add_test(NAME Make3DLearnedShapeTrainerTest COMMAND Make3DLearnedShapeTrainerTest)
