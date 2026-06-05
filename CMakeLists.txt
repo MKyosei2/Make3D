@@ -10,13 +10,9 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DMeshTools.cpp
     src/Make3DGltfMaterialExporter.cpp
     src/Make3DVertexColorGltfExporter.cpp
-    src/Make3DHeroSemanticGltfExporter.cpp
     src/Make3DShapeInference.cpp
     src/Make3DLearnedShapeModel.cpp
     src/Make3DLearnedShapeTrainer.cpp
-    src/Make3DHeroCharacterModel.cpp
-    src/Make3DHeroDetailEnhancer.cpp
-    src/Make3DHeroFineDetailPass.cpp
     src/Make3DMaskRefiner.cpp
     src/Make3DAssetTypes.cpp
     src/Make3DGameAssetGenerator.cpp
@@ -40,7 +36,6 @@ function(make3d_exe target source)
     endif()
 endfunction()
 
-# Visual Studio-friendly default executable. This intentionally uses the safe production CLI.
 make3d_exe(Make3D src/Make3DAdvancedCLI.cpp)
 make3d_exe(Make3DAdvancedCLI src/Make3DAdvancedCLI.cpp)
 make3d_exe(Make3DGenerateProductionPipelineSample tools/GenerateProductionPipelineSample.cpp)
@@ -51,12 +46,10 @@ make3d_exe(Make3DAdvancedCoreSmokeTest tests/Make3DAdvancedCoreSmokeTest.cpp)
 make3d_exe(Make3DMeshToolsTest tests/Make3DMeshToolsTest.cpp)
 make3d_exe(Make3DGltfMaterialExporterTest tests/Make3DGltfMaterialExporterTest.cpp)
 make3d_exe(Make3DVertexColorGltfExporterTest tests/Make3DVertexColorGltfExporterTest.cpp)
-make3d_exe(Make3DHeroSemanticGltfExporterTest tests/Make3DHeroSemanticGltfExporterTest.cpp)
 make3d_exe(Make3DHeroOnlyProductionTest tests/Make3DHeroOnlyProductionTest.cpp)
 make3d_exe(Make3DShapeInferenceTest tests/Make3DShapeInferenceTest.cpp)
 make3d_exe(Make3DLearnedShapeModelTest tests/Make3DLearnedShapeModelTest.cpp)
 make3d_exe(Make3DLearnedShapeTrainerTest tests/Make3DLearnedShapeTrainerTest.cpp)
-make3d_exe(Make3DHeroCharacterModelTest tests/Make3DHeroCharacterModelTest.cpp)
 make3d_exe(Make3DMaskRefinerTest tests/Make3DMaskRefinerTest.cpp)
 make3d_exe(Make3DGameAssetPipelineTest tests/Make3DGameAssetPipelineTest.cpp)
 make3d_exe(Make3DMeshQualityGateTest tests/Make3DMeshQualityGateTest.cpp)
@@ -91,12 +84,10 @@ foreach(test_name IN ITEMS
     Make3DMeshToolsTest
     Make3DGltfMaterialExporterTest
     Make3DVertexColorGltfExporterTest
-    Make3DHeroSemanticGltfExporterTest
     Make3DHeroOnlyProductionTest
     Make3DShapeInferenceTest
     Make3DLearnedShapeModelTest
     Make3DLearnedShapeTrainerTest
-    Make3DHeroCharacterModelTest
     Make3DMaskRefinerTest
     Make3DGameAssetPipelineTest
     Make3DMeshQualityGateTest)
