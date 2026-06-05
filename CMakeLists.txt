@@ -11,6 +11,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DGltfMaterialExporter.cpp
     src/Make3DModelPolisher.cpp
     src/Make3DMaskRefiner.cpp
+    src/Make3DVoxelVolume.cpp
     src/Make3DProductionPipeline.cpp
 )
 
@@ -87,6 +88,12 @@ add_executable(Make3DMaskRefinerTest
 
 target_link_libraries(Make3DMaskRefinerTest PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DVoxelVolumeTest
+    tests/Make3DVoxelVolumeTest.cpp
+)
+
+target_link_libraries(Make3DVoxelVolumeTest PRIVATE Make3DAdvancedCore)
+
 if (MSVC)
     target_compile_options(Make3DAdvancedCore PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCLI PRIVATE /W4 /permissive-)
@@ -101,6 +108,7 @@ if (MSVC)
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DModelPolisherTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DMaskRefinerTest PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DVoxelVolumeTest PRIVATE /W4 /permissive-)
 else()
     target_compile_options(Make3DAdvancedCore PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCLI PRIVATE -Wall -Wextra -Wpedantic)
@@ -115,6 +123,7 @@ else()
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DModelPolisherTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DMaskRefinerTest PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DVoxelVolumeTest PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 enable_testing()
@@ -123,6 +132,7 @@ add_test(NAME Make3DMeshToolsTest COMMAND Make3DMeshToolsTest)
 add_test(NAME Make3DGltfMaterialExporterTest COMMAND Make3DGltfMaterialExporterTest)
 add_test(NAME Make3DModelPolisherTest COMMAND Make3DModelPolisherTest)
 add_test(NAME Make3DMaskRefinerTest COMMAND Make3DMaskRefinerTest)
+add_test(NAME Make3DVoxelVolumeTest COMMAND Make3DVoxelVolumeTest)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
 add_test(NAME Make3DGenerateMeshQualityReport COMMAND Make3DGenerateMeshQualityReport ${CMAKE_CURRENT_BINARY_DIR}/mesh_quality)
 add_test(NAME Make3DGenerateProductionPipelineSample COMMAND Make3DGenerateProductionPipelineSample ${CMAKE_CURRENT_BINARY_DIR}/production_pipeline)
