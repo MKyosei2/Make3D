@@ -98,6 +98,7 @@ static bool SaveTGA(const fs::path& path, const make3d::ImageRGBA& image) {
 
 int main(int argc, char** argv) {
     fs::path outDir = argc >= 2 ? fs::path(argv[1]) : fs::path("production_pipeline_sample");
+    fs::path weightsPath = argc >= 3 ? fs::path(argv[2]) : fs::path();
     fs::create_directories(outDir);
 
     fs::path input = outDir / "input_noisy_character.tga";
@@ -119,6 +120,10 @@ int main(int argc, char** argv) {
     options.voxel.verticalSamples = 96;
     options.voxel.radialSegments = 32;
     options.exportVertexColorGltf = true;
+    if (!weightsPath.empty()) {
+        options.learnedShape.useExternalWeights = true;
+        options.learnedShape.weightsPath = weightsPath;
+    }
 
     make3d::ProductionPipelineResult result = make3d::BuildProductionModelFromImage(input, std::nullopt, outDir / "output", options);
     if (!result.ok) {
@@ -127,6 +132,7 @@ int main(int argc, char** argv) {
     }
 
     std::cout << result.message << "\n";
+    if (!weightsPath.empty()) std::cout << "Learned weights: " << weightsPath.u8string() << "\n";
     std::cout << "Voxel vertex-color glTF: " << result.voxelVertexColorGltfPath.u8string() << "\n";
     std::cout << "Voxel material glTF: " << result.voxelMaterialGltfPath.u8string() << "\n";
     std::cout << "Polished vertex-color glTF: " << result.polishedVertexColorGltfPath.u8string() << "\n";
