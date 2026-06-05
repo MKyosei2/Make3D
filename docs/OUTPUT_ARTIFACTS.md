@@ -7,14 +7,16 @@ This document explains the files produced by the advanced Make3D pipeline.
 For portfolio review, inspect the production pipeline output first:
 
 ```text
+production_pipeline/output/voxel/make3d_voxel_volume_vertex_color.gltf
 production_pipeline/output/voxel/make3d_voxel_volume_material.gltf
+production_pipeline/output/polished/make3d_polished_vertex_color.gltf
 production_pipeline/output/polished/make3d_polished_material.gltf
 production_pipeline/output/debug_mask_refined.ppm
 production_pipeline/output/debug_depth_refined.ppm
 production_pipeline/output/production_report.md
 ```
 
-Open `voxel/make3d_voxel_volume_material.gltf` first when judging whether the output feels like a closed 3D volume. Open `polished/make3d_polished_material.gltf` next to inspect the refined hybrid reconstruction path.
+Open `voxel/make3d_voxel_volume_vertex_color.gltf` first when judging whether the output feels like a closed 3D volume with source-image color. Open `voxel/make3d_voxel_volume_material.gltf` next if the viewer has limited vertex color support. Open `polished/make3d_polished_vertex_color.gltf` to inspect the refined hybrid reconstruction path.
 
 This path shows the refined production pipeline rather than the raw reconstruction only.
 
@@ -30,8 +32,12 @@ output/raw/make3d_raw.obj
 output/raw/make3d_raw_material.gltf
 output/polished/make3d_polished.obj
 output/polished/make3d_polished_material.gltf
+output/polished/make3d_polished_vertex_color.gltf
+output/polished/make3d_polished_vertex_color.bin
 output/voxel/make3d_voxel_volume.obj
 output/voxel/make3d_voxel_volume_material.gltf
+output/voxel/make3d_voxel_volume_vertex_color.gltf
+output/voxel/make3d_voxel_volume_vertex_color.bin
 output/debug_mask_refined.ppm
 output/debug_depth_refined.ppm
 output/production_report.md
@@ -46,9 +52,11 @@ output/production_report.json
 | `output/raw/make3d_raw.obj` | Raw mesh before production polishing. |
 | `output/raw/make3d_raw_material.gltf` | Raw material glTF before production polishing. |
 | `output/polished/make3d_polished.obj` | Polished OBJ after mask refinement, cleanup, component filtering, and smoothing. |
-| `output/polished/make3d_polished_material.gltf` | Refined hybrid reconstruction output. Useful for comparing with the voxel path. |
+| `output/polished/make3d_polished_material.gltf` | Refined hybrid reconstruction output with material metadata. |
+| `output/polished/make3d_polished_vertex_color.gltf` | Refined hybrid reconstruction output with `COLOR_0` vertex colors sampled from the source image. |
 | `output/voxel/make3d_voxel_volume.obj` | Closed voxel-style volume OBJ generated from refined mask rows and depth-based thickness. |
-| `output/voxel/make3d_voxel_volume_material.gltf` | Preferred closed-volume review output. Open this first in a glTF viewer, Blender, or Unity. |
+| `output/voxel/make3d_voxel_volume_material.gltf` | Closed-volume glTF with material metadata. Use this if the viewer has limited vertex color support. |
+| `output/voxel/make3d_voxel_volume_vertex_color.gltf` | Preferred closed-volume review output. Open this first in a glTF viewer, Blender, or Unity. |
 | `output/debug_mask_refined.ppm` | Refined foreground mask. Confirms that small noisy regions were removed. |
 | `output/debug_depth_refined.ppm` | Depth preview generated from the refined mask. |
 | `output/production_report.md` | Human-readable report combining reconstruction, mask refinement, mesh polishing, and voxel volume statistics. |
@@ -130,4 +138,4 @@ This is useful for portfolio review because it shows that Make3D does not only g
 
 ## Suggested portfolio explanation
 
-> The output includes not only OBJ/glTF geometry, but also closed-volume material glTF, refined debug mask/depth images, and Markdown/JSON production reports. This makes the pipeline inspectable and suitable for technical review.
+> The output includes not only OBJ/glTF geometry, but also closed-volume vertex-color glTF, refined debug mask/depth images, and Markdown/JSON production reports. This makes the pipeline inspectable and suitable for technical review.
