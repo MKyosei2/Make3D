@@ -39,7 +39,7 @@ jobs:
             exit 1
           fi
 
-      - name: Run CLI benchmark on generated sample
+      - name: Run CLI benchmark and ablation on generated sample
         run: |
           INPUT="build/portfolio_sample/input_noisy_character.tga"
           if [ ! -f "$INPUT" ]; then
@@ -51,16 +51,19 @@ jobs:
             exit 1
           fi
           if [ -x build/Make3DAdvancedCLI ]; then
-            build/Make3DAdvancedCLI --input "$INPUT" --output build/cli_benchmark --benchmark
+            CLI=build/Make3DAdvancedCLI
           elif [ -x build/Release/Make3DAdvancedCLI ]; then
-            build/Release/Make3DAdvancedCLI --input "$INPUT" --output build/cli_benchmark --benchmark
+            CLI=build/Release/Make3DAdvancedCLI
           else
             echo "Make3DAdvancedCLI executable not found" >&2
             find build -maxdepth 3 -type f -perm -111 | sort
             exit 1
           fi
+          "$CLI" --input "$INPUT" --output build/cli_benchmark --benchmark --ablation no-shape-inference
           test -f build/cli_benchmark/benchmark/make3d_benchmark.json
           test -f build/cli_benchmark/benchmark/make3d_benchmark.md
+          test -f build/cli_benchmark/ablations/ablation_report.csv
+          test -f build/cli_benchmark/ablations/ablation_report.md
 
       - name: Run portfolio validation dry-run
         run: python scripts/portfolio_validation.py --dry-run --report-dir docs/reports --build-dir build
