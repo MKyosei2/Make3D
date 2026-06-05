@@ -3,6 +3,8 @@
 #include "Make3DAdvancedCore.h"
 #include "Make3DGameAssetGenerator.h"
 #include "Make3DGltfMaterialExporter.h"
+#include "Make3DHeroCharacterModel.h"
+#include "Make3DHeroFineDetailPass.h"
 #include "Make3DLearnedShapeModel.h"
 #include "Make3DMaskRefiner.h"
 #include "Make3DShapeInference.h"
@@ -37,6 +39,8 @@ struct ProductionPipelineResult {
     MaskRefineReport maskReport;
     ShapeInferenceResult shapeInferenceReport;
     LearnedShapeModelResult learnedShapeReport;
+    HeroCharacterReport heroReport;
+    HeroFineDetailReport heroFineDetailReport;
     GameAssetGenerationResult gameAssetReport;
     std::filesystem::path heroObjPath;
     std::filesystem::path heroMaterialGltfPath;
@@ -46,6 +50,12 @@ struct ProductionPipelineResult {
     std::filesystem::path gameAssetReportPath;
     std::filesystem::path gameAssetManifestPath;
     std::filesystem::path productionReportPath;
+
+    // Legacy fallback paths are intentionally kept empty in hero-only review mode.
+    // Tests assert this so reviewers do not accidentally open old raw/polished/voxel outputs.
+    std::filesystem::path rawObjPath;
+    std::filesystem::path polishedObjPath;
+    std::filesystem::path voxelObjPath;
 };
 
 ProductionPipelineResult BuildProductionModelFromImage(
