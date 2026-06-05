@@ -1,5 +1,6 @@
 #include "Make3DProductionPipeline.h"
 #include "Make3DHeroDetailEnhancer.h"
+#include "Make3DHeroFineDetailPass.h"
 #include "Make3DHeroSemanticGltfExporter.h"
 
 #include <algorithm>
@@ -146,6 +147,9 @@ ProductionPipelineResult BuildProductionModelFromImage(
     if (options.exportHeroCharacter) {
         result.heroMesh = BuildHeroCharacterMesh(*color, reconstructionDepth, mask, options.heroCharacter, &result.heroReport);
         AddHeroDetailVolumes(result.heroMesh, options.heroCharacter, &result.heroReport);
+        AddHeroFineDetails(result.heroMesh, options.heroCharacter);
+        result.heroReport.vertices = static_cast<int>(result.heroMesh.positions.size() / 3);
+        result.heroReport.triangles = static_cast<int>(result.heroMesh.indices.size() / 3);
         if (!result.heroMesh.positions.empty() && !result.heroMesh.indices.empty()) {
             result.heroObjPath = outputDir / "hero" / "make3d_hero_character.obj";
             result.heroMaterialGltfPath = outputDir / "hero" / "make3d_hero_character_material.gltf";
