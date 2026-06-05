@@ -1,4 +1,4 @@
-#include "Make3DDeliveryPack.h"
+#include "Make3DAssetAuditPack.h"
 
 #include <filesystem>
 #include <fstream>
@@ -88,6 +88,8 @@ int main() {
     if (!finalAsset.ok) return Fail(finalAsset.message);
     make3d::DeliveryPackResult delivery = make3d::BuildDeliveryPack(finalAsset, out / "output");
     if (!delivery.ok) return Fail("delivery pack failed");
+    make3d::AssetAuditPackResult audit = make3d::BuildAssetAuditPack(finalAsset, delivery, out / "output");
+    if (!audit.ok) return Fail("asset audit pack failed");
 
     const make3d::CompletedGameAssetResult& complete = finalAsset.complete;
     const make3d::GameAssetResult& result = complete.asset;
@@ -121,6 +123,11 @@ int main() {
     if (!fs::exists(finalAsset.runtimeChecklistPath)) return Fail("runtime checklist missing");
     if (!fs::exists(delivery.turntablePlanPath)) return Fail("turntable plan missing");
     if (!fs::exists(delivery.deliveryManifestPath)) return Fail("delivery manifest missing");
+    if (!fs::exists(audit.qualityGatePath)) return Fail("quality gate missing");
+    if (!fs::exists(audit.engineProfilesPath)) return Fail("engine profiles missing");
+    if (!fs::exists(audit.colliderManifestPath)) return Fail("collider manifest missing");
+    if (!fs::exists(audit.lodManifestPath)) return Fail("LOD manifest missing");
+    if (!fs::exists(audit.assetCatalogPath)) return Fail("asset catalog missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
     if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
@@ -137,6 +144,11 @@ int main() {
     if (!Contains(finalAsset.runtimeChecklistPath, "Runtime Import Checklist")) return Fail("runtime checklist content missing");
     if (!Contains(delivery.turntablePlanPath, "turntable_preview_plan")) return Fail("turntable plan content missing");
     if (!Contains(delivery.deliveryManifestPath, "Make3DDeliveryPack")) return Fail("delivery manifest content missing");
+    if (!Contains(audit.qualityGatePath, "Quality Gate")) return Fail("quality gate content missing");
+    if (!Contains(audit.engineProfilesPath, "Unity")) return Fail("engine profiles content missing");
+    if (!Contains(audit.colliderManifestPath, "collider_manifest")) return Fail("collider manifest content missing");
+    if (!Contains(audit.lodManifestPath, "lod_manifest")) return Fail("LOD manifest content missing");
+    if (!Contains(audit.assetCatalogPath, "Make3DAssetCatalog")) return Fail("asset catalog content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
@@ -144,5 +156,6 @@ int main() {
     std::cout << "Retopo proxy: " << finalAsset.retopoProxyPath.u8string() << "\n";
     std::cout << "LOD2: " << finalAsset.lod2Path.u8string() << "\n";
     std::cout << "Delivery manifest: " << delivery.deliveryManifestPath.u8string() << "\n";
+    std::cout << "Asset catalog: " << audit.assetCatalogPath.u8string() << "\n";
     return 0;
 }
