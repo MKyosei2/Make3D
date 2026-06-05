@@ -1,4 +1,4 @@
-#include "Make3DGeometryRefinementPack.h"
+#include "Make3DProductionQualityPack.h"
 
 #include <filesystem>
 #include <fstream>
@@ -97,6 +97,8 @@ int main() {
     if (!quality.ok) return Fail("quality pack failed");
     make3d::GeometryRefinementPackResult geometry = make3d::BuildGeometryRefinementPack(finalAsset, quality, frames, out / "output", 32);
     if (!geometry.ok) return Fail("geometry refinement pack failed");
+    make3d::ProductionQualityPackResult production = make3d::BuildProductionQualityPack(finalAsset, quality, geometry, out / "output");
+    if (!production.ok) return Fail("production quality pack failed");
 
     const make3d::CompletedGameAssetResult& complete = finalAsset.complete;
     const make3d::GameAssetResult& result = complete.asset;
@@ -153,6 +155,12 @@ int main() {
     if (!fs::exists(geometry.uvSeamReportPath)) return Fail("UV seam report missing");
     if (!fs::exists(geometry.projectionQualityPath)) return Fail("projection quality report missing");
     if (!fs::exists(geometry.partRetopoGuidePath)) return Fail("part retopo guide missing");
+    if (!fs::exists(production.tangentFramePath)) return Fail("tangent frame missing");
+    if (!fs::exists(production.pbrMaterialSetPath)) return Fail("PBR material set missing");
+    if (!fs::exists(production.skeletonBindingReportPath)) return Fail("skeleton binding report missing");
+    if (!fs::exists(production.engineImportValidationPath)) return Fail("engine import validation missing");
+    if (!fs::exists(production.readinessScorePath)) return Fail("readiness score missing");
+    if (!fs::exists(production.textureBakeManifestPath)) return Fail("texture bake manifest missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
     if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
@@ -189,6 +197,12 @@ int main() {
     if (!Contains(geometry.uvSeamReportPath, "uv_seam_report")) return Fail("UV seam report content missing");
     if (!Contains(geometry.projectionQualityPath, "projection_quality_report")) return Fail("projection quality content missing");
     if (!Contains(geometry.partRetopoGuidePath, "part_retopology_guide")) return Fail("part retopo guide content missing");
+    if (!Contains(production.tangentFramePath, "tangent_frame_set")) return Fail("tangent frame content missing");
+    if (!Contains(production.pbrMaterialSetPath, "pbr_material_set")) return Fail("PBR material content missing");
+    if (!Contains(production.skeletonBindingReportPath, "skeleton_binding_report")) return Fail("skeleton binding content missing");
+    if (!Contains(production.engineImportValidationPath, "engine_import_validation")) return Fail("engine import validation content missing");
+    if (!Contains(production.readinessScorePath, "production_readiness_score")) return Fail("readiness score content missing");
+    if (!Contains(production.textureBakeManifestPath, "texture_bake_manifest")) return Fail("texture bake content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
@@ -200,5 +214,6 @@ int main() {
     std::cout << "Scene preview: " << scene.previewPath.u8string() << "\n";
     std::cout << "Quality pack: " << quality.gltfPackagePath.u8string() << "\n";
     std::cout << "Repaired mesh: " << geometry.repairedMeshPath.u8string() << "\n";
+    std::cout << "Production score: " << production.readinessScorePath.u8string() << "\n";
     return 0;
 }
