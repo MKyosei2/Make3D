@@ -1,51 +1,57 @@
 # Make3D
 
-**Make3D** is a C++17 / Win32 image-to-3D asset generation project focused on producing inspectable game-development 3D assets from 2D character images.
+**Make3D** is a C++17 / Win32 image-to-3D asset generation project for producing inspectable game-development proxy / hero assets from 2D character or prop images.
 
-The current main direction is no longer generic reconstruction first. The primary portfolio path is now a **hero character generation pipeline**: foreground extraction, mask refinement, pseudo-depth / learned-depth style inference, character-specific body prior, hair / clothing / hand / foot detail volumes, fine facial and clothing detail hints, semantic vertex coloring, and glTF export.
+This project is designed as a **Technical Artist / Tools Programmer portfolio project**. The focus is not to claim perfect single-image reconstruction. The focus is an explainable local pipeline: foreground extraction, mask refinement, pseudo-depth / learned-shape style inference, geometry generation, semantic coloring, reports, debug images, and reproducible build/test artifacts.
 
-> Honest scope: Make3D is not yet a Blender/ZBrush-grade fully automatic sculpting system. It is an inspectable C++ character-asset generation pipeline with a growing local shape inference / training path, deterministic reports, debug images, CI-generated review artifacts, and a hero-only regression test that prevents broken generic fallback meshes from becoming the main review output.
+> Scope note: Make3D is not a Blender, ZBrush, photogrammetry, or neural reconstruction replacement. The defensible claim is an inspectable C++ game-asset generation pipeline with deterministic outputs and reviewable intermediate data.
 
 ---
 
-## Reviewer: open this first
+## 30-second overview
 
-For the shortest reviewer path, read:
+```text
+2D image
+  -> foreground mask extraction
+  -> mask refinement
+  -> pseudo-depth / learned-depth style inference
+  -> shape inference
+  -> hero / proxy geometry generation
+  -> semantic palette extraction
+  -> vertex-color / material glTF export
+  -> debug images + Markdown/JSON reports
+```
+
+The strongest current path is the **hero character / game asset review pipeline**. It produces reviewable OBJ / glTF outputs, debug masks, depth images, and reports rather than hiding the result behind an opaque model.
+
+---
+
+## Reviewer path
+
+For the shortest review path, open:
 
 ```text
 docs/REVIEWER_BRIEF.md
 ```
 
-GitHub Actions artifact:
+If using GitHub Actions artifacts, inspect:
 
 ```text
 make3d-production-pipeline-sample
 ```
 
-Open the artifact guide first:
+Recommended artifact review order:
 
 ```text
-production_pipeline/OPEN_THIS_FIRST.txt
+1. production_pipeline/OPEN_THIS_FIRST.txt
+2. production_pipeline/output/hero/make3d_hero_character_vertex_color.gltf
+3. production_pipeline/output/hero/make3d_hero_character_material.gltf
+4. production_pipeline/output/hero/make3d_hero_character.obj
+5. production_pipeline/output/production_report.md
+6. production_pipeline/output/debug_mask_refined.ppm
+7. production_pipeline/output/debug_depth_inferred.ppm
+8. production_pipeline/output/debug_depth_learned.ppm
 ```
-
-Then open this file:
-
-```text
-production_pipeline/output/hero/make3d_hero_character_vertex_color.gltf
-```
-
-Then inspect:
-
-```text
-production_pipeline/output/hero/make3d_hero_character_material.gltf
-production_pipeline/output/hero/make3d_hero_character.obj
-production_pipeline/output/production_report.md
-production_pipeline/output/debug_mask_refined.ppm
-production_pipeline/output/debug_depth_inferred.ppm
-production_pipeline/output/debug_depth_learned.ppm
-```
-
-The hero glTF is the strongest current output. The standard production sample runs in **hero-only review mode**, so raw / polished / voxel fallback meshes are intentionally not generated as review artifacts.
 
 ---
 
@@ -53,55 +59,47 @@ The hero glTF is the strongest current output. The standard production sample ru
 
 ```text
 input character image
-  ↓
-foreground mask
-  ↓
-mask refinement
-  ↓
-pseudo-depth preparation
-  ↓
-shape inference
-  ↓
-local learned shape model
-  ↓
-hero character base mesh
-  ├─ head
-  ├─ torso
-  ├─ arms
-  └─ legs
-  ↓
-hero detail enhancer
-  ├─ hair volume
-  ├─ clothing shell
-  ├─ neck / shoulder connectors
-  ├─ hands
-  └─ feet
-  ↓
-hero fine detail pass
-  ├─ eyes
-  ├─ nose
-  ├─ mouth
-  ├─ hair strand hints
-  ├─ clothing folds
-  ├─ finger hints
-  └─ shoe soles
-  ↓
-semantic palette extraction
-  ├─ skin
-  ├─ hair
-  ├─ face
-  ├─ clothing
-  ├─ lower clothing
-  └─ shoes
-  ↓
-semantic vertex-color glTF
+  -> foreground mask
+  -> mask refinement
+  -> pseudo-depth preparation
+  -> shape inference
+  -> local learned shape model
+  -> hero character base mesh
+      - head
+      - torso
+      - arms
+      - legs
+  -> hero detail enhancer
+      - hair volume
+      - clothing shell
+      - neck / shoulder connectors
+      - hands
+      - feet
+  -> hero fine detail pass
+      - eyes
+      - nose
+      - mouth
+      - hair strand hints
+      - clothing folds
+      - finger hints
+      - shoe soles
+  -> semantic palette extraction
+      - skin
+      - hair
+      - face
+      - clothing
+      - lower clothing
+      - shoes
+  -> semantic vertex-color glTF
 ```
+
+The standard review sample is intentionally focused on the hero path. Raw / polished / voxel fallback outputs are secondary and should not be the first reviewer experience.
 
 ---
 
 ## Main outputs
 
-Standard production sample output in hero-only review mode:
+Standard production sample output:
 
 ```text
 OPEN_THIS_FIRST.txt
@@ -118,21 +116,15 @@ output/production_report.md
 output/production_report.json
 ```
 
-The standard production sample intentionally does not generate:
-
-```text
-output/raw/*
-output/polished/*
-output/voxel/*
-```
-
 Recommended review order:
 
-1. `OPEN_THIS_FIRST.txt`
-2. `output/hero/make3d_hero_character_vertex_color.gltf`
-3. `output/hero/make3d_hero_character_material.gltf`
-4. `output/production_report.md`
-5. `output/debug_depth_learned.ppm`
+```text
+1. OPEN_THIS_FIRST.txt
+2. output/hero/make3d_hero_character_vertex_color.gltf
+3. output/hero/make3d_hero_character_material.gltf
+4. output/production_report.md
+5. output/debug_depth_learned.ppm
+```
 
 ---
 
@@ -153,14 +145,62 @@ Recommended review order:
 | Hero character base mesh | Implemented | Head, torso, arms, legs |
 | Hero detail enhancer | Implemented | Hair volume, clothing shell, neck/shoulder, hands, feet |
 | Hero fine detail pass | Implemented | Eyes, nose, mouth, hair strand hints, clothing folds, finger hints, shoe soles |
-| Hero semantic glTF exporter | Implemented | `COLOR_0` semantic vertex colors for skin/hair/face/clothing/shoes |
-| Hero-only regression guard | Implemented | `Make3DHeroOnlyProductionTest` verifies fallback meshes are not emitted |
-| Voxel / polished fallback outputs | Secondary | Still available through pipeline options, not standard review output |
-| Mesh polish | Implemented | Component filtering and smoothing |
+| Hero semantic glTF exporter | Implemented | `COLOR_0` semantic vertex colors for body-part coloring |
+| Hero-only regression guard | Implemented | Prevents fallback meshes from becoming the standard review output |
 | OBJ / glTF export | Implemented | Geometry, material, vertex-color, semantic hero glTF |
 | Markdown / JSON reports | Implemented | Production, reconstruction, mesh quality, training reports |
 | CI workflow | Implemented | Build/test/package/sample/training artifact upload |
-| Blender/ZBrush-grade final quality | Not claimed | Still needs true UV, texture projection, retopology, higher-quality learned models |
+| Preview/final mesh separation | Active work | Stage profiler branch separates interactive preview mesh from final export mesh |
+| Stage benchmark output | Active work | Planned output: `make3d_benchmark.json` / `make3d_benchmark.md` |
+| Blender/ZBrush-grade final quality | Not claimed | Needs true UVs, texture projection, retopology, better models |
+
+---
+
+## Active performance work
+
+A performance branch adds a profiled build path and separates preview mesh from final mesh.
+
+Target design:
+
+```text
+Preview button / interactive view
+  -> lower grid resolution
+  -> fewer radial segments
+  -> fast previewMesh
+  -> UI display only
+
+Save / export
+  -> full grid resolution
+  -> full radial segments
+  -> finalMesh
+  -> OBJ / glTF export
+  -> benchmark JSON / Markdown
+```
+
+Planned profiler stages:
+
+```text
+load_color
+load_depth
+foreground_mask
+depth_prepare
+preview_mesh
+final_mesh
+export_obj
+export_gltf
+write_reports
+debug_images
+total
+```
+
+Planned benchmark output:
+
+```text
+make3d_benchmark.json
+make3d_benchmark.md
+```
+
+This exists to make the tool reviewable as an engineering project, not only as a visual demo.
 
 ---
 
@@ -184,6 +224,7 @@ Make3DHeroCharacterModelTest
 Make3DHeroSemanticGltfExporterTest
 Make3DLearnedShapeModelTest
 Make3DLearnedShapeTrainerTest
+Make3DMeshQualityGateTest
 ```
 
 ---
@@ -205,7 +246,7 @@ Make3DGenerateProductionPipelineSample output/production_pipeline output/learned
 
 ## GitHub Actions artifacts
 
-The workflow at `.github/workflows/make3d-advanced.yml` builds, tests, generates training weights, generates samples, stages a portable package, and uploads artifacts.
+The workflow builds, tests, generates training weights, generates samples, stages a portable package, and uploads artifacts.
 
 Artifacts:
 
@@ -228,26 +269,22 @@ make3d-production-pipeline-sample
 
 ## Technical highlights
 
-- C++17 standalone reconstruction and character-generation backend.
-- Deterministic, inspectable pipeline rather than opaque external AI calls.
-- Local learned-shape inference stage with weight save/load.
-- Synthetic trainer that can generate `learned_shape.weights` without an external service.
-- Character-specialized hero mesh path for stronger portfolio output.
-- Fine detail pass for face, hair strand hints, clothing folds, fingers, and shoe soles.
-- Semantic hero glTF exporter with `COLOR_0` for body-part coloring.
-- Hero-only regression test to keep broken-looking fallback meshes out of the standard review artifact.
-- Debug mask/depth images and Markdown/JSON reports for review.
-- CI-generated artifacts for reproducible evaluation.
+- C++17 standalone reconstruction and character-generation backend
+- Deterministic, inspectable pipeline rather than opaque external service calls
+- Local learned-shape inference stage with weight save/load
+- Synthetic trainer for local `learned_shape.weights` generation
+- Character-specialized hero mesh path for stronger review output
+- Fine detail pass for face, hair strand hints, clothing folds, fingers, and shoe soles
+- Semantic hero glTF exporter with `COLOR_0` body-part coloring
+- Hero-only regression test to keep fallback meshes out of the main review artifact
+- Debug mask/depth images and Markdown/JSON reports
+- CI-generated artifacts for reproducible evaluation
 
 ---
 
-## What is intentionally not claimed
+## Current limitations
 
-Make3D does **not** claim to perfectly reconstruct arbitrary hidden geometry from a single image.
-
-The defensible current claim is:
-
-> Make3D is an inspectable C++ character-asset generation pipeline that converts a 2D character image into a hero-style 3D glTF asset with mask/depth inference, local learned-shape support, character-specific geometric priors, fine detail hints, semantic vertex coloring, CI-generated review artifacts, and regression coverage that keeps the standard review output focused on the hero path.
+Make3D intentionally does **not** claim to perfectly reconstruct hidden 3D geometry from a single image.
 
 Remaining high-end work:
 
@@ -259,4 +296,58 @@ better learned models
 image-dependent pose and part detection
 higher-quality hair and clothing geometry
 Blender screenshot / turntable artifact generation
+```
+
+---
+
+## Roadmap
+
+### Short term
+
+- Merge stage profiler / preview-final separation branch
+- Register and run benchmark smoke test in CMake
+- Route GUI preview through preview mesh generation
+- Route save/export through final mesh generation
+- Commit sample benchmark reports under `docs/reports/`
+- Add turntable screenshots or animated GIFs
+
+### Mid term
+
+- Improve texture projection path
+- Add true UV unwrapping or export-friendly UV generation
+- Add more typed samples: prop, vehicle, machine, furniture
+- Add mesh quality thresholds to CI
+- Generate reviewer-friendly comparison pages
+
+### Long term
+
+- Better local learned model quality
+- Character part detection
+- Retopology / remeshing pass
+- Integration with AssetUtility and Unity validation workflow
+
+---
+
+## Portfolio wording
+
+> Make3D is an inspectable C++17 image-to-3D asset generation pipeline. It converts a 2D character image into a hero-style OBJ / glTF asset using foreground extraction, mask refinement, pseudo-depth and local learned-shape style inference, character-specific geometric priors, semantic vertex coloring, debug images, reports, CI artifacts, and regression tests. The goal is not perfect reconstruction, but a reproducible tool pipeline for generating editable game-development proxy assets.
+
+Avoid these claims:
+
+```text
+perfect single-image 3D reconstruction
+Blender/ZBrush replacement
+production-ready automatic character sculpting
+accurate hidden geometry recovery
+```
+
+Use these claims:
+
+```text
+Inspectable C++ image-to-3D pipeline
+Game asset proxy generator
+Hero character glTF generation path
+Semantic vertex-color exporter
+Debuggable reconstruction reports
+Stage-profiler-ready asset pipeline
 ```
