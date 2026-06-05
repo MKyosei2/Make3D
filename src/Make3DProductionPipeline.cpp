@@ -1,0 +1,151 @@
+#include "Make3DProductionPipeline.h"
+
+#include <cstdint>
+#include <fstream>
+#include <sstream>
+#include <vector>
+
+namespace make3d {
+
+namespace fs = std::filesystem;
+
+namespace {
+
+static void WriteDebugMask(const fs::path& path, int w, int h, const std::vector<std::uint8_t>& mask) {
+    std::vector<std::uint8_t> rgb(static_cast<size_t>(w) * h * 3, 0);
+    for (int i = 0; i < w * h; ++i) {
+        std::uint8_t v = mask[static_cast<size_t>(i)] ? 255 : 0;
+        rgb[static_cast<size_t>(i) * 3 + 0] = v;
+        rgb[static_cast<size_t>(i) * 3 + 1] = v;
+        rgb[static_cast<size_t>(i) * 3 + 2] = v;
+    }
+    SaveDebugPPM(path, w, h, rgb, nullptr);
+}
+
+static void WriteDebugDepth(const fs::path& path, int w, int h, const DepthImage& depth) {
+    std::vector<std::uint8_t> rgb(static_cast<size_t>(w) * h * 3, 0);
+    for (int i = 0; i < w * h; ++i) {
+        float d = depth.values[static_cast<size_t>(i)];
+        if (d < 0.0f) d = 0.0f;
+        if (d > 1.0f) d = 1.0f;
+        std::uint8_t v = static_cast<std::uint8_t>(d * 255.0f);
+        rgb[static_cast<size_t>(i) * 3 + 0] = v;
+        rgb[static_cast<size_t>(i) * 3 + 1] = v;
+        rgb[static_cast<size_t>(i) * 3 + 2] = v;
+    }
+    SaveDebugPPM(path, w, h, rgb, nullptr);
+}
+
+static std::string MakeProductionMarkdown(const ProductionPipelineResult& result) {
+    std::ostringstream o;
+    o << "# Make3D Production Pipeline Report\n\n";
+    o << "## Reconstruction\n\n" << result.reconstructionReport.ToMarkdown() << "\n";
+    o << "## Mask refinement\n\n" << result.maskReport.ToMarkdown() << "\n";
+    o << "## Mesh polish\n\n" << result.polishReport.ToMarkdown() << "\n";
+    o << "## Output files\n\n";
+    o << "- raw/make3d_raw.obj\n";
+    o << "- raw/make3d_raw_material.gltf\n";
+    o << "- polished/make3d_polished.obj\n";
+    o << "- polished/make3d_polished_material.gltf\n";
+    o << "- debug_mask_refined.ppm\n";
+    o << "- debug_depth_refined.ppm\n";
+    return o.str();
+}
+
+static std::string MakeProductionJson(const ProductionPipelineResult& result) {
+    std::ostringstream o;
+    o << "{\n";
+    o << "  \"reconstruction\": " << result.reconstructionReport.ToJson() << ",\n";
+    o << "  \"maskRefine\": " << result.maskReport.ToJson() << ",\n";
+    o << "  \"polish\": " << result.polishReport.ToJson() << ",\n";
+    o << "  \"rawMaterialGltf\": \"raw/make3d_raw_material.gltf\",\n";
+    o << "  \"polishedMaterialGltf\": \"polished/make3d_polished_material.gltf\"\n";
+    o << "}\n";
+    return o.str();
+}
+
+} // namespace
+
+ProductionPipelineResult BuildProductionModelFromImage(
+    const fs::path& colorPath,
+    const std::optional<fs::path>& depthPath,
+    const fs::path& outputDir,
+    const ProductionPipelineOptions& options) {
+
+    ProductionPipelineResult result;
+    std::string error;
+    auto color = LoadImageRGBA(colorPath, &error);
+    if (!color) {
+        result.message = error;
+        return result;
+    }
+
+    std::optional<DepthImage> providedDepth;
+    if (depthPath) providedDepth = LoadDepthImage(*depthPath, &error);
+
+    fs::create_directories(outputDir);
+    fs::create_directories(outputDir / "raw");
+    fs::create_directories(outputDir / "polished");
+
+    result.reconstructionReport.imageWidth = color->width;
+    result.reconstructionReport.imageHeight = color->height;
+
+    std::vector<std::uint8_t> mask = BuildForegroundMask(*color, &result.reconstructionReport);
+    if (result.reconstructionReport.foregroundPixels == 0) {
+        result.message = "Foreground extraction failed.";
+        return result;
+    }
+
+    result.maskReport = RefineForegroundMask(mask, color->width, color->height, options.maskRefine);
+    result.reconstructionReport.foregroundPixels = result.maskReport.foregroundAfter;
+    result.reconstructionReport.foregroundCoverage = static_cast<float>(result.maskReport.foregroundAfter) / static_cast<float>(color->width * color->height);
+
+    DepthImage depth = PrepareDepth(*color, providedDepth, mask, options.reconstruction, &result.reconstructionReport);
+    result.rawMesh = ReconstructMesh(*color, depth, mask, options.reconstruction, &result.reconstructionReport);
+    if (result.rawMesh.positions.empty() || result.rawMesh.indices.empty()) {
+        result.message = "Mesh reconstruction failed.";
+        return result;
+    }
+
+    result.polishedMesh = result.rawMesh;
+    result.polishReport = PolishMesh(result.polishedMesh, options.polish);
+
+    if (options.exportRaw) {
+        result.rawObjPath = outputDir / "raw" / "make3d_raw.obj";
+        result.rawMaterialGltfPath = outputDir / "raw" / "make3d_raw_material.gltf";
+        if (!ExportOBJ(result.rawMesh, result.rawObjPath, "", &error)) { result.message = error; return result; }
+        GltfMaterialOptions material;
+        material.materialName = "Make3DRawMaterial";
+        material.baseColorFactor = {0.62f, 0.62f, 0.62f, 1.0f};
+        if (!ExportGLTFWithMaterial(result.rawMesh, result.rawMaterialGltfPath, material, &error)) { result.message = error; return result; }
+    }
+
+    if (options.exportPolished) {
+        result.polishedObjPath = outputDir / "polished" / "make3d_polished.obj";
+        result.polishedMaterialGltfPath = outputDir / "polished" / "make3d_polished_material.gltf";
+        if (!ExportOBJ(result.polishedMesh, result.polishedObjPath, "", &error)) { result.message = error; return result; }
+        GltfMaterialOptions material;
+        material.materialName = "Make3DPolishedMaterial";
+        material.baseColorFactor = {0.72f, 0.78f, 0.86f, 1.0f};
+        if (!ExportGLTFWithMaterial(result.polishedMesh, result.polishedMaterialGltfPath, material, &error)) { result.message = error; return result; }
+    }
+
+    if (options.writeDebugImages) {
+        WriteDebugMask(outputDir / "debug_mask_refined.ppm", color->width, color->height, mask);
+        WriteDebugDepth(outputDir / "debug_depth_refined.ppm", color->width, color->height, depth);
+    }
+
+    if (options.writeReports) {
+        result.productionReportPath = outputDir / "production_report.md";
+        std::ofstream md(result.productionReportPath, std::ios::binary);
+        md << MakeProductionMarkdown(result);
+        std::ofstream js(outputDir / "production_report.json", std::ios::binary);
+        js << MakeProductionJson(result);
+    }
+
+    result.ok = true;
+    result.message = "Production pipeline finished.";
+    return result;
+}
+
+} // namespace make3d
