@@ -1,4 +1,4 @@
-#include "Make3DAssetAuditPack.h"
+#include "Make3DScenePack.h"
 
 #include <filesystem>
 #include <fstream>
@@ -90,6 +90,8 @@ int main() {
     if (!delivery.ok) return Fail("delivery pack failed");
     make3d::AssetAuditPackResult audit = make3d::BuildAssetAuditPack(finalAsset, delivery, out / "output");
     if (!audit.ok) return Fail("asset audit pack failed");
+    make3d::ScenePackResult scene = make3d::BuildScenePack(finalAsset, audit, out / "output");
+    if (!scene.ok) return Fail("scene pack failed");
 
     const make3d::CompletedGameAssetResult& complete = finalAsset.complete;
     const make3d::GameAssetResult& result = complete.asset;
@@ -128,6 +130,10 @@ int main() {
     if (!fs::exists(audit.colliderManifestPath)) return Fail("collider manifest missing");
     if (!fs::exists(audit.lodManifestPath)) return Fail("LOD manifest missing");
     if (!fs::exists(audit.assetCatalogPath)) return Fail("asset catalog missing");
+    if (!fs::exists(scene.previewPath)) return Fail("scene preview missing");
+    if (!fs::exists(scene.materialsPath)) return Fail("scene materials missing");
+    if (!fs::exists(scene.scalePath)) return Fail("scene scale report missing");
+    if (!fs::exists(scene.placementPath)) return Fail("scene placement missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
     if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
@@ -149,6 +155,10 @@ int main() {
     if (!Contains(audit.colliderManifestPath, "collider_manifest")) return Fail("collider manifest content missing");
     if (!Contains(audit.lodManifestPath, "lod_manifest")) return Fail("LOD manifest content missing");
     if (!Contains(audit.assetCatalogPath, "Make3DAssetCatalog")) return Fail("asset catalog content missing");
+    if (!Contains(scene.previewPath, "scene_preview_config")) return Fail("scene preview content missing");
+    if (!Contains(scene.materialsPath, "scene_materials")) return Fail("scene materials content missing");
+    if (!Contains(scene.scalePath, "Scale Report")) return Fail("scene scale content missing");
+    if (!Contains(scene.placementPath, "scene_placement")) return Fail("scene placement content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
@@ -157,5 +167,6 @@ int main() {
     std::cout << "LOD2: " << finalAsset.lod2Path.u8string() << "\n";
     std::cout << "Delivery manifest: " << delivery.deliveryManifestPath.u8string() << "\n";
     std::cout << "Asset catalog: " << audit.assetCatalogPath.u8string() << "\n";
+    std::cout << "Scene preview: " << scene.previewPath.u8string() << "\n";
     return 0;
 }
