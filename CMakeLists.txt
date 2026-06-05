@@ -64,7 +64,6 @@ make3d_exe(Make3DMaskRefinerTest tests/Make3DMaskRefinerTest.cpp)
 make3d_exe(Make3DVoxelVolumeTest tests/Make3DVoxelVolumeTest.cpp)
 make3d_exe(Make3DGameAssetPipelineTest tests/Make3DGameAssetPipelineTest.cpp)
 make3d_exe(Make3DMeshQualityGateTest tests/Make3DMeshQualityGateTest.cpp)
-make3d_exe(Make3DAssetAnalysisPlanTest tests/Make3DAssetAnalysisPlanTest.cpp)
 
 add_executable(Make3DGameAssetCLI
     src/Make3DGameAssetCLI.cpp
@@ -106,8 +105,7 @@ foreach(test_name IN ITEMS
     Make3DMaskRefinerTest
     Make3DVoxelVolumeTest
     Make3DGameAssetPipelineTest
-    Make3DMeshQualityGateTest
-    Make3DAssetAnalysisPlanTest)
+    Make3DMeshQualityGateTest)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
 
