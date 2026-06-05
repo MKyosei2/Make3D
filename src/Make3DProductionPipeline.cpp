@@ -49,8 +49,10 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     o << "- raw/make3d_raw_material.gltf\n";
     o << "- polished/make3d_polished.obj\n";
     o << "- polished/make3d_polished_material.gltf\n";
+    o << "- polished/make3d_polished_vertex_color.gltf\n";
     o << "- voxel/make3d_voxel_volume.obj\n";
     o << "- voxel/make3d_voxel_volume_material.gltf\n";
+    o << "- voxel/make3d_voxel_volume_vertex_color.gltf\n";
     o << "- debug_mask_refined.ppm\n";
     o << "- debug_depth_refined.ppm\n";
     return o.str();
@@ -65,7 +67,9 @@ static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     o << "  \"voxelVolume\": " << result.voxelReport.ToJson() << ",\n";
     o << "  \"rawMaterialGltf\": \"raw/make3d_raw_material.gltf\",\n";
     o << "  \"polishedMaterialGltf\": \"polished/make3d_polished_material.gltf\",\n";
-    o << "  \"voxelMaterialGltf\": \"voxel/make3d_voxel_volume_material.gltf\"\n";
+    o << "  \"polishedVertexColorGltf\": \"polished/make3d_polished_vertex_color.gltf\",\n";
+    o << "  \"voxelMaterialGltf\": \"voxel/make3d_voxel_volume_material.gltf\",\n";
+    o << "  \"voxelVertexColorGltf\": \"voxel/make3d_voxel_volume_vertex_color.gltf\"\n";
     o << "}\n";
     return o.str();
 }
@@ -126,11 +130,17 @@ ProductionPipelineResult BuildProductionModelFromImage(
             PolishMesh(result.voxelMesh, voxelPolish);
             result.voxelObjPath = outputDir / "voxel" / "make3d_voxel_volume.obj";
             result.voxelMaterialGltfPath = outputDir / "voxel" / "make3d_voxel_volume_material.gltf";
+            result.voxelVertexColorGltfPath = outputDir / "voxel" / "make3d_voxel_volume_vertex_color.gltf";
             GltfMaterialOptions material;
             material.materialName = "Make3DVoxelVolumeMaterial";
             material.baseColorFactor = {0.66f, 0.76f, 0.90f, 1.0f};
             if (!ExportOBJ(result.voxelMesh, result.voxelObjPath, "", &error)) { result.message = error; return result; }
             if (!ExportGLTFWithMaterial(result.voxelMesh, result.voxelMaterialGltfPath, material, &error)) { result.message = error; return result; }
+            if (options.exportVertexColorGltf) {
+                VertexColorGltfOptions colorOptions;
+                colorOptions.materialName = "Make3DVoxelVertexColorMaterial";
+                if (!ExportGLTFWithVertexColors(result.voxelMesh, *color, result.voxelVertexColorGltfPath, colorOptions, &error)) { result.message = error; return result; }
+            }
         }
     }
 
@@ -147,11 +157,17 @@ ProductionPipelineResult BuildProductionModelFromImage(
     if (options.exportPolished) {
         result.polishedObjPath = outputDir / "polished" / "make3d_polished.obj";
         result.polishedMaterialGltfPath = outputDir / "polished" / "make3d_polished_material.gltf";
+        result.polishedVertexColorGltfPath = outputDir / "polished" / "make3d_polished_vertex_color.gltf";
         if (!ExportOBJ(result.polishedMesh, result.polishedObjPath, "", &error)) { result.message = error; return result; }
         GltfMaterialOptions material;
         material.materialName = "Make3DPolishedMaterial";
         material.baseColorFactor = {0.72f, 0.78f, 0.86f, 1.0f};
         if (!ExportGLTFWithMaterial(result.polishedMesh, result.polishedMaterialGltfPath, material, &error)) { result.message = error; return result; }
+        if (options.exportVertexColorGltf) {
+            VertexColorGltfOptions colorOptions;
+            colorOptions.materialName = "Make3DPolishedVertexColorMaterial";
+            if (!ExportGLTFWithVertexColors(result.polishedMesh, *color, result.polishedVertexColorGltfPath, colorOptions, &error)) { result.message = error; return result; }
+        }
     }
 
     if (options.writeDebugImages) {
