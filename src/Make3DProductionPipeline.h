@@ -26,9 +26,9 @@ struct ProductionPipelineOptions {
     ShapeInferenceOptions shapeInference;
     LearnedShapeModelOptions learnedShape;
     GameAssetGeneratorOptions gameAsset;
-    bool exportRaw = true;
-    bool exportPolished = true;
-    bool exportVoxelVolume = true;
+    bool exportRaw = false;
+    bool exportPolished = false;
+    bool exportVoxelVolume = false;
     bool exportHeroCharacter = true;
     bool exportGameAsset = true;
     bool exportVertexColorGltf = true;
