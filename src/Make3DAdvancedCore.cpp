@@ -13,6 +13,7 @@
 #include <limits>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <vector>
 
 namespace make3d {
@@ -159,54 +160,133 @@ void AddCylinder(MeshData& mesh, float cx, float cy0, float cy1, float cz, float
     }
 }
 
-void AddCharacterProxy(MeshData& mesh, int seg) {
-    AddEllipsoid(mesh, 0.0f, 1.10f, 0.0f, 0.34f, 0.52f, 0.23f, seg, 10);       // torso
-    AddEllipsoid(mesh, 0.0f, 0.73f, 0.0f, 0.32f, 0.18f, 0.20f, seg, 6);        // pelvis
-    AddCylinder(mesh, 0.0f, 1.55f, 1.68f, 0.0f, 0.08f, 0.08f, 12);             // neck
-    AddEllipsoid(mesh, 0.0f, 1.88f, 0.0f, 0.24f, 0.28f, 0.23f, seg, 10);       // head
-    AddEllipsoid(mesh, 0.0f, 2.10f, -0.01f, 0.28f, 0.10f, 0.24f, seg, 5);      // hair / cap mass
-    AddEllipsoid(mesh, -0.08f, 1.90f, 0.22f, 0.035f, 0.035f, 0.02f, 8, 4);     // eye marker
-    AddEllipsoid(mesh,  0.08f, 1.90f, 0.22f, 0.035f, 0.035f, 0.02f, 8, 4);
-    AddEllipsoid(mesh, 0.0f, 1.80f, 0.24f, 0.075f, 0.025f, 0.02f, 8, 4);       // mouth / muzzle proxy
-    AddCylinder(mesh, -0.43f, 0.96f, 1.47f, 0.0f, 0.075f, 0.065f, 12);         // left arm
-    AddCylinder(mesh,  0.43f, 0.96f, 1.47f, 0.0f, 0.075f, 0.065f, 12);         // right arm
-    AddEllipsoid(mesh, -0.43f, 1.50f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);       // shoulders
-    AddEllipsoid(mesh,  0.43f, 1.50f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);
-    AddEllipsoid(mesh, -0.43f, 0.88f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);       // hands
-    AddEllipsoid(mesh,  0.43f, 0.88f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);
-    AddCylinder(mesh, -0.15f, 0.22f, 0.77f, 0.0f, 0.085f, 0.075f, 12);         // legs
-    AddCylinder(mesh,  0.15f, 0.22f, 0.77f, 0.0f, 0.085f, 0.075f, 12);
-    AddEllipsoid(mesh, -0.15f, 0.11f, 0.09f, 0.15f, 0.06f, 0.18f, 12, 5);      // feet
-    AddEllipsoid(mesh,  0.15f, 0.11f, 0.09f, 0.15f, 0.06f, 0.18f, 12, 5);
+void AddCharacterAnatomyVolumes(MeshData& mesh, int seg, float widthScale) {
+    float ws = std::clamp(widthScale, 0.70f, 1.35f);
+    AddEllipsoid(mesh, 0.0f, 1.08f, 0.0f, 0.34f * ws, 0.50f, 0.22f, seg, 10);
+    AddEllipsoid(mesh, 0.0f, 0.71f, 0.0f, 0.32f * ws, 0.18f, 0.20f, seg, 6);
+    AddCylinder(mesh, 0.0f, 1.52f, 1.66f, 0.0f, 0.075f, 0.075f, 12);
+    AddEllipsoid(mesh, 0.0f, 1.86f, 0.0f, 0.23f * ws, 0.27f, 0.22f, seg, 10);
+    AddEllipsoid(mesh, 0.0f, 2.07f, -0.015f, 0.29f * ws, 0.10f, 0.23f, seg, 5);
+    AddEllipsoid(mesh, -0.08f * ws, 1.88f, 0.22f, 0.034f, 0.034f, 0.018f, 8, 4);
+    AddEllipsoid(mesh,  0.08f * ws, 1.88f, 0.22f, 0.034f, 0.034f, 0.018f, 8, 4);
+    AddEllipsoid(mesh, 0.0f, 1.78f, 0.235f, 0.070f, 0.022f, 0.018f, 8, 4);
+    AddCylinder(mesh, -0.43f * ws, 0.94f, 1.46f, 0.0f, 0.070f, 0.060f, 12);
+    AddCylinder(mesh,  0.43f * ws, 0.94f, 1.46f, 0.0f, 0.070f, 0.060f, 12);
+    AddEllipsoid(mesh, -0.43f * ws, 1.49f, 0.0f, 0.095f, 0.095f, 0.075f, 12, 5);
+    AddEllipsoid(mesh,  0.43f * ws, 1.49f, 0.0f, 0.095f, 0.095f, 0.075f, 12, 5);
+    AddEllipsoid(mesh, -0.43f * ws, 0.86f, 0.0f, 0.095f, 0.095f, 0.075f, 12, 5);
+    AddEllipsoid(mesh,  0.43f * ws, 0.86f, 0.0f, 0.095f, 0.095f, 0.075f, 12, 5);
+    AddCylinder(mesh, -0.15f * ws, 0.22f, 0.76f, 0.0f, 0.080f, 0.070f, 12);
+    AddCylinder(mesh,  0.15f * ws, 0.22f, 0.76f, 0.0f, 0.080f, 0.070f, 12);
+    AddEllipsoid(mesh, -0.15f * ws, 0.10f, 0.09f, 0.14f, 0.055f, 0.17f, 12, 5);
+    AddEllipsoid(mesh,  0.15f * ws, 0.10f, 0.09f, 0.14f, 0.055f, 0.17f, 12, 5);
 }
 
-MeshData BuildDetailedProxy(const ImageRGBA& color, const std::vector<std::uint8_t>& mask, const AdvancedOptions& options) {
+bool CellForeground(const std::vector<std::uint8_t>& cells, int nx, int ny, int x, int y) {
+    return x >= 0 && y >= 0 && x < nx && y < ny && cells[static_cast<size_t>(y) * nx + x] != 0;
+}
+
+float SampleDepthAt(const DepthImage& depth, int px, int py) {
+    if (depth.width <= 0 || depth.height <= 0 || depth.values.empty()) return 0.60f;
+    px = std::clamp(px, 0, depth.width - 1);
+    py = std::clamp(py, 0, depth.height - 1);
+    return Clamp01Local(depth.values[static_cast<size_t>(py) * depth.width + px]);
+}
+
+MeshData BuildImageDrivenDetailedMesh(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const AdvancedOptions& options) {
     int minX = color.width, minY = color.height, maxX = -1, maxY = -1, fg = 0;
-    for (int y = 0; y < color.height; ++y) for (int x = 0; x < color.width; ++x) {
-        if (!mask[static_cast<size_t>(y) * color.width + x]) continue;
-        ++fg; minX = std::min(minX, x); minY = std::min(minY, y); maxX = std::max(maxX, x); maxY = std::max(maxY, y);
-    }
-    int bw = std::max(1, maxX - minX + 1);
-    int bh = std::max(1, maxY - minY + 1);
-    float aspect = static_cast<float>(bh) / static_cast<float>(bw);
-    float coverage = color.width > 0 && color.height > 0 ? static_cast<float>(fg) / static_cast<float>(color.width * color.height) : 0.0f;
-    int seg = std::max(18, options.volumeRadialSegments + 6);
-    MeshData mesh;
-    if (aspect > 1.15f) {
-        AddCharacterProxy(mesh, seg);
-    } else if (aspect < 0.72f && coverage > 0.04f) {
-        AddBox(mesh, 0.0f, 0.55f, 0.0f, 1.90f, 0.56f, 0.78f);
-        AddBox(mesh, 0.12f, 0.96f, 0.0f, 0.92f, 0.42f, 0.66f);
-        for (float x : {-0.70f, 0.70f}) for (float z : {-0.40f, 0.40f}) AddEllipsoid(mesh, x, 0.15f, z, 0.19f, 0.19f, 0.19f, seg, 8);
-    } else {
-        float width = std::clamp(2.0f / std::max(0.35f, aspect), 0.65f, 2.5f);
-        AddBox(mesh, 0.0f, 0.95f, 0.0f, width, 1.90f, 0.62f);
-        AddBox(mesh, 0.0f, 1.96f, 0.0f, width * 1.10f, 0.20f, 0.72f);
-        AddBox(mesh, 0.0f, 0.12f, 0.35f, width * 0.20f, 0.24f, 0.08f);
-        for (int row = 0; row < 4; ++row) for (int col = 0; col < 4; ++col) {
-            AddBox(mesh, -width * 0.34f + width * 0.23f * col, 0.60f + 0.30f * row, 0.35f, width * 0.09f, 0.11f, 0.05f);
+    for (int y = 0; y < color.height; ++y) {
+        for (int x = 0; x < color.width; ++x) {
+            if (!mask[static_cast<size_t>(y) * color.width + x]) continue;
+            ++fg;
+            minX = std::min(minX, x); minY = std::min(minY, y);
+            maxX = std::max(maxX, x); maxY = std::max(maxY, y);
         }
     }
+
+    MeshData mesh;
+    if (fg <= 0 || minX > maxX || minY > maxY) return mesh;
+
+    const int bw = std::max(1, maxX - minX + 1);
+    const int bh = std::max(1, maxY - minY + 1);
+    const float aspect = static_cast<float>(bh) / static_cast<float>(bw);
+    const float invAspect = static_cast<float>(bw) / static_cast<float>(bh);
+    const float coverage = color.width > 0 && color.height > 0 ? static_cast<float>(fg) / static_cast<float>(color.width * color.height) : 0.0f;
+    const int target = std::clamp(options.maxGridResolution > 0 ? options.maxGridResolution / 2 : 48, 32, 96);
+    const float fitScale = static_cast<float>(target) / static_cast<float>(std::max(bw, bh));
+    const int nx = std::clamp(static_cast<int>(std::round(bw * fitScale)), 24, target);
+    const int ny = std::clamp(static_cast<int>(std::round(bh * fitScale)), 24, target);
+    const float modelWidth = std::clamp(invAspect * 2.0f, 0.60f, 2.60f);
+    const float modelHeight = 2.0f;
+
+    std::vector<std::uint8_t> cells(static_cast<size_t>(nx) * ny, 0);
+    for (int gy = 0; gy < ny; ++gy) {
+        for (int gx = 0; gx < nx; ++gx) {
+            int px = minX + std::clamp(static_cast<int>(((gx + 0.5f) / nx) * bw), 0, bw - 1);
+            int py = minY + std::clamp(static_cast<int>(((gy + 0.5f) / ny) * bh), 0, bh - 1);
+            cells[static_cast<size_t>(gy) * nx + gx] = mask[static_cast<size_t>(py) * color.width + px] ? 255 : 0;
+        }
+    }
+
+    std::vector<int> front(static_cast<size_t>(nx + 1) * (ny + 1), -1);
+    std::vector<int> back(static_cast<size_t>(nx + 1) * (ny + 1), -1);
+
+    auto ensureCorner = [&](int gx, int gy, bool wantFront) -> int {
+        std::vector<int>& table = wantFront ? front : back;
+        size_t key = static_cast<size_t>(gy) * (nx + 1) + gx;
+        if (table[key] >= 0) return table[key];
+
+        float u = static_cast<float>(gx) / static_cast<float>(nx);
+        float v = static_cast<float>(gy) / static_cast<float>(ny);
+        int px = minX + std::clamp(static_cast<int>(u * bw), 0, bw - 1);
+        int py = minY + std::clamp(static_cast<int>(v * bh), 0, bh - 1);
+        float centeredX = (u - 0.5f) * 2.0f;
+        float centeredY = (0.5f - v) * 2.0f;
+        float radial = std::sqrt(centeredX * centeredX * 0.55f + centeredY * centeredY * 0.25f);
+        float bulge = std::max(0.0f, 1.0f - radial);
+        float depthSample = SampleDepthAt(depth, px, py);
+        float halfThickness = 0.055f + 0.20f * depthSample + 0.16f * bulge;
+        float x = centeredX * modelWidth * 0.5f;
+        float y = (1.0f - v) * modelHeight;
+        float z = wantFront ? halfThickness : -halfThickness;
+        int index = VertexCountLocal(mesh);
+        AddVertex(mesh, x, y, z, u, v);
+        table[key] = index;
+        return index;
+    };
+
+    for (int gy = 0; gy < ny; ++gy) {
+        for (int gx = 0; gx < nx; ++gx) {
+            if (!CellForeground(cells, nx, ny, gx, gy)) continue;
+            int f00 = ensureCorner(gx, gy, true);
+            int f10 = ensureCorner(gx + 1, gy, true);
+            int f11 = ensureCorner(gx + 1, gy + 1, true);
+            int f01 = ensureCorner(gx, gy + 1, true);
+            int b00 = ensureCorner(gx, gy, false);
+            int b10 = ensureCorner(gx + 1, gy, false);
+            int b11 = ensureCorner(gx + 1, gy + 1, false);
+            int b01 = ensureCorner(gx, gy + 1, false);
+
+            AddQuad(mesh, f00, f10, f11, f01);
+            AddQuad(mesh, b10, b00, b01, b11);
+            if (!CellForeground(cells, nx, ny, gx, gy - 1)) AddQuad(mesh, b00, f00, f10, b10);
+            if (!CellForeground(cells, nx, ny, gx, gy + 1)) AddQuad(mesh, f01, b01, b11, f11);
+            if (!CellForeground(cells, nx, ny, gx - 1, gy)) AddQuad(mesh, b00, b01, f01, f00);
+            if (!CellForeground(cells, nx, ny, gx + 1, gy)) AddQuad(mesh, f10, f11, b11, b10);
+        }
+    }
+
+    int seg = std::max(18, options.volumeRadialSegments + 6);
+    if (aspect > 1.10f) {
+        AddCharacterAnatomyVolumes(mesh, seg, std::clamp(modelWidth / 1.15f, 0.75f, 1.30f));
+    } else if (aspect < 0.72f && coverage > 0.04f) {
+        AddBox(mesh, 0.0f, 0.55f, 0.0f, modelWidth * 0.95f, 0.30f, 0.60f);
+        AddBox(mesh, 0.10f, 0.88f, 0.0f, modelWidth * 0.45f, 0.28f, 0.50f);
+        for (float x : {-modelWidth * 0.34f, modelWidth * 0.34f}) {
+            for (float z : {-0.30f, 0.30f}) AddEllipsoid(mesh, x, 0.12f, z, 0.14f, 0.14f, 0.14f, seg, 8);
+        }
+    }
+
     RecomputeNormals(mesh);
     NormalizeMesh(mesh, 2.0f);
     return mesh;
@@ -278,9 +358,25 @@ std::vector<std::uint8_t> BuildForegroundMask(const ImageRGBA& image, Reconstruc
 DepthImage EstimateDepthFromSingleImage(const ImageRGBA& image, const std::vector<std::uint8_t>& mask, ReconstructionReport* report) {
     DepthImage depth;
     depth.width = image.width; depth.height = image.height;
-    depth.values.assign(static_cast<size_t>(image.width) * image.height, 0.55f);
-    for (size_t i = 0; i < depth.values.size() && i < mask.size(); ++i) depth.values[i] = mask[i] ? 0.60f : 0.0f;
-    if (report) { report->depthMin = 0.0f; report->depthMax = 0.60f; report->depthMean = 0.60f; }
+    depth.values.assign(static_cast<size_t>(image.width) * image.height, 0.0f);
+    float sum = 0.0f;
+    int count = 0;
+    for (int y = 0; y < image.height; ++y) {
+        for (int x = 0; x < image.width; ++x) {
+            size_t idx = static_cast<size_t>(y) * image.width + x;
+            if (!mask[idx]) continue;
+            float u = image.width > 1 ? static_cast<float>(x) / static_cast<float>(image.width - 1) : 0.5f;
+            float v = image.height > 1 ? static_cast<float>(y) / static_cast<float>(image.height - 1) : 0.5f;
+            float dx = (u - 0.5f) * 2.0f;
+            float dy = (v - 0.5f) * 2.0f;
+            float centerBulge = std::max(0.0f, 1.0f - std::sqrt(dx * dx * 0.55f + dy * dy * 0.35f));
+            float d = 0.38f + 0.52f * centerBulge;
+            depth.values[idx] = d;
+            sum += d;
+            ++count;
+        }
+    }
+    if (report) { report->depthMin = 0.0f; report->depthMax = 0.90f; report->depthMean = count > 0 ? sum / count : 0.0f; }
     return depth;
 }
 
@@ -289,14 +385,14 @@ DepthImage PrepareDepth(const ImageRGBA& color, const std::optional<DepthImage>&
     return EstimateDepthFromSingleImage(color, mask, report);
 }
 
-MeshData ReconstructMesh(const ImageRGBA& color, const DepthImage&, const std::vector<std::uint8_t>& mask, const AdvancedOptions& options, ReconstructionReport* report) {
-    MeshData mesh = BuildDetailedProxy(color, mask, options);
+MeshData ReconstructMesh(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const AdvancedOptions& options, ReconstructionReport* report) {
+    MeshData mesh = BuildImageDrivenDetailedMesh(color, depth, mask, options);
     if (report) {
-        report->reconstructionMode = "DetailedEditableProxy";
+        report->reconstructionMode = "ImageDrivenDetailedMesh";
         report->vertices = VertexCountLocal(mesh);
         report->triangles = TriangleCountLocal(mesh);
         report->watertightCandidate = true;
-        report->warnings.push_back("Generated as a multi-part editable proxy mesh for preview and manual refinement.");
+        report->warnings.push_back("Generated from the actual foreground silhouette with front/back surfaces, closed side walls, depth bulge, and editable helper volumes.");
     }
     return mesh;
 }
@@ -329,7 +425,7 @@ void NormalizeMesh(MeshData& mesh, float targetHeight) {
 bool ExportOBJ(const MeshData& mesh, const fs::path& objPath, const std::string& materialTextureName, std::string* error) {
     std::error_code ec; fs::create_directories(objPath.parent_path(), ec);
     std::ofstream obj(objPath, std::ios::binary); if (!obj) { if (error) *error = "Failed to open OBJ for writing."; return false; }
-    obj << "mtllib make3d_material.mtl\n" << "o Make3DDetailedEditableProxy\n";
+    obj << "mtllib make3d_material.mtl\n" << "o Make3DImageDrivenDetailedMesh\n";
     for (size_t i = 0; i + 2 < mesh.positions.size(); i += 3) obj << "v " << mesh.positions[i] << ' ' << mesh.positions[i + 1] << ' ' << mesh.positions[i + 2] << "\n";
     for (size_t i = 0; i + 1 < mesh.uvs.size(); i += 2) obj << "vt " << mesh.uvs[i] << ' ' << (1.0f - mesh.uvs[i + 1]) << "\n";
     for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) obj << "vn " << mesh.normals[i] << ' ' << mesh.normals[i + 1] << ' ' << mesh.normals[i + 2] << "\n";
@@ -355,8 +451,8 @@ bool ExportGLTF(const MeshData& mesh, const fs::path& gltfPath, std::string* err
     for (size_t i = 0; i + 2 < mesh.positions.size(); i += 3) { mn.x = std::min(mn.x, mesh.positions[i]); mn.y = std::min(mn.y, mesh.positions[i + 1]); mn.z = std::min(mn.z, mesh.positions[i + 2]); mx.x = std::max(mx.x, mesh.positions[i]); mx.y = std::max(mx.y, mesh.positions[i + 1]); mx.z = std::max(mx.z, mesh.positions[i + 2]); }
     std::ofstream gltf(gltfPath, std::ios::binary); if (!gltf) { if (error) *error = "Failed to open glTF for writing."; return false; }
     gltf << std::fixed << std::setprecision(6);
-    gltf << "{\n  \"asset\": { \"version\": \"2.0\", \"generator\": \"Make3D detailed editable proxy\" },\n";
-    gltf << "  \"scene\": 0,\n  \"scenes\": [{ \"nodes\": [0] }],\n  \"nodes\": [{ \"mesh\": 0, \"name\": \"Make3DDetailedEditableProxy\" }],\n";
+    gltf << "{\n  \"asset\": { \"version\": \"2.0\", \"generator\": \"Make3D image-driven detailed mesh\" },\n";
+    gltf << "  \"scene\": 0,\n  \"scenes\": [{ \"nodes\": [0] }],\n  \"nodes\": [{ \"mesh\": 0, \"name\": \"Make3DImageDrivenDetailedMesh\" }],\n";
     gltf << "  \"meshes\": [{ \"primitives\": [{ \"attributes\": { \"POSITION\": 0, \"NORMAL\": 1, \"TEXCOORD_0\": 2 }, \"indices\": 3, \"mode\": 4 }] }],\n";
     gltf << "  \"buffers\": [{ \"uri\": \"make3d_advanced.bin\", \"byteLength\": " << totalSize << " }],\n";
     gltf << "  \"bufferViews\": [{ \"buffer\": 0, \"byteOffset\": " << posOffset << ", \"byteLength\": " << posBytes << ", \"target\": 34962 },{ \"buffer\": 0, \"byteOffset\": " << normOffset << ", \"byteLength\": " << normBytes << ", \"target\": 34962 },{ \"buffer\": 0, \"byteOffset\": " << uvOffset << ", \"byteLength\": " << uvBytes << ", \"target\": 34962 },{ \"buffer\": 0, \"byteOffset\": " << idxOffset << ", \"byteLength\": " << idxBytes << ", \"target\": 34963 }],\n";
@@ -398,7 +494,7 @@ BuildOutput BuildModelFromImage(const fs::path& colorPath, const std::optional<f
     out.mesh = ReconstructMesh(*color, depth, mask, options, &out.report);
     if (out.mesh.positions.empty() || out.mesh.indices.empty()) { out.message = "Mesh reconstruction failed."; return out; }
     RecomputeNormals(out.mesh); NormalizeMesh(out.mesh, 2.0f);
-    out.report.reconstructionMode = "DetailedEditableProxy"; out.report.vertices = VertexCountLocal(out.mesh); out.report.triangles = TriangleCountLocal(out.mesh); out.report.watertightCandidate = true;
+    out.report.reconstructionMode = "ImageDrivenDetailedMesh"; out.report.vertices = VertexCountLocal(out.mesh); out.report.triangles = TriangleCountLocal(out.mesh); out.report.watertightCandidate = true;
     std::error_code ec; fs::create_directories(outputDir, ec);
     fs::path objPath = outputDir / "make3d_advanced.obj", gltfPath = outputDir / "make3d_advanced.gltf", reportMd = outputDir / "make3d_report.md", reportJson = outputDir / "make3d_report.json";
     if (options.exportObj && !ExportOBJ(out.mesh, objPath, "", &error)) { out.message = error; return out; }
@@ -412,7 +508,7 @@ BuildOutput BuildModelFromImage(const fs::path& colorPath, const std::optional<f
         SaveDebugPPM(outputDir / "debug_mask.ppm", color->width, color->height, maskRgb, nullptr);
         SaveDebugPPM(outputDir / "debug_depth.ppm", color->width, color->height, depthRgb, nullptr);
     }
-    out.ok = true; out.message = "Advanced reconstruction finished with detailed editable proxy output."; return out;
+    out.ok = true; out.message = "Advanced reconstruction finished with image-driven detailed mesh output."; return out;
 }
 
 const char* ToString(ReconstructionMode mode) {
