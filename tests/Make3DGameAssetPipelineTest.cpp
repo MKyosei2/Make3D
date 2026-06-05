@@ -112,8 +112,14 @@ int main() {
     if (!fs::exists(finalAsset.animationPreviewPath)) return Fail("animation preview missing");
     if (!fs::exists(finalAsset.meshCheckPath)) return Fail("mesh check missing");
     if (!fs::exists(finalAsset.frameReportPath)) return Fail("frame report missing");
+    if (!fs::exists(finalAsset.lod2Path)) return Fail("LOD2 missing");
+    if (!fs::exists(finalAsset.vertexInfluencesPath)) return Fail("vertex influences missing");
+    if (!fs::exists(finalAsset.frameConsistencyPath)) return Fail("frame consistency missing");
+    if (!fs::exists(finalAsset.textureAtlasPath)) return Fail("texture atlas missing");
+    if (!fs::exists(finalAsset.runtimeChecklistPath)) return Fail("runtime checklist missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
+    if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
     if (complete.bounds.sizeX <= 0.0f || complete.bounds.sizeY <= 0.0f || complete.bounds.sizeZ <= 0.0f) return Fail("invalid bounds");
     if (complete.joints.empty()) return Fail("pivot metadata missing");
     if (!Contains(result.reportPath, "Game-ready candidate")) return Fail("report metric missing");
@@ -122,10 +128,14 @@ int main() {
     if (!Contains(finalAsset.bindingMetadataPath, "procedural binding")) return Fail("binding metadata content missing");
     if (!Contains(finalAsset.animationPreviewPath, "turntable_preview")) return Fail("animation preview content missing");
     if (!Contains(finalAsset.frameReportPath, "frameCount")) return Fail("frame report content missing");
+    if (!Contains(finalAsset.vertexInfluencesPath, "influences")) return Fail("vertex influences content missing");
+    if (!Contains(finalAsset.frameConsistencyPath, "consistent")) return Fail("frame consistency content missing");
+    if (!Contains(finalAsset.runtimeChecklistPath, "Runtime Import Checklist")) return Fail("runtime checklist content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
     std::cout << "Manifest: " << complete.manifestPath.u8string() << "\n";
     std::cout << "Retopo proxy: " << finalAsset.retopoProxyPath.u8string() << "\n";
+    std::cout << "LOD2: " << finalAsset.lod2Path.u8string() << "\n";
     return 0;
 }

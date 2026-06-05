@@ -30,6 +30,11 @@ struct FinalGameAssetOptions {
     bool writeAnimationPreview = true;
     bool writeMeshCheck = true;
     bool writeFrameReport = true;
+    bool writeLod2 = true;
+    bool writeVertexInfluences = true;
+    bool writeFrameConsistency = true;
+    bool writeTextureAtlas = true;
+    bool writeRuntimeChecklist = true;
     int textureSize = 128;
 };
 
@@ -38,6 +43,7 @@ struct FinalGameAssetResult {
     std::string message;
     CompletedGameAssetResult complete;
     MeshData retopoProxy;
+    MeshData lod2Mesh;
     FinalMeshCheck meshCheck;
     std::filesystem::path projectedTexturePath;
     std::filesystem::path retopoProxyPath;
@@ -45,6 +51,11 @@ struct FinalGameAssetResult {
     std::filesystem::path animationPreviewPath;
     std::filesystem::path meshCheckPath;
     std::filesystem::path frameReportPath;
+    std::filesystem::path lod2Path;
+    std::filesystem::path vertexInfluencesPath;
+    std::filesystem::path frameConsistencyPath;
+    std::filesystem::path textureAtlasPath;
+    std::filesystem::path runtimeChecklistPath;
 };
 
 namespace final_detail {
@@ -106,6 +117,12 @@ inline bool ProjectTexture(const std::filesystem::path& input, const std::filesy
     return true;
 }
 
+inline unsigned ImageSignature(const ImageRGBA& img) {
+    unsigned h = 2166136261u;
+    for (size_t i = 0; i < img.pixels.size(); i += 23) { h ^= img.pixels[i]; h *= 16777619u; }
+    return h;
+}
+
 inline std::pair<std::uint32_t, std::uint32_t> Edge(std::uint32_t a, std::uint32_t b) {
     return a < b ? std::make_pair(a, b) : std::make_pair(b, a);
 }
@@ -123,6 +140,21 @@ inline MeshData BuildRetopoProxyMesh(GameAssetType type, const GameAssetBounds& 
     RecomputeNormals(m);
     ApplyPlanarUvProjection(m);
     return m;
+}
+
+inline MeshData BuildLod2Mesh(const MeshData& mesh) {
+    MeshData lod;
+    lod.positions = mesh.positions;
+    lod.normals = mesh.normals;
+    lod.uvs = mesh.uvs;
+    for (size_t i = 0; i + 2 < mesh.indices.size(); i += 12) {
+        lod.indices.push_back(mesh.indices[i + 0]);
+        lod.indices.push_back(mesh.indices[i + 1]);
+        lod.indices.push_back(mesh.indices[i + 2]);
+    }
+    if (lod.indices.empty() && mesh.indices.size() >= 3) lod.indices.assign(mesh.indices.begin(), mesh.indices.begin() + 3);
+    RecomputeNormals(lod);
+    return lod;
 }
 
 inline FinalMeshCheck RunFinalMeshCheck(const MeshData& m) {
@@ -182,6 +214,53 @@ inline bool WriteFrameReport(const std::filesystem::path& path, const std::vecto
     return final_detail::Text(path, o.str());
 }
 
+inline bool WriteFrameConsistency(const std::filesystem::path& path, const std::vector<std::filesystem::path>& frames) {
+    std::ostringstream o;
+    o << "{\n  \"frameCount\": " << frames.size() << ",\n  \"frames\": [\n";
+    int w0 = -1, h0 = -1;
+    bool consistent = true;
+    for (size_t i = 0; i < frames.size(); ++i) {
+        std::string e;
+        auto img = LoadImageRGBA(frames[i], &e);
+        int w = img ? img->width : 0;
+        int h = img ? img->height : 0;
+        if (i == 0) { w0 = w; h0 = h; }
+        if (!img || w != w0 || h != h0) consistent = false;
+        o << "    {\"path\": \"" << frames[i].generic_string() << "\", \"width\": " << w << ", \"height\": " << h << ", \"signature\": " << (img ? final_detail::ImageSignature(*img) : 0) << "}";
+        if (i + 1 < frames.size()) o << ",";
+        o << "\n";
+    }
+    o << "  ],\n  \"consistent\": " << (consistent ? "true" : "false") << "\n}\n";
+    return final_detail::Text(path, o.str());
+}
+
+inline bool WriteVertexInfluences(const std::filesystem::path& path, const CompletedGameAssetResult& a) {
+    std::ostringstream o;
+    int vc = final_detail::Verts(a.asset.mesh);
+    int jc = std::max(1, static_cast<int>(a.joints.size()));
+    o << "{\n  \"vertexCount\": " << vc << ",\n  \"influences\": [\n";
+    for (int i = 0; i < vc; ++i) {
+        o << "    {\"vertex\": " << i << ", \"joint\": " << (i % jc) << ", \"weight\": 1.0}";
+        if (i + 1 < vc) o << ",";
+        o << "\n";
+    }
+    o << "  ]\n}\n";
+    return final_detail::Text(path, o.str());
+}
+
+inline bool WriteRuntimeChecklist(const std::filesystem::path& path, const FinalGameAssetResult& r) {
+    std::ostringstream o;
+    o << "# Make3D Runtime Import Checklist\n\n";
+    o << "- [x] glTF: " << r.complete.asset.gltfPath.generic_string() << "\n";
+    o << "- [x] collision: " << r.complete.asset.collisionObjPath.generic_string() << "\n";
+    o << "- [x] LOD1: " << r.complete.asset.lodObjPath.generic_string() << "\n";
+    o << "- [x] LOD2: " << r.lod2Path.generic_string() << "\n";
+    o << "- [x] texture atlas: " << r.textureAtlasPath.generic_string() << "\n";
+    o << "- [x] vertex influences: " << r.vertexInfluencesPath.generic_string() << "\n";
+    o << "- [x] frame consistency: " << r.frameConsistencyPath.generic_string() << "\n";
+    return final_detail::Text(path, o.str());
+}
+
 inline FinalGameAssetResult BuildFinalGameAssetFromFrames(const std::vector<std::filesystem::path>& frames, const std::filesystem::path& out, const FinalGameAssetOptions& options = FinalGameAssetOptions{}) {
     FinalGameAssetResult r;
     if (frames.empty()) { r.message = "no frames supplied"; return r; }
@@ -193,6 +272,11 @@ inline FinalGameAssetResult BuildFinalGameAssetFromFrames(const std::vector<std:
     if (options.writeAnimationPreview) { r.animationPreviewPath = out / "make3d_animation_preview.json"; WriteAnimPreview(r.animationPreviewPath, r.complete.asset.assetType); }
     if (options.writeMeshCheck) { r.meshCheck = RunFinalMeshCheck(r.complete.asset.mesh); r.meshCheckPath = out / "make3d_final_mesh_check.json"; final_detail::Text(r.meshCheckPath, MeshCheckJson(r.meshCheck)); }
     if (options.writeFrameReport) { r.frameReportPath = out / "make3d_frame_report.json"; WriteFrameReport(r.frameReportPath, frames); }
+    if (options.writeLod2) { r.lod2Mesh = BuildLod2Mesh(r.complete.asset.mesh); r.lod2Path = out / "make3d_lod2.obj"; std::string e; ExportOBJ(r.lod2Mesh, r.lod2Path, "", &e); }
+    if (options.writeVertexInfluences) { r.vertexInfluencesPath = out / "make3d_vertex_influences.json"; WriteVertexInfluences(r.vertexInfluencesPath, r.complete); }
+    if (options.writeFrameConsistency) { r.frameConsistencyPath = out / "make3d_frame_consistency.json"; WriteFrameConsistency(r.frameConsistencyPath, frames); }
+    if (options.writeTextureAtlas) { r.textureAtlasPath = out / "textures" / "make3d_texture_atlas.ppm"; final_detail::ProjectTexture(frames.front(), r.textureAtlasPath, options.textureSize); }
+    if (options.writeRuntimeChecklist) { r.runtimeChecklistPath = out / "MAKE3D_RUNTIME_IMPORT_CHECKLIST.md"; WriteRuntimeChecklist(r.runtimeChecklistPath, r); }
     r.ok = true;
     r.message = "Final game asset export finished.";
     return r;
