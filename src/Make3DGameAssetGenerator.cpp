@@ -20,7 +20,6 @@ struct Vec3 { float x = 0.0f, y = 0.0f, z = 0.0f; };
 static int VertexCount(const MeshData& mesh) { return static_cast<int>(mesh.positions.size() / 3); }
 static int TriangleCount(const MeshData& mesh) { return static_cast<int>(mesh.indices.size() / 3); }
 static int Idx(int x, int y, int w) { return y * w + x; }
-static float Clamp01(float v) { return std::max(0.0f, std::min(1.0f, v)); }
 
 static std::string EscapeJson(const std::string& s) {
     std::ostringstream o;
@@ -55,12 +54,10 @@ static void AddQuad(MeshData& mesh, int a, int b, int c, int d) {
 
 static bool ComputeMaskBounds(const std::vector<std::uint8_t>& mask, int w, int h, int& minX, int& minY, int& maxX, int& maxY) {
     minX = w; minY = h; maxX = -1; maxY = -1;
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            if (!mask[static_cast<size_t>(Idx(x, y, w))]) continue;
-            minX = std::min(minX, x); minY = std::min(minY, y);
-            maxX = std::max(maxX, x); maxY = std::max(maxY, y);
-        }
+    for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
+        if (!mask[static_cast<size_t>(Idx(x, y, w))]) continue;
+        minX = std::min(minX, x); minY = std::min(minY, y);
+        maxX = std::max(maxX, x); maxY = std::max(maxY, y);
     }
     return maxX >= minX && maxY >= minY;
 }
@@ -134,22 +131,18 @@ static MeshData BuildBuildingAsset(const ImageRGBA& color, const DepthImage& dep
     width = std::clamp(width, 0.65f, 2.8f);
     float depthSize = std::max(0.30f, options.buildingDepth);
     AddBox(mesh, 0.0f, height * 0.5f, 0.0f, width, height, depthSize);
-
     if (options.addBuildingDetails) {
         float roofH = std::max(0.12f, height * 0.12f);
         AddBox(mesh, 0.0f, height + roofH * 0.30f, 0.0f, width * 1.10f, roofH, depthSize * 1.12f);
         int columns = std::clamp(static_cast<int>(width * 3.0f + 1.0f), 2, 6);
         int rows = std::clamp(static_cast<int>(height * 2.2f), 2, 7);
-        for (int row = 0; row < rows; ++row) {
+        for (int row = 0; row < rows; ++row) for (int col = 0; col < columns; ++col) {
             float y = height * (0.18f + 0.66f * (static_cast<float>(row) + 0.5f) / static_cast<float>(rows));
-            for (int col = 0; col < columns; ++col) {
-                float x = -width * 0.38f + width * 0.76f * (static_cast<float>(col) + 0.5f) / static_cast<float>(columns);
-                AddBox(mesh, x, y, depthSize * 0.505f, width * 0.10f, height * 0.065f, depthSize * 0.035f);
-            }
+            float x = -width * 0.38f + width * 0.76f * (static_cast<float>(col) + 0.5f) / static_cast<float>(columns);
+            AddBox(mesh, x, y, depthSize * 0.505f, width * 0.10f, height * 0.065f, depthSize * 0.035f);
         }
         AddBox(mesh, 0.0f, height * 0.075f, depthSize * 0.515f, width * 0.18f, height * 0.15f, depthSize * 0.05f);
     }
-
     RecomputeNormals(mesh);
     NormalizeMesh(mesh, options.targetHeight);
     return mesh;
@@ -182,6 +175,23 @@ static MeshData BuildGenericPrimitiveAsset(const ImageRGBA& color, const DepthIm
     return mesh;
 }
 
+static MeshData BuildSafeProxyAsset(GameAssetType type, const GameAssetGeneratorOptions& options) {
+    MeshData mesh;
+    if (type == GameAssetType::Building || type == GameAssetType::ArchitecturalPart) {
+        AddBox(mesh, 0.0f, options.targetHeight * 0.5f, 0.0f, 1.0f, options.targetHeight, std::max(0.35f, options.buildingDepth));
+    } else if (type == GameAssetType::Vehicle) {
+        mesh = BuildVehicleLikeAsset(options);
+    } else if (type == GameAssetType::Character || type == GameAssetType::Creature) {
+        AddCylinder(mesh, 0.0f, 0.0f, options.targetHeight, 0.0f, 0.28f, 0.18f, std::max(12, options.radialSegments));
+        AddCylinder(mesh, 0.0f, options.targetHeight * 0.76f, options.targetHeight * 1.02f, 0.0f, 0.20f, 0.20f, std::max(12, options.radialSegments));
+    } else {
+        AddBox(mesh, 0.0f, options.targetHeight * 0.5f, 0.0f, 0.85f, options.targetHeight, 0.55f);
+    }
+    RecomputeNormals(mesh);
+    NormalizeMesh(mesh, options.targetHeight);
+    return mesh;
+}
+
 static MeshData BuildColliderBox(const GameAssetValidationReport& validation) {
     MeshData mesh;
     float sx = std::max(0.001f, validation.boundsMaxX - validation.boundsMinX);
@@ -203,13 +213,9 @@ static MeshData BuildLodProxy(const GameAssetValidationReport& validation, GameA
     float cx = (validation.boundsMinX + validation.boundsMaxX) * 0.5f;
     float cy = (validation.boundsMinY + validation.boundsMaxY) * 0.5f;
     float cz = (validation.boundsMinZ + validation.boundsMaxZ) * 0.5f;
-    if (type == GameAssetType::Vehicle) {
-        AddBox(mesh, cx, cy, cz, sx, sy * 0.82f, sz);
-    } else if (type == GameAssetType::Building || type == GameAssetType::ArchitecturalPart) {
-        AddBox(mesh, cx, cy, cz, sx, sy, sz);
-    } else {
-        AddCylinder(mesh, cx, validation.boundsMinY, validation.boundsMaxY, cz, sx * 0.38f, sz * 0.38f, 12);
-    }
+    if (type == GameAssetType::Vehicle) AddBox(mesh, cx, cy, cz, sx, sy * 0.82f, sz);
+    else if (type == GameAssetType::Building || type == GameAssetType::ArchitecturalPart) AddBox(mesh, cx, cy, cz, sx, sy, sz);
+    else AddCylinder(mesh, cx, validation.boundsMinY, validation.boundsMaxY, cz, sx * 0.38f, sz * 0.38f, 12);
     RecomputeNormals(mesh);
     return mesh;
 }
@@ -219,6 +225,7 @@ static std::string MakeMarkdownReport(const GameAssetGenerationResult& result) {
     o << "# Make3D Generic Game Asset Report\n\n";
     o << result.classification.ToMarkdown() << "\n";
     o << "## Mesh validation\n\n" << result.validation.ToMarkdown() << "\n";
+    o << "## Phase 0 safe-output quality gate\n\n" << result.qualityGate.ToMarkdown() << "\n";
     o << "## Game metadata\n\n" << result.metadata.ToMarkdown() << "\n";
     o << "## Output files\n\n";
     o << "- " << result.objPath.generic_string() << "\n";
@@ -235,6 +242,7 @@ static std::string MakeManifestJson(const GameAssetGenerationResult& result) {
     o << "  \"message\": \"" << EscapeJson(result.message) << "\",\n";
     o << "  \"classification\": " << result.classification.ToJson() << ",\n";
     o << "  \"validation\": " << result.validation.ToJson() << ",\n";
+    o << "  \"qualityGate\": " << result.qualityGate.ToJson() << ",\n";
     o << "  \"metadata\": " << result.metadata.ToJson() << ",\n";
     o << "  \"obj\": \"" << EscapeJson(result.objPath.generic_string()) << "\",\n";
     o << "  \"gltf\": \"" << EscapeJson(result.gltfPath.generic_string()) << "\",\n";
@@ -252,11 +260,7 @@ GameAssetValidationReport ValidateGameAssetMesh(const MeshData& mesh) {
     r.triangles = TriangleCount(mesh);
     r.missingNormals = mesh.normals.size() == mesh.positions.size() ? 0 : 1;
     r.missingUvs = mesh.uvs.size() == static_cast<size_t>(r.vertices) * 2 ? 0 : 1;
-
-    if (mesh.positions.empty()) {
-        r.warnings.push_back("Mesh has no positions.");
-        return r;
-    }
+    if (mesh.positions.empty()) { r.warnings.push_back("Mesh has no positions."); return r; }
     r.boundsMinX = r.boundsMinY = r.boundsMinZ = std::numeric_limits<float>::max();
     r.boundsMaxX = r.boundsMaxY = r.boundsMaxZ = -std::numeric_limits<float>::max();
     for (size_t i = 0; i + 2 < mesh.positions.size(); i += 3) {
@@ -265,17 +269,10 @@ GameAssetValidationReport ValidateGameAssetMesh(const MeshData& mesh) {
         r.boundsMinX = std::min(r.boundsMinX, x); r.boundsMinY = std::min(r.boundsMinY, y); r.boundsMinZ = std::min(r.boundsMinZ, z);
         r.boundsMaxX = std::max(r.boundsMaxX, x); r.boundsMaxY = std::max(r.boundsMaxY, y); r.boundsMaxZ = std::max(r.boundsMaxZ, z);
     }
-
-    auto pos = [&](std::uint32_t idx) -> Vec3 {
-        size_t p = static_cast<size_t>(idx) * 3;
-        return {mesh.positions[p], mesh.positions[p + 1], mesh.positions[p + 2]};
-    };
+    auto pos = [&](std::uint32_t idx) -> Vec3 { size_t p = static_cast<size_t>(idx) * 3; return {mesh.positions[p], mesh.positions[p + 1], mesh.positions[p + 2]}; };
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
         std::uint32_t a = mesh.indices[i + 0], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
-        if (a >= static_cast<std::uint32_t>(r.vertices) || b >= static_cast<std::uint32_t>(r.vertices) || c >= static_cast<std::uint32_t>(r.vertices)) {
-            ++r.invalidIndices;
-            continue;
-        }
+        if (a >= static_cast<std::uint32_t>(r.vertices) || b >= static_cast<std::uint32_t>(r.vertices) || c >= static_cast<std::uint32_t>(r.vertices)) { ++r.invalidIndices; continue; }
         Vec3 pa = pos(a), pb = pos(b), pc = pos(c);
         Vec3 ab{pb.x - pa.x, pb.y - pa.y, pb.z - pa.z};
         Vec3 ac{pc.x - pa.x, pc.y - pa.y, pc.z - pa.z};
@@ -283,7 +280,6 @@ GameAssetValidationReport ValidateGameAssetMesh(const MeshData& mesh) {
         float area2 = cross.x * cross.x + cross.y * cross.y + cross.z * cross.z;
         if (area2 < 1.0e-12f) ++r.degenerateTriangles;
     }
-
     if (r.vertices == 0) r.warnings.push_back("Mesh has zero vertices.");
     if (r.triangles == 0) r.warnings.push_back("Mesh has zero triangles.");
     if (r.invalidIndices > 0) r.warnings.push_back("Mesh contains invalid face indices.");
@@ -295,33 +291,27 @@ GameAssetValidationReport ValidateGameAssetMesh(const MeshData& mesh) {
     return r;
 }
 
-GameAssetGenerationResult BuildGenericGameAsset(
-    const ImageRGBA& color,
-    const DepthImage& depth,
-    const std::vector<std::uint8_t>& mask,
-    const std::filesystem::path& outputDir,
-    const GameAssetGeneratorOptions& options) {
-
+GameAssetGenerationResult BuildGenericGameAsset(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const std::filesystem::path& outputDir, const GameAssetGeneratorOptions& options) {
     GameAssetGenerationResult result;
     result.classification = InferGameAssetType(color, mask, depth);
-
     switch (result.classification.assetType) {
         case GameAssetType::Building:
-        case GameAssetType::ArchitecturalPart:
-            result.mesh = BuildBuildingAsset(color, depth, mask, result.classification, options);
-            break;
-        case GameAssetType::Vehicle:
-            result.mesh = BuildVehicleLikeAsset(options);
-            break;
-        default:
-            result.mesh = BuildGenericPrimitiveAsset(color, depth, mask, result.classification, options);
-            break;
+        case GameAssetType::ArchitecturalPart: result.mesh = BuildBuildingAsset(color, depth, mask, result.classification, options); break;
+        case GameAssetType::Vehicle: result.mesh = BuildVehicleLikeAsset(options); break;
+        default: result.mesh = BuildGenericPrimitiveAsset(color, depth, mask, result.classification, options); break;
     }
-
     RecomputeNormals(result.mesh);
     result.validation = ValidateGameAssetMesh(result.mesh);
-    if (!result.validation.ok) {
-        result.message = "Generic game asset generation produced invalid mesh.";
+    result.qualityGate = AnalyzeMeshQualityGate(result.mesh, options.qualityGate);
+    if (options.enforceSafeMeshQuality && (!result.validation.ok || !result.qualityGate.ok)) {
+        result.mesh = BuildSafeProxyAsset(result.classification.assetType, options);
+        RecomputeNormals(result.mesh);
+        result.validation = ValidateGameAssetMesh(result.mesh);
+        result.qualityGate = AnalyzeMeshQualityGate(result.mesh, options.qualityGate);
+        result.qualityGate.warnings.push_back("Original generated mesh failed Phase 0 safe-output gate; exported stable typed proxy instead.");
+    }
+    if (!result.validation.ok || (options.enforceSafeMeshQuality && !result.qualityGate.ok)) {
+        result.message = "Generic game asset generation produced unsafe mesh.";
         return result;
     }
 
@@ -354,25 +344,17 @@ GameAssetGenerationResult BuildGenericGameAsset(
 
     result.metadata.assetName = "Make3D_" + std::string(ToString(result.classification.assetType));
     result.metadata.assetType = result.classification.assetType;
-    result.metadata.pivotX = 0.0f;
-    result.metadata.pivotY = result.validation.boundsMinY;
-    result.metadata.pivotZ = 0.0f;
-    result.metadata.colliderMinX = result.validation.boundsMinX;
-    result.metadata.colliderMinY = result.validation.boundsMinY;
-    result.metadata.colliderMinZ = result.validation.boundsMinZ;
-    result.metadata.colliderMaxX = result.validation.boundsMaxX;
-    result.metadata.colliderMaxY = result.validation.boundsMaxY;
-    result.metadata.colliderMaxZ = result.validation.boundsMaxZ;
-    result.metadata.lod0Vertices = result.validation.vertices;
-    result.metadata.lod0Triangles = result.validation.triangles;
-    result.metadata.lodProxyVertices = VertexCount(result.lodProxyMesh);
-    result.metadata.lodProxyTriangles = TriangleCount(result.lodProxyMesh);
+    result.metadata.pivotX = 0.0f; result.metadata.pivotY = result.validation.boundsMinY; result.metadata.pivotZ = 0.0f;
+    result.metadata.colliderMinX = result.validation.boundsMinX; result.metadata.colliderMinY = result.validation.boundsMinY; result.metadata.colliderMinZ = result.validation.boundsMinZ;
+    result.metadata.colliderMaxX = result.validation.boundsMaxX; result.metadata.colliderMaxY = result.validation.boundsMaxY; result.metadata.colliderMaxZ = result.validation.boundsMaxZ;
+    result.metadata.lod0Vertices = result.validation.vertices; result.metadata.lod0Triangles = result.validation.triangles;
+    result.metadata.lodProxyVertices = VertexCount(result.lodProxyMesh); result.metadata.lodProxyTriangles = TriangleCount(result.lodProxyMesh);
 
     std::ofstream report(result.reportPath, std::ios::binary);
     report << MakeMarkdownReport(result);
-    std::ofstream manifest(result.manifestPath, std::ios::binary);
     result.ok = true;
-    result.message = "Generic game asset generation finished.";
+    result.message = "Generic game asset generation finished with Phase 0 safe-output gate.";
+    std::ofstream manifest(result.manifestPath, std::ios::binary);
     manifest << MakeManifestJson(result);
     return result;
 }
@@ -390,10 +372,7 @@ std::string GameAssetValidationReport::ToMarkdown() const {
     o << "| Missing UVs | " << missingUvs << " |\n";
     o << "| Bounds min | " << boundsMinX << ", " << boundsMinY << ", " << boundsMinZ << " |\n";
     o << "| Bounds max | " << boundsMaxX << ", " << boundsMaxY << ", " << boundsMaxZ << " |\n\n";
-    if (!warnings.empty()) {
-        o << "### Warnings\n\n";
-        for (const auto& w : warnings) o << "- " << w << "\n";
-    }
+    if (!warnings.empty()) { o << "### Warnings\n\n"; for (const auto& w : warnings) o << "- " << w << "\n"; }
     return o.str();
 }
 
