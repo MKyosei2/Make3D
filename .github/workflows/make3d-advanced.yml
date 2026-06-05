@@ -36,21 +36,42 @@ jobs:
       - name: Generate production pipeline sample
         run: build/Release/Make3DGenerateProductionPipelineSample.exe build/production_pipeline
 
+      - name: Generate generic asset sample
+        run: build/Release/Make3DGenerateGenericAssetSample.exe build/generic_asset
+
+      - name: Generate complete game asset suite
+        run: build/Release/Make3DGenerateCompleteGameAssetSuite.exe build/complete_game_asset_suite
+
+      - name: Generate typed procedural assets
+        shell: pwsh
+        run: |
+          build/Release/Make3DTypedAssetCLI.exe --type furniture --output build/typed_assets/furniture
+          build/Release/Make3DTypedAssetCLI.exe --type machine --output build/typed_assets/machine
+          build/Release/Make3DTypedAssetCLI.exe --type tool --output build/typed_assets/tool
+          build/Release/Make3DTypedAssetCLI.exe --type terrain --output build/typed_assets/terrain
+
       - name: Stage portable package
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path package/bin | Out-Null
           Copy-Item build/Release/Make3DAdvancedGui.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DAdvancedCLI.exe package/bin/ -ErrorAction Stop
+          Copy-Item build/Release/Make3DGameAssetCLI.exe package/bin/ -ErrorAction Stop
+          Copy-Item build/Release/Make3DTypedAssetCLI.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DGenerateAdvancedSamples.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DGenerateMeshQualityReport.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DGenerateProductionPipelineSample.exe package/bin/ -ErrorAction Stop
+          Copy-Item build/Release/Make3DGenerateGenericAssetSample.exe package/bin/ -ErrorAction Stop
+          Copy-Item build/Release/Make3DGenerateCompleteGameAssetSuite.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DTrainLearnedShapeModel.exe package/bin/ -ErrorAction Stop
           Copy-Item README.md package/ -ErrorAction Stop
           Copy-Item docs package/docs -Recurse -ErrorAction Stop
           Copy-Item build/generated_samples package/generated_samples -Recurse -ErrorAction SilentlyContinue
           Copy-Item build/mesh_quality package/mesh_quality -Recurse -ErrorAction SilentlyContinue
           Copy-Item build/production_pipeline package/production_pipeline -Recurse -ErrorAction SilentlyContinue
+          Copy-Item build/generic_asset package/generic_asset -Recurse -ErrorAction SilentlyContinue
+          Copy-Item build/complete_game_asset_suite package/complete_game_asset_suite -Recurse -ErrorAction SilentlyContinue
+          Copy-Item build/typed_assets package/typed_assets -Recurse -ErrorAction SilentlyContinue
           Copy-Item build/learned_shape_training package/learned_shape_training -Recurse -ErrorAction SilentlyContinue
 
       - name: Upload portable package
@@ -99,4 +120,28 @@ jobs:
         with:
           name: make3d-production-pipeline-sample
           path: build/production_pipeline
+          if-no-files-found: ignore
+
+      - name: Upload generic asset sample
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make3d-generic-asset-sample
+          path: build/generic_asset
+          if-no-files-found: ignore
+
+      - name: Upload complete game asset suite
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make3d-complete-game-asset-suite
+          path: build/complete_game_asset_suite
+          if-no-files-found: ignore
+
+      - name: Upload typed procedural assets
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make3d-typed-procedural-assets
+          path: build/typed_assets
           if-no-files-found: ignore
