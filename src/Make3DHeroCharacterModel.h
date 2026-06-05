@@ -17,10 +17,17 @@ struct HeroCharacterOptions {
     float headScale = 1.0f;
     float torsoScale = 1.0f;
     float limbScale = 1.0f;
+    float hairScale = 1.0f;
+    float clothingScale = 1.0f;
     bool buildHead = true;
     bool buildTorso = true;
     bool buildArms = true;
     bool buildLegs = true;
+    bool buildNeckAndShoulders = true;
+    bool buildHands = true;
+    bool buildFeet = true;
+    bool buildHair = true;
+    bool buildClothing = true;
     bool addBackVolume = true;
 };
 
@@ -31,6 +38,9 @@ struct HeroCharacterReport {
     int foregroundPixels = 0;
     int vertices = 0;
     int triangles = 0;
+    int hairVertices = 0;
+    int clothingVertices = 0;
+    int connectorVertices = 0;
     float detectedAspectRatio = 1.0f;
     float detectedSymmetry = 0.0f;
     float bodyHeight = 0.0f;
