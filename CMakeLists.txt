@@ -21,8 +21,6 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DMaskRefiner.cpp
     src/Make3DVoxelVolume.cpp
     src/Make3DAssetTypes.cpp
-    src/Make3DAssetAnalysis.cpp
-    src/Make3DAssetPlan.cpp
     src/Make3DGameAssetGenerator.cpp
     src/Make3DMeshRepairAndTexture.cpp
     src/Make3DMeshQualityGate.cpp
