@@ -24,6 +24,9 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
+      - name: Train learned shape model
+        run: build/Release/Make3DTrainLearnedShapeModel.exe build/learned_shape_training
+
       - name: Generate portfolio samples
         run: build/Release/Make3DGenerateAdvancedSamples.exe build/generated_samples
 
@@ -42,11 +45,13 @@ jobs:
           Copy-Item build/Release/Make3DGenerateAdvancedSamples.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DGenerateMeshQualityReport.exe package/bin/ -ErrorAction Stop
           Copy-Item build/Release/Make3DGenerateProductionPipelineSample.exe package/bin/ -ErrorAction Stop
+          Copy-Item build/Release/Make3DTrainLearnedShapeModel.exe package/bin/ -ErrorAction Stop
           Copy-Item README.md package/ -ErrorAction Stop
           Copy-Item docs package/docs -Recurse -ErrorAction Stop
           Copy-Item build/generated_samples package/generated_samples -Recurse -ErrorAction SilentlyContinue
           Copy-Item build/mesh_quality package/mesh_quality -Recurse -ErrorAction SilentlyContinue
           Copy-Item build/production_pipeline package/production_pipeline -Recurse -ErrorAction SilentlyContinue
+          Copy-Item build/learned_shape_training package/learned_shape_training -Recurse -ErrorAction SilentlyContinue
 
       - name: Upload portable package
         if: always()
@@ -78,6 +83,14 @@ jobs:
         with:
           name: make3d-mesh-quality-report
           path: build/mesh_quality
+          if-no-files-found: ignore
+
+      - name: Upload learned shape training artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: make3d-learned-shape-training
+          path: build/learned_shape_training
           if-no-files-found: ignore
 
       - name: Upload production pipeline sample
