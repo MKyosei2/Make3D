@@ -49,7 +49,36 @@ static void ComputeBounds(const MeshData& mesh, float minV[3], float maxV[3]) {
     }
 }
 
-static std::vector<float> BuildVertexColors(const MeshData& mesh, const ImageRGBA& source, const VertexColorGltfOptions& options) {
+static std::vector<float> BuildSafeNormals(const MeshData& mesh) {
+    int count = VertexCount(mesh);
+    if (mesh.normals.size() >= static_cast<size_t>(count) * 3) {
+        return std::vector<float>(mesh.normals.begin(), mesh.normals.begin() + static_cast<size_t>(count) * 3);
+    }
+    std::vector<float> normals(static_cast<size_t>(count) * 3, 0.0f);
+    for (int i = 0; i < count; ++i) normals[static_cast<size_t>(i) * 3 + 2] = 1.0f;
+    return normals;
+}
+
+static std::vector<float> BuildSafeUVs(const MeshData& mesh) {
+    int count = VertexCount(mesh);
+    if (mesh.uvs.size() >= static_cast<size_t>(count) * 2) {
+        return std::vector<float>(mesh.uvs.begin(), mesh.uvs.begin() + static_cast<size_t>(count) * 2);
+    }
+
+    float minV[3], maxV[3];
+    ComputeBounds(mesh, minV, maxV);
+    float rangeX = std::max(0.0001f, maxV[0] - minV[0]);
+    float rangeY = std::max(0.0001f, maxV[1] - minV[1]);
+    std::vector<float> uvs(static_cast<size_t>(count) * 2, 0.0f);
+    for (int i = 0; i < count; ++i) {
+        size_t p = static_cast<size_t>(i) * 3;
+        uvs[static_cast<size_t>(i) * 2 + 0] = std::clamp((mesh.positions[p + 0] - minV[0]) / rangeX, 0.0f, 1.0f);
+        uvs[static_cast<size_t>(i) * 2 + 1] = std::clamp((mesh.positions[p + 1] - minV[1]) / rangeY, 0.0f, 1.0f);
+    }
+    return uvs;
+}
+
+static std::vector<float> BuildVertexColors(const MeshData& mesh, const std::vector<float>& safeUVs, const ImageRGBA& source, const VertexColorGltfOptions& options) {
     int count = VertexCount(mesh);
     std::vector<float> colors(static_cast<size_t>(count) * 4, 1.0f);
     if (count <= 0 || source.width <= 0 || source.height <= 0 || source.pixels.size() < static_cast<size_t>(source.width * source.height * 4)) {
@@ -63,19 +92,9 @@ static std::vector<float> BuildVertexColors(const MeshData& mesh, const ImageRGB
     }
 
     for (int i = 0; i < count; ++i) {
-        float u = 0.5f;
-        float v = 0.5f;
         size_t uv = static_cast<size_t>(i) * 2;
-        if (uv + 1 < mesh.uvs.size()) {
-            u = mesh.uvs[uv + 0];
-            v = mesh.uvs[uv + 1];
-        } else {
-            size_t p = static_cast<size_t>(i) * 3;
-            if (p + 1 < mesh.positions.size()) {
-                u = mesh.positions[p + 0] * 0.5f + 0.5f;
-                v = 0.5f - mesh.positions[p + 1] * 0.5f;
-            }
-        }
+        float u = uv + 1 < safeUVs.size() ? safeUVs[uv + 0] : 0.5f;
+        float v = uv + 1 < safeUVs.size() ? safeUVs[uv + 1] : 0.5f;
         u = std::clamp(u, 0.0f, 1.0f);
         v = std::clamp(v, 0.0f, 1.0f);
         int x = std::clamp(static_cast<int>(u * static_cast<float>(source.width - 1)), 0, source.width - 1);
@@ -98,7 +117,8 @@ bool ExportGLTFWithVertexColors(
     const VertexColorGltfOptions& options,
     std::string* error) {
 
-    if (mesh.positions.empty() || mesh.indices.empty()) {
+    int vertexCount = VertexCount(mesh);
+    if (vertexCount <= 0 || mesh.indices.empty()) {
         if (error) *error = "Mesh is empty.";
         return false;
     }
@@ -108,7 +128,9 @@ bool ExportGLTFWithVertexColors(
     std::filesystem::path binPath = gltfPath;
     binPath.replace_extension(".bin");
 
-    std::vector<float> colors = BuildVertexColors(mesh, sourceImage, options);
+    std::vector<float> safeNormals = BuildSafeNormals(mesh);
+    std::vector<float> safeUVs = BuildSafeUVs(mesh);
+    std::vector<float> colors = BuildVertexColors(mesh, safeUVs, sourceImage, options);
 
     std::ofstream bin(binPath, std::ios::binary);
     if (!bin) {
@@ -123,10 +145,10 @@ bool ExportGLTFWithVertexColors(
     const size_t posOffset = 0;
     writeVector(mesh.positions);
     const size_t normOffset = mesh.positions.size() * sizeof(float);
-    writeVector(mesh.normals);
-    const size_t uvOffset = normOffset + mesh.normals.size() * sizeof(float);
-    writeVector(mesh.uvs);
-    const size_t colorOffset = uvOffset + mesh.uvs.size() * sizeof(float);
+    writeVector(safeNormals);
+    const size_t uvOffset = normOffset + safeNormals.size() * sizeof(float);
+    writeVector(safeUVs);
+    const size_t colorOffset = uvOffset + safeUVs.size() * sizeof(float);
     writeVector(colors);
     const size_t idxOffset = colorOffset + colors.size() * sizeof(float);
     writeVector(mesh.indices);
@@ -141,7 +163,6 @@ bool ExportGLTFWithVertexColors(
         return false;
     }
 
-    int vertexCount = VertexCount(mesh);
     gltf << std::fixed << std::setprecision(6);
     gltf << "{\n";
     gltf << "  \"asset\": { \"version\": \"2.0\", \"generator\": \"Make3DAdvancedVertexColor\" },\n";
@@ -157,8 +178,8 @@ bool ExportGLTFWithVertexColors(
     gltf << "  \"buffers\": [{ \"uri\": \"" << EscapeJson(binPath.filename().u8string()) << "\", \"byteLength\": " << totalSize << " }],\n";
     gltf << "  \"bufferViews\": [\n";
     gltf << "    { \"buffer\": 0, \"byteOffset\": " << posOffset << ", \"byteLength\": " << mesh.positions.size() * sizeof(float) << ", \"target\": 34962 },\n";
-    gltf << "    { \"buffer\": 0, \"byteOffset\": " << normOffset << ", \"byteLength\": " << mesh.normals.size() * sizeof(float) << ", \"target\": 34962 },\n";
-    gltf << "    { \"buffer\": 0, \"byteOffset\": " << uvOffset << ", \"byteLength\": " << mesh.uvs.size() * sizeof(float) << ", \"target\": 34962 },\n";
+    gltf << "    { \"buffer\": 0, \"byteOffset\": " << normOffset << ", \"byteLength\": " << safeNormals.size() * sizeof(float) << ", \"target\": 34962 },\n";
+    gltf << "    { \"buffer\": 0, \"byteOffset\": " << uvOffset << ", \"byteLength\": " << safeUVs.size() * sizeof(float) << ", \"target\": 34962 },\n";
     gltf << "    { \"buffer\": 0, \"byteOffset\": " << colorOffset << ", \"byteLength\": " << colors.size() * sizeof(float) << ", \"target\": 34962 },\n";
     gltf << "    { \"buffer\": 0, \"byteOffset\": " << idxOffset << ", \"byteLength\": " << mesh.indices.size() * sizeof(std::uint32_t) << ", \"target\": 34963 }\n";
     gltf << "  ],\n";
