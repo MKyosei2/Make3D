@@ -108,7 +108,6 @@
     <ClCompile Include="src\Make3DAssetTypes.cpp" />
     <ClCompile Include="src\Make3DCompleteGameAssetPipeline.cpp" />
     <ClCompile Include="src\Make3DGameAssetGenerator.cpp" />
-    <ClCompile Include="src\Make3DGameAssetPipeline.cpp" />
     <ClCompile Include="src\Make3DGltfMaterialExporter.cpp" />
     <ClCompile Include="src\Make3DGuiAdapter.cpp" />
     <ClCompile Include="src\Make3DLearnedShapeModel.cpp" />
@@ -129,7 +128,6 @@
     <ClInclude Include="src\Make3DAssetTypes.h" />
     <ClInclude Include="src\Make3DCompleteGameAssetPipeline.h" />
     <ClInclude Include="src\Make3DGameAssetGenerator.h" />
-    <ClInclude Include="src\Make3DGameAssetPipeline.h" />
     <ClInclude Include="src\Make3DGltfMaterialExporter.h" />
     <ClInclude Include="src\Make3DGuiAdapter.h" />
     <ClInclude Include="src\Make3DLearnedShapeModel.h" />
