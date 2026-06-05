@@ -1,5 +1,6 @@
 #include "Make3DProductionPipeline.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
 #include <sstream>
