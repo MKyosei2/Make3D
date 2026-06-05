@@ -2,7 +2,7 @@
 
 This document explains the files produced by the Make3D production pipeline.
 
-The current recommended review path is the **hero character output**, not the older generic polished or voxel output.
+The current recommended review path is **hero-only review mode**. This mode intentionally skips the older raw / polished / voxel fallback meshes so reviewers do not accidentally open a broken generic reconstruction first.
 
 ---
 
@@ -14,7 +14,13 @@ For portfolio review, inspect this artifact first:
 make3d-production-pipeline-sample
 ```
 
-Open this file first:
+Open the guide first:
+
+```text
+production_pipeline/OPEN_THIS_FIRST.txt
+```
+
+Then open this glTF:
 
 ```text
 production_pipeline/output/hero/make3d_hero_character_vertex_color.gltf
@@ -31,29 +37,22 @@ production_pipeline/output/debug_depth_inferred.ppm
 production_pipeline/output/debug_depth_learned.ppm
 ```
 
-`hero/make3d_hero_character_vertex_color.gltf` is the strongest current output because it includes the character-specialized mesh, detail volumes, fine detail hints, and semantic `COLOR_0` vertex coloring.
+`hero/make3d_hero_character_vertex_color.gltf` is the only primary review target. It includes the character-specialized mesh, detail volumes, fine detail hints, and semantic `COLOR_0` vertex coloring.
 
 ---
 
-## Production pipeline output
+## Production pipeline output in hero-only review mode
 
-The production pipeline writes:
+The standard production sample writes:
 
 ```text
+OPEN_THIS_FIRST.txt
 input_noisy_character.tga
 output/hero/make3d_hero_character.obj
 output/hero/make3d_hero_character_material.gltf
 output/hero/make3d_hero_character_material.bin
 output/hero/make3d_hero_character_vertex_color.gltf
 output/hero/make3d_hero_character_vertex_color.bin
-output/raw/make3d_raw.obj
-output/raw/make3d_raw_material.gltf
-output/polished/make3d_polished.obj
-output/polished/make3d_polished_material.gltf
-output/polished/make3d_polished_vertex_color.gltf
-output/voxel/make3d_voxel_volume.obj
-output/voxel/make3d_voxel_volume_material.gltf
-output/voxel/make3d_voxel_volume_vertex_color.gltf
 output/debug_mask_refined.ppm
 output/debug_depth_refined.ppm
 output/debug_depth_inferred.ppm
@@ -62,29 +61,32 @@ output/production_report.md
 output/production_report.json
 ```
 
+The standard sample intentionally does **not** generate:
+
+```text
+output/raw/*
+output/polished/*
+output/voxel/*
+```
+
+Those fallback paths are still useful for engineering tests, but they are not the portfolio review target and can look broken on hard inputs.
+
 ---
 
 ## Production file guide
 
 | File | Purpose |
 |---|---|
+| `OPEN_THIS_FIRST.txt` | Explicit review guide. Start here before opening any mesh. |
 | `input_noisy_character.tga` | Synthetic noisy character input used to demonstrate mask refinement and cleanup. |
 | `output/hero/make3d_hero_character.obj` | Character-specialized hero mesh with head, torso, limbs, hair, clothing, hands, feet, face hints, hair strand hints, clothing folds, finger hints, and shoe soles. |
 | `output/hero/make3d_hero_character_material.gltf` | Hero mesh with material metadata for viewers with limited vertex color support. |
 | `output/hero/make3d_hero_character_vertex_color.gltf` | Preferred review output. Semantic `COLOR_0` glTF with skin, hair, face, clothing, lower clothing, and shoe color regions. Open this first. |
-| `output/raw/make3d_raw.obj` | Raw reconstruction mesh before production polishing. |
-| `output/raw/make3d_raw_material.gltf` | Raw reconstruction with material metadata. |
-| `output/polished/make3d_polished.obj` | Polished generic hybrid reconstruction. Secondary review path. |
-| `output/polished/make3d_polished_material.gltf` | Polished generic material glTF. Secondary review path. |
-| `output/polished/make3d_polished_vertex_color.gltf` | Generic polished vertex-color glTF. Secondary review path. |
-| `output/voxel/make3d_voxel_volume.obj` | Closed voxel-style volume OBJ generated from refined mask rows and depth-based thickness. |
-| `output/voxel/make3d_voxel_volume_material.gltf` | Closed-volume material glTF. Secondary review path. |
-| `output/voxel/make3d_voxel_volume_vertex_color.gltf` | Closed-volume vertex-color glTF. Useful for comparing against the hero path. |
 | `output/debug_mask_refined.ppm` | Refined foreground mask. Confirms that small noisy regions were removed. |
 | `output/debug_depth_refined.ppm` | Base depth preview generated from the refined mask. |
 | `output/debug_depth_inferred.ppm` | Shape-inference adjusted depth preview. |
-| `output/debug_depth_learned.ppm` | Learned-shape depth preview used by reconstruction. |
-| `output/production_report.md` | Human-readable report combining shape inference, learned shape model, hero reconstruction, generic reconstruction, mask refinement, mesh polishing, and voxel volume statistics. |
+| `output/debug_depth_learned.ppm` | Learned-shape depth preview used by the hero path. |
+| `output/production_report.md` | Human-readable report combining shape inference, learned shape model, hero reconstruction, mask refinement, and review target path. |
 | `output/production_report.json` | Machine-readable production report. |
 
 ---
@@ -115,7 +117,7 @@ semantic palette extraction
 hero semantic vertex-color glTF
 ```
 
-The hero path is intentionally specialized. It is designed to make the sample look more like a character/figure asset rather than a generic image extrusion.
+The hero path is intentionally specialized. It is designed to avoid broken generic image extrusion output and make the sample look more like a character/figure asset.
 
 ---
 
@@ -145,7 +147,7 @@ Make3DGenerateProductionPipelineSample output/production_pipeline output/learned
 
 ## Advanced build output
 
-A normal advanced CLI build still writes generic reconstruction files:
+A normal advanced CLI build can still write generic reconstruction files:
 
 ```text
 make3d_advanced.obj
@@ -160,7 +162,7 @@ make3d_report.md
 make3d_report.json
 ```
 
-The advanced CLI path remains useful for testing raw reconstruction behavior. For portfolio review, prefer the production hero output.
+The advanced CLI path remains useful for testing raw reconstruction behavior. For portfolio review, prefer the hero-only production output.
 
 ---
 
@@ -181,10 +183,10 @@ polished/make3d_polished.obj
 polished/make3d_polished_material.gltf
 ```
 
-This is useful because it shows Make3D does not only generate a mesh; it also inspects, cleans, and reports mesh quality.
+This is useful for engineering review because it shows Make3D does not only generate a mesh; it also inspects, cleans, and reports mesh quality.
 
 ---
 
 ## Suggested portfolio explanation
 
-> The current Make3D production artifact includes a hero character glTF generated through a specialized C++ pipeline: foreground refinement, shape/depth inference, local learned-shape support, character-specific geometry priors, hair/clothing/hands/feet details, fine facial and clothing hints, semantic vertex colors, debug depth images, and Markdown/JSON reports. The result is still not claimed to be a perfect ZBrush-grade reconstruction, but the pipeline is inspectable and built around practical game-asset generation concerns.
+> The current Make3D production artifact uses hero-only review mode. It skips broken-looking generic fallback meshes and exposes a single primary review target: a hero character semantic vertex-color glTF generated through foreground refinement, shape/depth inference, local learned-shape support, character-specific geometry priors, hair/clothing/hands/feet details, fine facial and clothing hints, debug depth images, and Markdown/JSON reports.
