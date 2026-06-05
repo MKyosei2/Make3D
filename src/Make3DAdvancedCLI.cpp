@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -24,10 +26,33 @@ void PrintUsage() {
         "  --grid <number>          Max analysis grid resolution. Default: 192\n"
         "  --segments <number>      Procedural radial segments. Default: 20\n"
         "  --benchmark              Also run profiled preview/final mesh generation and write benchmark reports\n"
+        "  --ablation <name>        Run extra ablation: no-mask-refine, no-shape-inference, no-learned-shape, no-hero, all\n"
         "  --no-debug               Do not write debug images\n";
 }
 
 bool Equals(const std::string& a, const char* b) { return a == b; }
+
+std::string SanitizeName(const std::string& value) {
+    std::string out = value;
+    for (char& c : out) if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_')) c = '_';
+    return out.empty() ? "default" : out;
+}
+
+void ApplyAblation(make3d::ProductionPipelineOptions& production, const std::string& name) {
+    if (name == "no-mask-refine") {
+        production.maskRefine.keepLargestComponentOnly = false;
+        production.maskRefine.fillHoles = false;
+        production.maskRefine.smoothIterations = 0;
+    } else if (name == "no-shape-inference") {
+        production.enableShapeInference = false;
+    } else if (name == "no-learned-shape") {
+        production.enableLearnedShapeModel = false;
+    } else if (name == "no-hero") {
+        production.exportHeroCharacter = false;
+        production.exportVertexColorGltf = false;
+        production.exportGameAsset = true;
+    }
+}
 
 } // namespace
 
@@ -43,6 +68,7 @@ int main(int argc, char** argv) {
     make3d::AdvancedOptions options;
     bool writeDebug = true;
     bool benchmark = false;
+    std::vector<std::string> ablations;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -91,6 +117,17 @@ int main(int argc, char** argv) {
             options.volumeRadialSegments = std::max(6, std::atoi(v->c_str()));
         } else if (Equals(arg, "--benchmark")) {
             benchmark = true;
+        } else if (Equals(arg, "--ablation")) {
+            auto v = needValue("--ablation");
+            if (!v) return 2;
+            if (*v == "all") {
+                ablations.push_back("no-mask-refine");
+                ablations.push_back("no-shape-inference");
+                ablations.push_back("no-learned-shape");
+                ablations.push_back("no-hero");
+            } else {
+                ablations.push_back(*v);
+            }
         } else if (Equals(arg, "--no-debug")) {
             options.writeDebugImages = false;
             writeDebug = false;
@@ -152,6 +189,34 @@ int main(int argc, char** argv) {
         std::cout << "Benchmark report Markdown: " << profiled.benchmarkMarkdownPath.u8string() << "\n";
         std::cout << "Preview mesh triangles: " << (profiled.previewMesh.indices.size() / 3) << "\n";
         std::cout << "Final mesh triangles: " << (profiled.finalMesh.indices.size() / 3) << "\n";
+    }
+
+    if (!ablations.empty()) {
+        std::filesystem::path ablationRoot = output / "ablations";
+        std::filesystem::create_directories(ablationRoot);
+        std::ofstream csv(ablationRoot / "ablation_report.csv", std::ios::binary);
+        csv << "name,ok,hero_triangles,game_asset_triangles,report\n";
+        std::ofstream md(ablationRoot / "ablation_report.md", std::ios::binary);
+        md << "# Make3D Ablation Report\n\n";
+        md << "| Ablation | OK | Hero tris | Game asset tris | Report |\n";
+        md << "|---|---:|---:|---:|---|\n";
+
+        for (const std::string& ablation : ablations) {
+            make3d::ProductionPipelineOptions ablated = production;
+            ApplyAblation(ablated, ablation);
+            std::filesystem::path ablationOutput = ablationRoot / SanitizeName(ablation);
+            auto ablatedResult = make3d::BuildProductionModelFromImage(*input, depth, ablationOutput, ablated);
+            int heroTris = static_cast<int>(ablatedResult.heroMesh.indices.size() / 3);
+            int gameTris = static_cast<int>(ablatedResult.gameAssetMesh.indices.size() / 3);
+            csv << ablation << "," << (ablatedResult.ok ? "true" : "false") << "," << heroTris << "," << gameTris << "," << ablatedResult.productionReportPath.u8string() << "\n";
+            md << "| " << ablation << " | " << (ablatedResult.ok ? "true" : "false") << " | " << heroTris << " | " << gameTris << " | `" << ablatedResult.productionReportPath.u8string() << "` |\n";
+            if (!ablatedResult.ok) {
+                std::cerr << "Ablation failed: " << ablation << ": " << ablatedResult.message << "\n";
+                return 5;
+            }
+        }
+        std::cout << "Ablation report CSV: " << (ablationRoot / "ablation_report.csv").u8string() << "\n";
+        std::cout << "Ablation report Markdown: " << (ablationRoot / "ablation_report.md").u8string() << "\n";
     }
 
     return 0;
