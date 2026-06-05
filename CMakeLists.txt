@@ -274,15 +274,22 @@ add_test(NAME Make3DGenerateMeshQualityReport COMMAND Make3DGenerateMeshQualityR
 add_test(NAME Make3DGenerateProductionPipelineSample COMMAND Make3DGenerateProductionPipelineSample ${CMAKE_CURRENT_BINARY_DIR}/production_pipeline)
 add_test(NAME Make3DGenerateGenericAssetSample COMMAND Make3DGenerateGenericAssetSample ${CMAKE_CURRENT_BINARY_DIR}/generic_asset)
 add_test(NAME Make3DGenerateCompleteGameAssetSuite COMMAND Make3DGenerateCompleteGameAssetSuite ${CMAKE_CURRENT_BINARY_DIR}/complete_game_asset_suite)
-add_test(NAME Make3DGenerateTypedFurniture COMMAND Make3DTypedAssetCLI --type furniture --output ${CMAKE_CURRENT_BINARY_DIR}/typed_furniture)
-add_test(NAME Make3DGenerateTypedMachine COMMAND Make3DTypedAssetCLI --type machine --output ${CMAKE_CURRENT_BINARY_DIR}/typed_machine)
-add_test(NAME Make3DGenerateTypedTool COMMAND Make3DTypedAssetCLI --type tool --output ${CMAKE_CURRENT_BINARY_DIR}/typed_tool)
-add_test(NAME Make3DGenerateTypedTerrain COMMAND Make3DTypedAssetCLI --type terrain --output ${CMAKE_CURRENT_BINARY_DIR}/typed_terrain)
+add_test(NAME Make3DGenerateTypedFurniture COMMAND Make3DTypedAssetCLI --type furniture --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/furniture)
+add_test(NAME Make3DGenerateTypedMachine COMMAND Make3DTypedAssetCLI --type machine --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/machine)
+add_test(NAME Make3DGenerateTypedTool COMMAND Make3DTypedAssetCLI --type tool --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/tool)
+add_test(NAME Make3DGenerateTypedTerrain COMMAND Make3DTypedAssetCLI --type terrain --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/terrain)
 add_test(NAME Make3DVerifyProductionSampleArtifact
     COMMAND ${CMAKE_COMMAND}
         -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/production_pipeline
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyProductionSample.cmake)
 set_tests_properties(Make3DVerifyProductionSampleArtifact PROPERTIES DEPENDS Make3DGenerateProductionPipelineSample)
+add_test(NAME Make3DVerifyGameAssetArtifacts
+    COMMAND ${CMAKE_COMMAND}
+        -DGENERIC_ASSET_DIR=${CMAKE_CURRENT_BINARY_DIR}/generic_asset
+        -DCOMPLETE_SUITE_DIR=${CMAKE_CURRENT_BINARY_DIR}/complete_game_asset_suite
+        -DTYPED_ASSET_DIR=${CMAKE_CURRENT_BINARY_DIR}/typed_assets
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyGameAssetArtifacts.cmake)
+set_tests_properties(Make3DVerifyGameAssetArtifacts PROPERTIES DEPENDS "Make3DGenerateGenericAssetSample;Make3DGenerateCompleteGameAssetSuite;Make3DGenerateTypedFurniture;Make3DGenerateTypedMachine;Make3DGenerateTypedTool;Make3DGenerateTypedTerrain")
 add_test(NAME Make3DTrainLearnedShapeModel COMMAND Make3DTrainLearnedShapeModel ${CMAKE_CURRENT_BINARY_DIR}/learned_shape_training)
 
 install(TARGETS Make3DAdvancedCLI Make3DGameAssetCLI Make3DTypedAssetCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample Make3DGenerateGenericAssetSample Make3DGenerateCompleteGameAssetSuite Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
