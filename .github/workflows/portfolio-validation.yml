@@ -39,6 +39,29 @@ jobs:
             exit 1
           fi
 
+      - name: Run CLI benchmark on generated sample
+        run: |
+          INPUT="build/portfolio_sample/input_noisy_character.tga"
+          if [ ! -f "$INPUT" ]; then
+            INPUT=$(find build/portfolio_sample -type f \( -name '*.png' -o -name '*.tga' -o -name '*.jpg' -o -name '*.jpeg' \) | head -n 1)
+          fi
+          if [ -z "$INPUT" ] || [ ! -f "$INPUT" ]; then
+            echo "No generated image input found for CLI benchmark" >&2
+            find build/portfolio_sample -maxdepth 4 -type f | sort
+            exit 1
+          fi
+          if [ -x build/Make3DAdvancedCLI ]; then
+            build/Make3DAdvancedCLI --input "$INPUT" --output build/cli_benchmark --benchmark
+          elif [ -x build/Release/Make3DAdvancedCLI ]; then
+            build/Release/Make3DAdvancedCLI --input "$INPUT" --output build/cli_benchmark --benchmark
+          else
+            echo "Make3DAdvancedCLI executable not found" >&2
+            find build -maxdepth 3 -type f -perm -111 | sort
+            exit 1
+          fi
+          test -f build/cli_benchmark/benchmark/make3d_benchmark.json
+          test -f build/cli_benchmark/benchmark/make3d_benchmark.md
+
       - name: Run portfolio validation dry-run
         run: python scripts/portfolio_validation.py --dry-run --report-dir docs/reports --build-dir build
 
@@ -57,6 +80,7 @@ jobs:
           path: |
             build/production_pipeline
             build/portfolio_sample
+            build/cli_benchmark
             build/generic_asset
             build/complete_game_asset_suite
             build/typed_assets
