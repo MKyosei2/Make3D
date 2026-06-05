@@ -1,4 +1,5 @@
 #include "Make3DAdvancedCore.h"
+#include "Make3DGltfMaterialExporter.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -109,12 +110,26 @@ int main(int argc, char** argv) {
         return 3;
     }
 
+    std::filesystem::path materialGltf = output / "make3d_advanced_material.gltf";
+    if (options.exportGltf) {
+        make3d::GltfMaterialOptions material;
+        material.materialName = "Make3DGeneratedMaterial";
+        std::string materialError;
+        if (!make3d::ExportGLTFWithMaterial(result.mesh, materialGltf, material, &materialError)) {
+            std::cerr << "Material glTF export failed: " << materialError << "\n";
+            return 4;
+        }
+    }
+
     std::cout << result.message << "\n";
     std::cout << "Mode: " << result.report.reconstructionMode << "\n";
     std::cout << "Vertices: " << result.report.vertices << "\n";
     std::cout << "Triangles: " << result.report.triangles << "\n";
     if (options.exportObj) std::cout << "OBJ: " << result.report.objPath.u8string() << "\n";
-    if (options.exportGltf) std::cout << "glTF: " << result.report.gltfPath.u8string() << "\n";
+    if (options.exportGltf) {
+        std::cout << "glTF: " << result.report.gltfPath.u8string() << "\n";
+        std::cout << "Material glTF: " << materialGltf.u8string() << "\n";
+    }
     std::cout << "Report: " << result.report.reportPath.u8string() << "\n";
     if (!result.report.warnings.empty()) {
         std::cout << "Warnings:\n";
