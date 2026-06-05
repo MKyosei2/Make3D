@@ -42,11 +42,15 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     o << "# Make3D Production Pipeline Report\n\n";
     o << "## Shape inference\n\n" << result.shapeInferenceReport.ToMarkdown() << "\n";
     o << "## Learned shape model\n\n" << result.learnedShapeReport.ToMarkdown() << "\n";
+    o << "## Hero character reconstruction\n\n" << result.heroReport.ToMarkdown() << "\n";
     o << "## Reconstruction\n\n" << result.reconstructionReport.ToMarkdown() << "\n";
     o << "## Mask refinement\n\n" << result.maskReport.ToMarkdown() << "\n";
     o << "## Mesh polish\n\n" << result.polishReport.ToMarkdown() << "\n";
     o << "## Voxel-style volume\n\n" << result.voxelReport.ToMarkdown() << "\n";
     o << "## Output files\n\n";
+    o << "- hero/make3d_hero_character.obj\n";
+    o << "- hero/make3d_hero_character_material.gltf\n";
+    o << "- hero/make3d_hero_character_vertex_color.gltf\n";
     o << "- raw/make3d_raw.obj\n";
     o << "- raw/make3d_raw_material.gltf\n";
     o << "- polished/make3d_polished.obj\n";
@@ -67,10 +71,13 @@ static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     o << "{\n";
     o << "  \"shapeInference\": " << result.shapeInferenceReport.ToJson() << ",\n";
     o << "  \"learnedShape\": " << result.learnedShapeReport.ToJson() << ",\n";
+    o << "  \"heroCharacter\": " << result.heroReport.ToJson() << ",\n";
     o << "  \"reconstruction\": " << result.reconstructionReport.ToJson() << ",\n";
     o << "  \"maskRefine\": " << result.maskReport.ToJson() << ",\n";
     o << "  \"polish\": " << result.polishReport.ToJson() << ",\n";
     o << "  \"voxelVolume\": " << result.voxelReport.ToJson() << ",\n";
+    o << "  \"heroMaterialGltf\": \"hero/make3d_hero_character_material.gltf\",\n";
+    o << "  \"heroVertexColorGltf\": \"hero/make3d_hero_character_vertex_color.gltf\",\n";
     o << "  \"rawMaterialGltf\": \"raw/make3d_raw_material.gltf\",\n";
     o << "  \"polishedMaterialGltf\": \"polished/make3d_polished_material.gltf\",\n";
     o << "  \"polishedVertexColorGltf\": \"polished/make3d_polished_vertex_color.gltf\",\n";
@@ -103,6 +110,7 @@ ProductionPipelineResult BuildProductionModelFromImage(
     fs::create_directories(outputDir / "raw");
     fs::create_directories(outputDir / "polished");
     fs::create_directories(outputDir / "voxel");
+    fs::create_directories(outputDir / "hero");
 
     result.reconstructionReport.imageWidth = color->width;
     result.reconstructionReport.imageHeight = color->height;
@@ -130,6 +138,25 @@ ProductionPipelineResult BuildProductionModelFromImage(
         result.learnedShapeReport = RunLearnedShapeModel(*color, mask, reconstructionDepth, result.shapeInferenceReport, options.learnedShape);
         if (result.learnedShapeReport.ok && !result.learnedShapeReport.learnedDepth.values.empty()) {
             reconstructionDepth = result.learnedShapeReport.learnedDepth;
+        }
+    }
+
+    if (options.exportHeroCharacter) {
+        result.heroMesh = BuildHeroCharacterMesh(*color, reconstructionDepth, mask, options.heroCharacter, &result.heroReport);
+        if (!result.heroMesh.positions.empty() && !result.heroMesh.indices.empty()) {
+            result.heroObjPath = outputDir / "hero" / "make3d_hero_character.obj";
+            result.heroMaterialGltfPath = outputDir / "hero" / "make3d_hero_character_material.gltf";
+            result.heroVertexColorGltfPath = outputDir / "hero" / "make3d_hero_character_vertex_color.gltf";
+            GltfMaterialOptions heroMaterial;
+            heroMaterial.materialName = "Make3DHeroCharacterMaterial";
+            heroMaterial.baseColorFactor = {0.76f, 0.70f, 0.64f, 1.0f};
+            if (!ExportOBJ(result.heroMesh, result.heroObjPath, "", &error)) { result.message = error; return result; }
+            if (!ExportGLTFWithMaterial(result.heroMesh, result.heroMaterialGltfPath, heroMaterial, &error)) { result.message = error; return result; }
+            if (options.exportVertexColorGltf) {
+                VertexColorGltfOptions colorOptions;
+                colorOptions.materialName = "Make3DHeroVertexColorMaterial";
+                if (!ExportGLTFWithVertexColors(result.heroMesh, *color, result.heroVertexColorGltfPath, colorOptions, &error)) { result.message = error; return result; }
+            }
         }
     }
 
