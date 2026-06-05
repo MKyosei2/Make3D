@@ -11,6 +11,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DGltfMaterialExporter.cpp
     src/Make3DVertexColorGltfExporter.cpp
     src/Make3DShapeInference.cpp
+    src/Make3DLearnedShapeModel.cpp
     src/Make3DModelPolisher.cpp
     src/Make3DMaskRefiner.cpp
     src/Make3DVoxelVolume.cpp
@@ -90,6 +91,12 @@ add_executable(Make3DShapeInferenceTest
 
 target_link_libraries(Make3DShapeInferenceTest PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DLearnedShapeModelTest
+    tests/Make3DLearnedShapeModelTest.cpp
+)
+
+target_link_libraries(Make3DLearnedShapeModelTest PRIVATE Make3DAdvancedCore)
+
 add_executable(Make3DModelPolisherTest
     tests/Make3DModelPolisherTest.cpp
 )
@@ -122,6 +129,7 @@ if (MSVC)
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DVertexColorGltfExporterTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DShapeInferenceTest PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DLearnedShapeModelTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DModelPolisherTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DMaskRefinerTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE /W4 /permissive-)
@@ -139,6 +147,7 @@ else()
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DVertexColorGltfExporterTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DShapeInferenceTest PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DLearnedShapeModelTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DModelPolisherTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DMaskRefinerTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE -Wall -Wextra -Wpedantic)
@@ -150,6 +159,7 @@ add_test(NAME Make3DMeshToolsTest COMMAND Make3DMeshToolsTest)
 add_test(NAME Make3DGltfMaterialExporterTest COMMAND Make3DGltfMaterialExporterTest)
 add_test(NAME Make3DVertexColorGltfExporterTest COMMAND Make3DVertexColorGltfExporterTest)
 add_test(NAME Make3DShapeInferenceTest COMMAND Make3DShapeInferenceTest)
+add_test(NAME Make3DLearnedShapeModelTest COMMAND Make3DLearnedShapeModelTest)
 add_test(NAME Make3DModelPolisherTest COMMAND Make3DModelPolisherTest)
 add_test(NAME Make3DMaskRefinerTest COMMAND Make3DMaskRefinerTest)
 add_test(NAME Make3DVoxelVolumeTest COMMAND Make3DVoxelVolumeTest)
