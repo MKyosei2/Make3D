@@ -1,0 +1,62 @@
+name: Portfolio Validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test-sample-report:
+    name: Build, test, sample, benchmark, and report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Configure CMake
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel 2
+
+      - name: Run tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Generate portfolio sample
+        run: |
+          if [ -x build/Make3DGenerateProductionPipelineSample ]; then
+            build/Make3DGenerateProductionPipelineSample build/portfolio_sample
+          elif [ -x build/Release/Make3DGenerateProductionPipelineSample ]; then
+            build/Release/Make3DGenerateProductionPipelineSample build/portfolio_sample
+          else
+            echo "Make3DGenerateProductionPipelineSample executable not found" >&2
+            find build -maxdepth 3 -type f -perm -111 | sort
+            exit 1
+          fi
+
+      - name: Run portfolio validation dry-run
+        run: python scripts/portfolio_validation.py --dry-run --report-dir docs/reports --build-dir build
+
+      - name: Upload validation reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: make3d-portfolio-validation-reports
+          path: docs/reports
+
+      - name: Upload generated sample artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: make3d-generated-sample-artifacts
+          path: |
+            build/production_pipeline
+            build/portfolio_sample
+            build/generic_asset
+            build/complete_game_asset_suite
+            build/typed_assets
