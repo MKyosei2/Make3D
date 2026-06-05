@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <sstream>
+#include <vector>
 
 namespace make3d {
 namespace {
@@ -53,12 +55,17 @@ MeshRepairReport RepairGameAssetMesh(MeshData& mesh, bool regeneratePlanarUv) {
 bool WriteProjectedTexturePPM(const ImageRGBA& color, const std::vector<std::uint8_t>& mask, const std::filesystem::path& texturePath, int textureSize, std::string* error) {
     int s = std::max(16, textureSize);
     if (color.width <= 0 || color.height <= 0 || mask.size() != (size_t)(color.width * color.height)) { if (error) *error = "Invalid image or mask for texture projection."; return false; }
-    std::filesystem::create_directories(texturePath.parent_path());
+    if (!texturePath.parent_path().empty()) std::filesystem::create_directories(texturePath.parent_path());
     std::ofstream f(texturePath, std::ios::binary); if (!f) { if (error) *error = "Failed to open projected texture."; return false; }
     f << "P6\n" << s << " " << s << "\n255\n";
     for (int y=0;y<s;++y) { int sy=std::clamp((int)(((float)y+0.5f)/(float)s*color.height),0,color.height-1); for (int x=0;x<s;++x) {
         int sx=std::clamp((int)(((float)x+0.5f)/(float)s*color.width),0,color.width-1); size_t ip=((size_t)sy*color.width+sx)*4; bool inside=mask[(size_t)sy*color.width+sx]!=0;
-        unsigned char rgb[3]={inside?color.pixels[ip]:96, inside?color.pixels[ip+1]:96, inside?color.pixels[ip+2]:96}; f.write((const char*)rgb,3);
+        unsigned char rgb[3] = {
+            static_cast<unsigned char>(inside ? color.pixels[ip] : 96),
+            static_cast<unsigned char>(inside ? color.pixels[ip + 1] : 96),
+            static_cast<unsigned char>(inside ? color.pixels[ip + 2] : 96)
+        };
+        f.write(reinterpret_cast<const char*>(rgb),3);
     }}
     return true;
 }
