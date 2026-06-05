@@ -4,6 +4,7 @@
 #include "Make3DGltfMaterialExporter.h"
 #include "Make3DMaskRefiner.h"
 #include "Make3DModelPolisher.h"
+#include "Make3DVoxelVolume.h"
 
 #include <filesystem>
 #include <optional>
@@ -15,8 +16,10 @@ struct ProductionPipelineOptions {
     AdvancedOptions reconstruction;
     MaskRefineOptions maskRefine;
     MeshPolishOptions polish;
+    VoxelVolumeOptions voxel;
     bool exportRaw = true;
     bool exportPolished = true;
+    bool exportVoxelVolume = true;
     bool writeReports = true;
     bool writeDebugImages = true;
 };
@@ -26,13 +29,17 @@ struct ProductionPipelineResult {
     std::string message;
     MeshData rawMesh;
     MeshData polishedMesh;
+    MeshData voxelMesh;
     ReconstructionReport reconstructionReport;
     MaskRefineReport maskReport;
     MeshPolishReport polishReport;
+    VoxelVolumeReport voxelReport;
     std::filesystem::path rawObjPath;
     std::filesystem::path rawMaterialGltfPath;
     std::filesystem::path polishedObjPath;
     std::filesystem::path polishedMaterialGltfPath;
+    std::filesystem::path voxelObjPath;
+    std::filesystem::path voxelMaterialGltfPath;
     std::filesystem::path productionReportPath;
 };
 
