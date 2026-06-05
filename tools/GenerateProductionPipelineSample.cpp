@@ -55,7 +55,6 @@ static make3d::ImageRGBA CreateNoisyCharacterImage() {
     capsule(68, 112, 56, 176, 9, 55, 80, 190);
     capsule(92, 112, 104, 176, 9, 55, 80, 190);
 
-    // Add synthetic small islands and jagged noise to prove the production pipeline removes them.
     for (int y = 20; y < 28; ++y) for (int x = 130; x < 138; ++x) set(x, y, 255, 255, 255, 255);
     for (int y = 150; y < 156; ++y) for (int x = 18; x < 26; ++x) set(x, y, 255, 255, 255, 255);
     for (int i = 0; i < 80; ++i) {
@@ -85,15 +84,21 @@ static bool SaveTGA(const fs::path& path, const make3d::ImageRGBA& image) {
 
     for (int i = 0; i < image.width * image.height; ++i) {
         size_t p = static_cast<size_t>(i) * 4;
-        unsigned char bgra[4] = {
-            image.pixels[p + 2],
-            image.pixels[p + 1],
-            image.pixels[p + 0],
-            image.pixels[p + 3]
-        };
+        unsigned char bgra[4] = { image.pixels[p + 2], image.pixels[p + 1], image.pixels[p + 0], image.pixels[p + 3] };
         file.write(reinterpret_cast<const char*>(bgra), 4);
     }
     return true;
+}
+
+static void WriteOpenThisFirstGuide(const fs::path& outDir, const make3d::ProductionPipelineResult& result) {
+    std::ofstream guide(outDir / "OPEN_THIS_FIRST.txt", std::ios::binary);
+    guide << "Open this file first:\n";
+    guide << result.heroVertexColorGltfPath.u8string() << "\n\n";
+    guide << "Do not judge the portfolio sample from raw/polished/voxel fallback files first.\n";
+    guide << "The review target is the hero semantic vertex-color glTF.\n\n";
+    guide << "Secondary files:\n";
+    guide << result.heroMaterialGltfPath.u8string() << "\n";
+    guide << result.productionReportPath.u8string() << "\n";
 }
 
 int main(int argc, char** argv) {
@@ -131,12 +136,16 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    WriteOpenThisFirstGuide(outDir, result);
+
     std::cout << result.message << "\n";
     if (!weightsPath.empty()) std::cout << "Learned weights: " << weightsPath.u8string() << "\n";
-    std::cout << "Voxel vertex-color glTF: " << result.voxelVertexColorGltfPath.u8string() << "\n";
-    std::cout << "Voxel material glTF: " << result.voxelMaterialGltfPath.u8string() << "\n";
-    std::cout << "Polished vertex-color glTF: " << result.polishedVertexColorGltfPath.u8string() << "\n";
-    std::cout << "Polished material glTF: " << result.polishedMaterialGltfPath.u8string() << "\n";
+    std::cout << "OPEN THIS FIRST: " << result.heroVertexColorGltfPath.u8string() << "\n";
+    std::cout << "Hero material glTF: " << result.heroMaterialGltfPath.u8string() << "\n";
+    std::cout << "Hero OBJ: " << result.heroObjPath.u8string() << "\n";
     std::cout << "Report: " << result.productionReportPath.u8string() << "\n";
+    std::cout << "\nSecondary fallback outputs, not the primary review target:\n";
+    std::cout << "Voxel vertex-color glTF: " << result.voxelVertexColorGltfPath.u8string() << "\n";
+    std::cout << "Polished vertex-color glTF: " << result.polishedVertexColorGltfPath.u8string() << "\n";
     return 0;
 }
