@@ -41,6 +41,7 @@ struct ShapeDescriptorReport {
     float edgeDensity = 0.0f;
     float massCenterX = 0.5f;
     float massCenterY = 0.5f;
+    float contourComplexity = 0.0f;
 
     std::string ToMarkdown() const;
     std::string ToJson() const;
