@@ -23,6 +23,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DAssetTypes.cpp
     src/Make3DGameAssetGenerator.cpp
     src/Make3DMeshRepairAndTexture.cpp
+    src/Make3DMeshQualityGate.cpp
     src/Make3DCompleteGameAssetPipeline.cpp
     src/Make3DTypedProceduralAssets.cpp
     src/Make3DProductionPipeline.cpp
@@ -45,6 +46,8 @@ make3d_exe(Make3DAdvancedCLI src/Make3DAdvancedCLI.cpp)
 make3d_exe(Make3DGenerateAdvancedSamples tools/GenerateAdvancedSamples.cpp)
 make3d_exe(Make3DGenerateMeshQualityReport tools/GenerateMeshQualityReport.cpp)
 make3d_exe(Make3DGenerateProductionPipelineSample tools/GenerateProductionPipelineSample.cpp)
+make3d_exe(Make3DGenerateGenericAssetSample tools/GenerateGenericAssetSample.cpp)
+make3d_exe(Make3DGenerateCompleteGameAssetSuite tools/GenerateCompleteGameAssetSuite.cpp)
 make3d_exe(Make3DTrainLearnedShapeModel tools/TrainLearnedShapeModel.cpp)
 make3d_exe(Make3DAdvancedCoreSmokeTest tests/Make3DAdvancedCoreSmokeTest.cpp)
 make3d_exe(Make3DMeshToolsTest tests/Make3DMeshToolsTest.cpp)
@@ -60,6 +63,7 @@ make3d_exe(Make3DModelPolisherTest tests/Make3DModelPolisherTest.cpp)
 make3d_exe(Make3DMaskRefinerTest tests/Make3DMaskRefinerTest.cpp)
 make3d_exe(Make3DVoxelVolumeTest tests/Make3DVoxelVolumeTest.cpp)
 make3d_exe(Make3DGameAssetPipelineTest tests/Make3DGameAssetPipelineTest.cpp)
+make3d_exe(Make3DMeshQualityGateTest tests/Make3DMeshQualityGateTest.cpp)
 
 add_executable(Make3DGameAssetCLI
     src/Make3DGameAssetCLI.cpp
@@ -100,7 +104,8 @@ foreach(test_name IN ITEMS
     Make3DModelPolisherTest
     Make3DMaskRefinerTest
     Make3DVoxelVolumeTest
-    Make3DGameAssetPipelineTest)
+    Make3DGameAssetPipelineTest
+    Make3DMeshQualityGateTest)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
 
@@ -113,6 +118,13 @@ add_test(NAME Make3DVerifyProductionSampleArtifact
         -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/production_pipeline
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyProductionSample.cmake)
 set_tests_properties(Make3DVerifyProductionSampleArtifact PROPERTIES DEPENDS Make3DGenerateProductionPipelineSample)
+
+add_test(NAME Make3DGenerateGenericAssetSample COMMAND Make3DGenerateGenericAssetSample ${CMAKE_CURRENT_BINARY_DIR}/generic_asset)
+add_test(NAME Make3DGenerateCompleteGameAssetSuite COMMAND Make3DGenerateCompleteGameAssetSuite ${CMAKE_CURRENT_BINARY_DIR}/complete_game_asset_suite)
+add_test(NAME Make3DGenerateTypedFurniture COMMAND Make3DTypedAssetCLI --type furniture --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/furniture)
+add_test(NAME Make3DGenerateTypedMachine COMMAND Make3DTypedAssetCLI --type machine --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/machine)
+add_test(NAME Make3DGenerateTypedTool COMMAND Make3DTypedAssetCLI --type tool --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/tool)
+add_test(NAME Make3DGenerateTypedTerrain COMMAND Make3DTypedAssetCLI --type terrain --output ${CMAKE_CURRENT_BINARY_DIR}/typed_assets/terrain)
 add_test(NAME Make3DVerifyGameAssetArtifacts
     COMMAND ${CMAKE_COMMAND}
         -DGENERIC_ASSET_DIR=${CMAKE_CURRENT_BINARY_DIR}/generic_asset
