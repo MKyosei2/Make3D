@@ -1,8 +1,11 @@
 #include "Make3DProductionPipeline.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
+#include <system_error>
 #include <vector>
 
 namespace fs = std::filesystem;
