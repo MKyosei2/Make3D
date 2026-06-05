@@ -2,6 +2,7 @@
 
 #include "Make3DAdvancedCore.h"
 #include "Make3DAssetTypes.h"
+#include "Make3DMeshQualityGate.h"
 
 #include <filesystem>
 #include <string>
@@ -14,11 +15,13 @@ struct GameAssetGeneratorOptions {
     bool generateLodProxy = true;
     bool addBuildingDetails = true;
     bool addPropDetailBands = true;
+    bool enforceSafeMeshQuality = true;
     int radialSegments = 24;
     int gridResolution = 96;
     float targetHeight = 2.0f;
     float extrusionDepth = 0.42f;
     float buildingDepth = 0.72f;
+    MeshQualityGateOptions qualityGate;
 };
 
 struct GameAssetValidationReport {
@@ -74,6 +77,7 @@ struct GameAssetGenerationResult {
     GameAssetValidationReport validation;
     GameAssetValidationReport colliderValidation;
     GameAssetValidationReport lodValidation;
+    MeshQualityGateReport qualityGate;
     GameAssetMetadata metadata;
     std::filesystem::path objPath;
     std::filesystem::path gltfPath;
