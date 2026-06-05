@@ -1,4 +1,7 @@
 #include "Make3DProductionPipeline.h"
+#include "Make3DHeroDetailEnhancer.h"
+#include "Make3DHeroFineDetailPass.h"
+#include "Make3DHeroSemanticGltfExporter.h"
 
 #include <cstdint>
 #include <fstream>
@@ -38,13 +41,42 @@ static std::string MaybePath(const fs::path& p, const char* disabled) {
     return p.empty() ? std::string(disabled) : p.generic_string();
 }
 
+static std::string DetailJson(const HeroFineDetailReport& r) {
+    std::ostringstream o;
+    o << "{\"faceFeatureVertices\":" << r.faceFeatureVertices
+      << ",\"hairStrandVertices\":" << r.hairStrandVertices
+      << ",\"clothingFoldVertices\":" << r.clothingFoldVertices
+      << ",\"fingerVertices\":" << r.fingerVertices
+      << ",\"shoeSoleVertices\":" << r.shoeSoleVertices
+      << ",\"verticesAfter\":" << r.verticesAfter
+      << ",\"trianglesAfter\":" << r.trianglesAfter << "}";
+    return o.str();
+}
+
+static std::string DetailMarkdown(const HeroFineDetailReport& r) {
+    std::ostringstream o;
+    o << "# Hero Fine Detail Report\n\n| Metric | Value |\n|---|---:|\n";
+    o << "| Face feature vertices | " << r.faceFeatureVertices << " |\n";
+    o << "| Hair strand vertices | " << r.hairStrandVertices << " |\n";
+    o << "| Clothing fold vertices | " << r.clothingFoldVertices << " |\n";
+    o << "| Finger hint vertices | " << r.fingerVertices << " |\n";
+    o << "| Shoe sole vertices | " << r.shoeSoleVertices << " |\n";
+    o << "| Vertices after | " << r.verticesAfter << " |\n";
+    o << "| Triangles after | " << r.trianglesAfter << " |\n";
+    return o.str();
+}
+
 static std::string MakeProductionMarkdown(const ProductionPipelineResult& r) {
     std::ostringstream o;
     o << "# Make3D Production Pipeline Report\n\n";
     o << "## Review target\n\nOpen this first:\n\n```text\n" << MaybePath(r.heroVertexColorGltfPath, "hero output not generated") << "\n```\n\n";
-    o << "Hero and game-asset outputs are generated from the same safe typed mesh. Legacy raw, polished, voxel, and old hero reconstruction paths are disabled.\n\n";
+    o << "The review target is generated through the hero character path: refined mask, depth inference, BuildHeroCharacterMesh, detail volumes, fine detail pass, semantic palette extraction, and COLOR_0 glTF export. Generic game-asset output is secondary.\n\n";
+    if (!r.heroMesh.positions.empty()) {
+        o << "## Hero character\n\n" << r.heroReport.ToMarkdown() << "\n";
+        o << "## Hero fine detail\n\n" << DetailMarkdown(r.heroFineDetailReport) << "\n";
+    }
     if (!r.gameAssetMesh.positions.empty()) {
-        o << "## Safe game asset\n\n" << r.gameAssetReport.classification.ToMarkdown() << "\n";
+        o << "## Secondary safe game asset\n\n" << r.gameAssetReport.classification.ToMarkdown() << "\n";
         o << "### Mesh validation\n\n" << r.gameAssetReport.validation.ToMarkdown() << "\n";
         o << "### Quality gate\n\n" << r.gameAssetReport.qualityGate.ToMarkdown() << "\n";
         o << "### Metadata\n\n" << r.gameAssetReport.metadata.ToMarkdown() << "\n";
@@ -68,7 +100,9 @@ static std::string MakeProductionJson(const ProductionPipelineResult& r) {
     std::ostringstream o;
     o << "{\n";
     o << "  \"reviewTarget\": \"" << MaybePath(r.heroVertexColorGltfPath, "") << "\",\n";
-    o << "  \"pipelineMode\": \"safe-typed-only\",\n";
+    o << "  \"pipelineMode\": \"hero-character-production\",\n";
+    o << "  \"hero\": " << r.heroReport.ToJson() << ",\n";
+    o << "  \"heroFineDetail\": " << DetailJson(r.heroFineDetailReport) << ",\n";
     o << "  \"shapeInference\": " << r.shapeInferenceReport.ToJson() << ",\n";
     o << "  \"learnedShape\": " << r.learnedShapeReport.ToJson() << ",\n";
     o << "  \"reconstruction\": " << r.reconstructionReport.ToJson() << ",\n";
@@ -86,15 +120,7 @@ static std::string MakeProductionJson(const ProductionPipelineResult& r) {
     return o.str();
 }
 
-static void WriteReportsAndDebugImages(
-    const fs::path& out,
-    const ImageRGBA& color,
-    const std::vector<std::uint8_t>& mask,
-    const DepthImage& depth,
-    const DepthImage& inferred,
-    const DepthImage& recon,
-    ProductionPipelineResult& r,
-    const ProductionPipelineOptions& opt) {
+static void WriteReportsAndDebugImages(const fs::path& out, const ImageRGBA& color, const std::vector<std::uint8_t>& mask, const DepthImage& depth, const DepthImage& inferred, const DepthImage& recon, ProductionPipelineResult& r, const ProductionPipelineOptions& opt) {
     if (opt.writeDebugImages) {
         WriteDebugMask(out / "debug_mask_refined.ppm", color.width, color.height, mask);
         WriteDebugDepth(out / "debug_depth_refined.ppm", color.width, color.height, depth);
@@ -110,14 +136,8 @@ static void WriteReportsAndDebugImages(
     }
 }
 
-static bool BuildProductionGameAsset(
-    const ImageRGBA& color,
-    const DepthImage& depth,
-    const std::vector<std::uint8_t>& mask,
-    const fs::path& out,
-    const ProductionPipelineOptions& opt,
-    ProductionPipelineResult& r) {
-    if (!opt.exportGameAsset && !opt.exportHeroCharacter) return true;
+static bool BuildProductionGameAsset(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const fs::path& out, const ProductionPipelineOptions& opt, ProductionPipelineResult& r) {
+    if (!opt.exportGameAsset) return true;
     r.gameAssetReport = BuildGenericGameAsset(color, depth, mask, out / "game_asset", opt.gameAsset);
     if (!r.gameAssetReport.ok) {
         r.message = r.gameAssetReport.message;
@@ -131,55 +151,50 @@ static bool BuildProductionGameAsset(
     return true;
 }
 
-static bool ExportSafeHeroAlias(const fs::path& outputDir, ProductionPipelineResult& r, std::string& error) {
-    if (r.gameAssetMesh.positions.empty() || r.gameAssetMesh.indices.empty()) return true;
+static bool ExportHeroCharacter(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const fs::path& outputDir, const ProductionPipelineOptions& opt, ProductionPipelineResult& r, std::string& error) {
+    if (!opt.exportHeroCharacter) return true;
     fs::create_directories(outputDir / "hero");
-    r.heroMesh = r.gameAssetMesh;
+    HeroCharacterOptions heroOptions;
+    r.heroMesh = BuildHeroCharacterMesh(color, depth, mask, heroOptions, &r.heroReport);
+    if (r.heroMesh.positions.empty() || r.heroMesh.indices.empty() || !r.heroReport.ok) {
+        error = "Hero character mesh generation failed.";
+        return false;
+    }
+    AddHeroDetailVolumes(r.heroMesh, heroOptions, &r.heroReport);
+    AddHeroFineDetails(r.heroMesh, heroOptions, HeroFineDetailOptions{}, &r.heroFineDetailReport);
+    RecomputeNormals(r.heroMesh);
     r.heroObjPath = outputDir / "hero" / "make3d_hero_character.obj";
     r.heroMaterialGltfPath = outputDir / "hero" / "make3d_hero_character_material.gltf";
     r.heroVertexColorGltfPath = outputDir / "hero" / "make3d_hero_character_vertex_color.gltf";
     if (!ExportOBJ(r.heroMesh, r.heroObjPath, "", &error)) return false;
     GltfMaterialOptions material;
-    material.materialName = "Make3DSafeHeroAliasMaterial";
+    material.materialName = "Make3DHeroCharacterMaterial";
     material.baseColorFactor = {0.72f, 0.74f, 0.76f, 1.0f};
     if (!ExportGLTFWithMaterial(r.heroMesh, r.heroMaterialGltfPath, material, &error)) return false;
-    if (!ExportGLTFWithMaterial(r.heroMesh, r.heroVertexColorGltfPath, material, &error)) return false;
+    HeroSemanticPalette palette = ExtractHeroSemanticPalette(color, mask);
+    if (!ExportHeroSemanticGLTF(r.heroMesh, palette, r.heroVertexColorGltfPath, HeroSemanticGltfOptions{}, &error)) return false;
     return true;
 }
 
 } // namespace
 
-ProductionPipelineResult BuildProductionModelFromImage(
-    const fs::path& colorPath,
-    const std::optional<fs::path>& depthPath,
-    const fs::path& outputDir,
-    const ProductionPipelineOptions& options) {
+ProductionPipelineResult BuildProductionModelFromImage(const fs::path& colorPath, const std::optional<fs::path>& depthPath, const fs::path& outputDir, const ProductionPipelineOptions& options) {
     ProductionPipelineResult result;
     std::string error;
     auto color = LoadImageRGBA(colorPath, &error);
-    if (!color) {
-        result.message = error;
-        return result;
-    }
-
+    if (!color) { result.message = error; return result; }
     std::optional<DepthImage> providedDepth;
     if (depthPath) providedDepth = LoadDepthImage(*depthPath, &error);
     fs::create_directories(outputDir);
-    if (options.exportGameAsset || options.exportHeroCharacter) fs::create_directories(outputDir / "game_asset");
+    if (options.exportGameAsset) fs::create_directories(outputDir / "game_asset");
     if (options.exportHeroCharacter) fs::create_directories(outputDir / "hero");
-
     result.reconstructionReport.imageWidth = color->width;
     result.reconstructionReport.imageHeight = color->height;
     std::vector<std::uint8_t> mask = BuildForegroundMask(*color, &result.reconstructionReport);
-    if (result.reconstructionReport.foregroundPixels == 0) {
-        result.message = "Foreground extraction failed.";
-        return result;
-    }
-
+    if (result.reconstructionReport.foregroundPixels == 0) { result.message = "Foreground extraction failed."; return result; }
     result.maskReport = RefineForegroundMask(mask, color->width, color->height, options.maskRefine);
     result.reconstructionReport.foregroundPixels = result.maskReport.foregroundAfter;
     result.reconstructionReport.foregroundCoverage = static_cast<float>(result.maskReport.foregroundAfter) / static_cast<float>(color->width * color->height);
-
     DepthImage depth = PrepareDepth(*color, providedDepth, mask, options.reconstruction, &result.reconstructionReport);
     DepthImage reconstructionDepth = depth;
     if (options.enableShapeInference) {
@@ -191,25 +206,21 @@ ProductionPipelineResult BuildProductionModelFromImage(
         result.learnedShapeReport = RunLearnedShapeModel(*color, mask, reconstructionDepth, result.shapeInferenceReport, options.learnedShape);
         if (result.learnedShapeReport.ok && !result.learnedShapeReport.learnedDepth.values.empty()) reconstructionDepth = result.learnedShapeReport.learnedDepth;
     }
-
-    result.reconstructionReport.reconstructionMode = "SafeTypedOnly";
+    result.reconstructionReport.reconstructionMode = "HeroCharacterProduction";
     result.reconstructionReport.watertightCandidate = true;
-    result.reconstructionReport.warnings.push_back("Old hero/raw/polished/voxel reconstruction paths are disabled; output is routed through the safe typed game-asset generator.");
-
+    result.reconstructionReport.warnings.push_back("Production review output is generated by the hero character path. Generic game asset output is secondary.");
+    if (!ExportHeroCharacter(*color, reconstructionDepth, mask, outputDir, options, result, error)) { result.message = error; return result; }
     if (!BuildProductionGameAsset(*color, reconstructionDepth, mask, outputDir, options, result)) return result;
-    result.reconstructionReport.vertices = static_cast<int>(result.gameAssetMesh.positions.size() / 3);
-    result.reconstructionReport.triangles = static_cast<int>(result.gameAssetMesh.indices.size() / 3);
-
-    if (options.exportHeroCharacter) {
-        if (!ExportSafeHeroAlias(outputDir, result, error)) {
-            result.message = error;
-            return result;
-        }
+    if (!result.heroMesh.positions.empty()) {
+        result.reconstructionReport.vertices = static_cast<int>(result.heroMesh.positions.size() / 3);
+        result.reconstructionReport.triangles = static_cast<int>(result.heroMesh.indices.size() / 3);
+    } else {
+        result.reconstructionReport.vertices = static_cast<int>(result.gameAssetMesh.positions.size() / 3);
+        result.reconstructionReport.triangles = static_cast<int>(result.gameAssetMesh.indices.size() / 3);
     }
-
     WriteReportsAndDebugImages(outputDir, *color, mask, depth, inferredDepth, reconstructionDepth, result, options);
     result.ok = true;
-    result.message = "Production pipeline finished with safe typed-only output.";
+    result.message = "Production pipeline finished with real hero character output.";
     return result;
 }
 
