@@ -1,0 +1,20 @@
+﻿  Make3DAdvancedGui.cpp
+  Make3DAdvancedCore.cpp
+  Make3DAssetTypes.cpp
+  Make3DCompleteGameAssetPipeline.cpp
+  Make3DGameAssetGenerator.cpp
+  Make3DGltfMaterialExporter.cpp
+  Make3DGuiAdapter.cpp
+  Make3DLearnedShapeModel.cpp
+  Make3DLearnedShapeTrainer.cpp
+  Make3DMaskRefiner.cpp
+C:\Users\kyose\ドキュメント\GitHub\Make3D\src\Make3DMaskRefiner.cpp(127,20): warning C4505: 'make3d::`anonymous-namespace'::JsonEscape': 内部リンケージ含む参照されていない関数が削除されました
+  Make3DMeshQualityGate.cpp
+  Make3DMeshRepairAndTexture.cpp
+  Make3DMeshTools.cpp
+  Make3DProductionPipeline.cpp
+  Make3DShapeInference.cpp
+  Make3DTypedProceduralAssets.cpp
+  Make3DVertexColorGltfExporter.cpp
+  コードを生成中...
+  Make3D.vcxproj -> C:\Users\kyose\ドキュメント\GitHub\Make3D\bin\Debug\Make3D.exe

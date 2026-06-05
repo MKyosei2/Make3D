@@ -1,0 +1,13 @@
+{
+  "imageWidth": 128,
+  "imageHeight": 128,
+  "foregroundPixels": 5540,
+  "foregroundCoverage": 0.338135,
+  "depthMin": 0,
+  "depthMax": 0.6,
+  "depthMean": 0.6,
+  "reconstructionMode": "DetailedEditableProxy",
+  "vertices": 1678,
+  "triangles": 2764,
+  "watertightCandidate": true
+}
