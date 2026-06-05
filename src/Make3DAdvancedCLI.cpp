@@ -1,6 +1,7 @@
 #include "Make3DAdvancedCore.h"
 #include "Make3DGltfMaterialExporter.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <optional>
