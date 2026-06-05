@@ -35,7 +35,7 @@ set(forbidden_paths
 
 foreach(path IN LISTS forbidden_paths)
     if(EXISTS "${path}")
-        message(FATAL_ERROR "Forbidden fallback artifact exists in hero-only review sample: ${path}")
+        message(FATAL_ERROR "Forbidden fallback artifact exists in hero/game-asset safe sample: ${path}")
     endif()
 endforeach()
 
@@ -60,6 +60,14 @@ endif()
 file(READ "${OUTPUT_DIR}/output/game_asset/make3d_game_asset_manifest.json" game_asset_manifest)
 if(NOT game_asset_manifest MATCHES "classification")
     message(FATAL_ERROR "Production game asset manifest does not include classification")
+endif()
+if(NOT game_asset_manifest MATCHES "qualityGate")
+    message(FATAL_ERROR "Production game asset manifest does not include Phase 0 qualityGate")
+endif()
+
+file(READ "${OUTPUT_DIR}/output/game_asset/make3d_game_asset_report.md" game_asset_report)
+if(NOT game_asset_report MATCHES "Phase 0 safe-output quality gate")
+    message(FATAL_ERROR "Production game asset report does not include Phase 0 safe-output quality gate")
 endif()
 
 file(READ "${OUTPUT_DIR}/output/production_report.json" production_json)
