@@ -5,21 +5,17 @@
 #include <cmath>
 #include <cstdint>
 #include <fstream>
-#include <iomanip>
 #include <limits>
 #include <sstream>
 
 namespace make3d {
-
 namespace {
 
 constexpr float Pi = 3.14159265358979323846f;
-
 struct Vec3 { float x = 0.0f, y = 0.0f, z = 0.0f; };
 
 static int VertexCount(const MeshData& mesh) { return static_cast<int>(mesh.positions.size() / 3); }
 static int TriangleCount(const MeshData& mesh) { return static_cast<int>(mesh.indices.size() / 3); }
-static int Idx(int x, int y, int w) { return y * w + x; }
 
 static std::string EscapeJson(const std::string& s) {
     std::ostringstream o;
@@ -52,29 +48,11 @@ static void AddQuad(MeshData& mesh, int a, int b, int c, int d) {
     AddTri(mesh, a, c, d);
 }
 
-static bool ComputeMaskBounds(const std::vector<std::uint8_t>& mask, int w, int h, int& minX, int& minY, int& maxX, int& maxY) {
-    minX = w; minY = h; maxX = -1; maxY = -1;
-    for (int y = 0; y < h; ++y) for (int x = 0; x < w; ++x) {
-        if (!mask[static_cast<size_t>(Idx(x, y, w))]) continue;
-        minX = std::min(minX, x); minY = std::min(minY, y);
-        maxX = std::max(maxX, x); maxY = std::max(maxY, y);
-    }
-    return maxX >= minX && maxY >= minY;
-}
-
-static void AppendMesh(MeshData& dst, const MeshData& src) {
-    std::uint32_t base = static_cast<std::uint32_t>(VertexCount(dst));
-    dst.positions.insert(dst.positions.end(), src.positions.begin(), src.positions.end());
-    dst.normals.insert(dst.normals.end(), src.normals.begin(), src.normals.end());
-    dst.uvs.insert(dst.uvs.end(), src.uvs.begin(), src.uvs.end());
-    for (std::uint32_t i : src.indices) dst.indices.push_back(base + i);
-}
-
 static void AddBox(MeshData& mesh, float cx, float cy, float cz, float sx, float sy, float sz) {
-    int base = VertexCount(mesh);
-    float x0 = cx - sx * 0.5f, x1 = cx + sx * 0.5f;
-    float y0 = cy - sy * 0.5f, y1 = cy + sy * 0.5f;
-    float z0 = cz - sz * 0.5f, z1 = cz + sz * 0.5f;
+    const int base = VertexCount(mesh);
+    const float x0 = cx - sx * 0.5f, x1 = cx + sx * 0.5f;
+    const float y0 = cy - sy * 0.5f, y1 = cy + sy * 0.5f;
+    const float z0 = cz - sz * 0.5f, z1 = cz + sz * 0.5f;
     AddVertex(mesh, x0, y0, z0, 0, 0); AddVertex(mesh, x1, y0, z0, 1, 0); AddVertex(mesh, x1, y1, z0, 1, 1); AddVertex(mesh, x0, y1, z0, 0, 1);
     AddVertex(mesh, x0, y0, z1, 0, 0); AddVertex(mesh, x1, y0, z1, 1, 0); AddVertex(mesh, x1, y1, z1, 1, 1); AddVertex(mesh, x0, y1, z1, 0, 1);
     AddQuad(mesh, base + 0, base + 1, base + 2, base + 3);
@@ -87,29 +65,37 @@ static void AddBox(MeshData& mesh, float cx, float cy, float cz, float sx, float
 
 static void AddCylinder(MeshData& mesh, float cx, float cy0, float cy1, float cz, float rx, float rz, int segments) {
     segments = std::max(8, segments);
-    int base = VertexCount(mesh);
+    const int base = VertexCount(mesh);
     for (int y = 0; y < 2; ++y) {
-        float cy = y == 0 ? cy0 : cy1;
+        const float cy = y == 0 ? cy0 : cy1;
         for (int s = 0; s < segments; ++s) {
-            float t = static_cast<float>(s) / static_cast<float>(segments);
-            float a = t * 2.0f * Pi;
+            const float t = static_cast<float>(s) / static_cast<float>(segments);
+            const float a = t * 2.0f * Pi;
             AddVertex(mesh, cx + std::cos(a) * rx, cy, cz + std::sin(a) * rz, t, static_cast<float>(y));
         }
     }
     for (int s = 0; s < segments; ++s) {
-        int n = (s + 1) % segments;
+        const int n = (s + 1) % segments;
         AddQuad(mesh, base + s, base + n, base + segments + n, base + segments + s);
     }
-    int bottom = VertexCount(mesh); AddVertex(mesh, cx, cy0, cz, 0.5f, 0.5f);
-    int top = VertexCount(mesh); AddVertex(mesh, cx, cy1, cz, 0.5f, 0.5f);
+    const int bottom = VertexCount(mesh); AddVertex(mesh, cx, cy0, cz, 0.5f, 0.5f);
+    const int top = VertexCount(mesh); AddVertex(mesh, cx, cy1, cz, 0.5f, 0.5f);
     for (int s = 0; s < segments; ++s) {
-        int n = (s + 1) % segments;
+        const int n = (s + 1) % segments;
         AddTri(mesh, bottom, base + n, base + s);
         AddTri(mesh, top, base + segments + s, base + segments + n);
     }
 }
 
-static MeshData BuildReliefAsset(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const GameAssetGeneratorOptions& options) {
+static void AppendMesh(MeshData& dst, const MeshData& src) {
+    const std::uint32_t base = static_cast<std::uint32_t>(VertexCount(dst));
+    dst.positions.insert(dst.positions.end(), src.positions.begin(), src.positions.end());
+    dst.normals.insert(dst.normals.end(), src.normals.begin(), src.normals.end());
+    dst.uvs.insert(dst.uvs.end(), src.uvs.begin(), src.uvs.end());
+    for (std::uint32_t i : src.indices) dst.indices.push_back(base + i);
+}
+
+static MeshData BuildReliefFallbackAsset(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const GameAssetGeneratorOptions& options) {
     AdvancedOptions adv;
     adv.mode = ReconstructionMode::HybridVolume;
     adv.quality = QualityPreset::Detailed;
@@ -117,31 +103,11 @@ static MeshData BuildReliefAsset(const ImageRGBA& color, const DepthImage& depth
     adv.volumeRadialSegments = std::max(8, options.radialSegments);
     adv.depthScale = options.extrusionDepth;
     MeshData mesh = ReconstructMesh(color, depth, mask, adv, nullptr);
-    NormalizeMesh(mesh, options.targetHeight);
-    return mesh;
-}
-
-static MeshData BuildBuildingAsset(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const AssetClassificationResult& classification, const GameAssetGeneratorOptions& options) {
-    (void)depth;
-    MeshData mesh;
-    int minX, minY, maxX, maxY;
-    if (!ComputeMaskBounds(mask, color.width, color.height, minX, minY, maxX, maxY)) return mesh;
-    float height = options.targetHeight;
-    float width = height / std::max(0.25f, classification.aspectRatio);
-    width = std::clamp(width, 0.65f, 2.8f);
-    float depthSize = std::max(0.30f, options.buildingDepth);
-    AddBox(mesh, 0.0f, height * 0.5f, 0.0f, width, height, depthSize);
-    if (options.addBuildingDetails) {
-        float roofH = std::max(0.12f, height * 0.12f);
-        AddBox(mesh, 0.0f, height + roofH * 0.30f, 0.0f, width * 1.10f, roofH, depthSize * 1.12f);
-        int columns = std::clamp(static_cast<int>(width * 3.0f + 1.0f), 2, 6);
-        int rows = std::clamp(static_cast<int>(height * 2.2f), 2, 7);
-        for (int row = 0; row < rows; ++row) for (int col = 0; col < columns; ++col) {
-            float y = height * (0.18f + 0.66f * (static_cast<float>(row) + 0.5f) / static_cast<float>(rows));
-            float x = -width * 0.38f + width * 0.76f * (static_cast<float>(col) + 0.5f) / static_cast<float>(columns);
-            AddBox(mesh, x, y, depthSize * 0.505f, width * 0.10f, height * 0.065f, depthSize * 0.035f);
-        }
-        AddBox(mesh, 0.0f, height * 0.075f, depthSize * 0.515f, width * 0.18f, height * 0.15f, depthSize * 0.05f);
+    if (options.addPropDetailBands) {
+        MeshData bands;
+        AddBox(bands, 0.0f, 0.45f, options.extrusionDepth * 0.55f, 1.05f, 0.035f, 0.035f);
+        AddBox(bands, 0.0f, 0.95f, options.extrusionDepth * 0.55f, 0.86f, 0.030f, 0.035f);
+        AppendMesh(mesh, bands);
     }
     RecomputeNormals(mesh);
     NormalizeMesh(mesh, options.targetHeight);
@@ -161,20 +127,6 @@ static MeshData BuildVehicleLikeAsset(const GameAssetGeneratorOptions& options) 
     return mesh;
 }
 
-static MeshData BuildGenericPrimitiveAsset(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const AssetClassificationResult& classification, const GameAssetGeneratorOptions& options) {
-    MeshData mesh = BuildReliefAsset(color, depth, mask, options);
-    if (options.addPropDetailBands && classification.assetType != GameAssetType::FlatRelief) {
-        MeshData bands;
-        float bandW = 1.05f;
-        AddBox(bands, 0.0f, 0.45f, options.extrusionDepth * 0.55f, bandW, 0.035f, 0.035f);
-        AddBox(bands, 0.0f, 0.95f, options.extrusionDepth * 0.55f, bandW * 0.82f, 0.030f, 0.035f);
-        AppendMesh(mesh, bands);
-    }
-    RecomputeNormals(mesh);
-    NormalizeMesh(mesh, options.targetHeight);
-    return mesh;
-}
-
 static MeshData BuildSafeProxyAsset(GameAssetType type, const GameAssetGeneratorOptions& options) {
     MeshData mesh;
     if (type == GameAssetType::Building || type == GameAssetType::ArchitecturalPart) {
@@ -182,8 +134,8 @@ static MeshData BuildSafeProxyAsset(GameAssetType type, const GameAssetGenerator
     } else if (type == GameAssetType::Vehicle) {
         mesh = BuildVehicleLikeAsset(options);
     } else if (type == GameAssetType::Character || type == GameAssetType::Creature) {
-        AddCylinder(mesh, 0.0f, 0.0f, options.targetHeight, 0.0f, 0.28f, 0.18f, std::max(12, options.radialSegments));
-        AddCylinder(mesh, 0.0f, options.targetHeight * 0.76f, options.targetHeight * 1.02f, 0.0f, 0.20f, 0.20f, std::max(12, options.radialSegments));
+        AddCylinder(mesh, 0.0f, 0.0f, options.targetHeight * 0.72f, 0.0f, 0.28f, 0.18f, std::max(12, options.radialSegments));
+        AddCylinder(mesh, 0.0f, options.targetHeight * 0.74f, options.targetHeight, 0.0f, 0.20f, 0.20f, std::max(12, options.radialSegments));
     } else {
         AddBox(mesh, 0.0f, options.targetHeight * 0.5f, 0.0f, 0.85f, options.targetHeight, 0.55f);
     }
@@ -192,14 +144,70 @@ static MeshData BuildSafeProxyAsset(GameAssetType type, const GameAssetGenerator
     return mesh;
 }
 
+static void AddWindowGrid(MeshData& mesh, const PlannedAssetPart& p) {
+    const int cols = std::max(2, static_cast<int>(p.sizeX * 4.0f));
+    const int rows = std::max(2, static_cast<int>(p.sizeY * 3.0f));
+    const float cellW = p.sizeX / static_cast<float>(cols);
+    const float cellH = p.sizeY / static_cast<float>(rows);
+    for (int r = 0; r < rows; ++r) {
+        for (int c = 0; c < cols; ++c) {
+            const float x = p.centerX - p.sizeX * 0.5f + cellW * (static_cast<float>(c) + 0.5f);
+            const float y = p.centerY - p.sizeY * 0.5f + cellH * (static_cast<float>(r) + 0.5f);
+            AddBox(mesh, x, y, p.sizeZ * 0.58f, cellW * 0.45f, cellH * 0.42f, p.sizeZ * 0.06f);
+        }
+    }
+}
+
+static MeshData BuildPlannedAssetMesh(const AssetPlanResult& plan, const GameAssetGeneratorOptions& options) {
+    MeshData mesh;
+    for (const PlannedAssetPart& p : plan.parts) {
+        const float sx = std::max(0.03f, p.sizeX);
+        const float sy = std::max(0.03f, p.sizeY);
+        const float sz = std::max(0.03f, p.sizeZ);
+        switch (p.kind) {
+            case PlannedPartKind::CharacterHead:
+                AddCylinder(mesh, p.centerX, p.centerY - sy * 0.5f, p.centerY + sy * 0.5f, p.centerZ, sx * 0.42f, sz * 0.50f, std::max(14, options.radialSegments));
+                break;
+            case PlannedPartKind::CharacterArm:
+            case PlannedPartKind::CharacterLeg:
+                AddCylinder(mesh, p.centerX, p.centerY - sy * 0.5f, p.centerY + sy * 0.5f, p.centerZ, sx * 0.25f, sz * 0.28f, std::max(10, options.radialSegments / 2));
+                break;
+            case PlannedPartKind::VehicleWheel:
+                AddCylinder(mesh, p.centerX, p.centerY - sy * 0.5f, p.centerY + sy * 0.5f, p.centerZ + sz * 0.30f, sx * 0.45f, sz * 0.45f, std::max(16, options.radialSegments));
+                break;
+            case PlannedPartKind::BuildingWindowGrid:
+                AddWindowGrid(mesh, p);
+                break;
+            case PlannedPartKind::BuildingRoof:
+                AddBox(mesh, p.centerX, p.centerY, p.centerZ, sx * 1.08f, sy, sz * 1.10f);
+                break;
+            case PlannedPartKind::BuildingDoor:
+            case PlannedPartKind::DetailPanel:
+            case PlannedPartKind::DetailBand:
+                AddBox(mesh, p.centerX, p.centerY, p.centerZ + sz * 0.52f, sx, sy, std::max(0.02f, sz * 0.08f));
+                break;
+            case PlannedPartKind::ComplexProtrusion:
+                AddBox(mesh, p.centerX, p.centerY, p.centerZ, sx, sy, sz * 1.25f);
+                break;
+            default:
+                AddBox(mesh, p.centerX, p.centerY, p.centerZ, sx, sy, sz);
+                break;
+        }
+    }
+    if (mesh.positions.empty()) return mesh;
+    RecomputeNormals(mesh);
+    NormalizeMesh(mesh, plan.targetHeight);
+    return mesh;
+}
+
 static MeshData BuildColliderBox(const GameAssetValidationReport& validation) {
     MeshData mesh;
-    float sx = std::max(0.001f, validation.boundsMaxX - validation.boundsMinX);
-    float sy = std::max(0.001f, validation.boundsMaxY - validation.boundsMinY);
-    float sz = std::max(0.001f, validation.boundsMaxZ - validation.boundsMinZ);
-    float cx = (validation.boundsMinX + validation.boundsMaxX) * 0.5f;
-    float cy = (validation.boundsMinY + validation.boundsMaxY) * 0.5f;
-    float cz = (validation.boundsMinZ + validation.boundsMaxZ) * 0.5f;
+    const float sx = std::max(0.001f, validation.boundsMaxX - validation.boundsMinX);
+    const float sy = std::max(0.001f, validation.boundsMaxY - validation.boundsMinY);
+    const float sz = std::max(0.001f, validation.boundsMaxZ - validation.boundsMinZ);
+    const float cx = (validation.boundsMinX + validation.boundsMaxX) * 0.5f;
+    const float cy = (validation.boundsMinY + validation.boundsMaxY) * 0.5f;
+    const float cz = (validation.boundsMinZ + validation.boundsMaxZ) * 0.5f;
     AddBox(mesh, cx, cy, cz, sx, sy, sz);
     RecomputeNormals(mesh);
     return mesh;
@@ -207,14 +215,13 @@ static MeshData BuildColliderBox(const GameAssetValidationReport& validation) {
 
 static MeshData BuildLodProxy(const GameAssetValidationReport& validation, GameAssetType type) {
     MeshData mesh;
-    float sx = std::max(0.001f, validation.boundsMaxX - validation.boundsMinX);
-    float sy = std::max(0.001f, validation.boundsMaxY - validation.boundsMinY);
-    float sz = std::max(0.001f, validation.boundsMaxZ - validation.boundsMinZ);
-    float cx = (validation.boundsMinX + validation.boundsMaxX) * 0.5f;
-    float cy = (validation.boundsMinY + validation.boundsMaxY) * 0.5f;
-    float cz = (validation.boundsMinZ + validation.boundsMaxZ) * 0.5f;
-    if (type == GameAssetType::Vehicle) AddBox(mesh, cx, cy, cz, sx, sy * 0.82f, sz);
-    else if (type == GameAssetType::Building || type == GameAssetType::ArchitecturalPart) AddBox(mesh, cx, cy, cz, sx, sy, sz);
+    const float sx = std::max(0.001f, validation.boundsMaxX - validation.boundsMinX);
+    const float sy = std::max(0.001f, validation.boundsMaxY - validation.boundsMinY);
+    const float sz = std::max(0.001f, validation.boundsMaxZ - validation.boundsMinZ);
+    const float cx = (validation.boundsMinX + validation.boundsMaxX) * 0.5f;
+    const float cy = (validation.boundsMinY + validation.boundsMaxY) * 0.5f;
+    const float cz = (validation.boundsMinZ + validation.boundsMaxZ) * 0.5f;
+    if (type == GameAssetType::Vehicle || type == GameAssetType::Building || type == GameAssetType::ArchitecturalPart) AddBox(mesh, cx, cy, cz, sx, sy, sz);
     else AddCylinder(mesh, cx, validation.boundsMinY, validation.boundsMaxY, cz, sx * 0.38f, sz * 0.38f, 12);
     RecomputeNormals(mesh);
     return mesh;
@@ -223,7 +230,9 @@ static MeshData BuildLodProxy(const GameAssetValidationReport& validation, GameA
 static std::string MakeMarkdownReport(const GameAssetGenerationResult& result) {
     std::ostringstream o;
     o << "# Make3D Generic Game Asset Report\n\n";
-    o << result.classification.ToMarkdown() << "\n";
+    o << "## Phase 1 Asset analysis\n\n" << result.analysis.ToMarkdown() << "\n";
+    o << "## Phase 1 Asset plan\n\n" << result.plan.ToMarkdown() << "\n";
+    o << "## Classification\n\n" << result.classification.ToMarkdown() << "\n";
     o << "## Mesh validation\n\n" << result.validation.ToMarkdown() << "\n";
     o << "## Phase 0 safe-output quality gate\n\n" << result.qualityGate.ToMarkdown() << "\n";
     o << "## Game metadata\n\n" << result.metadata.ToMarkdown() << "\n";
@@ -240,6 +249,8 @@ static std::string MakeManifestJson(const GameAssetGenerationResult& result) {
     o << "{\n";
     o << "  \"ok\": " << (result.ok ? "true" : "false") << ",\n";
     o << "  \"message\": \"" << EscapeJson(result.message) << "\",\n";
+    o << "  \"analysis\": " << result.analysis.ToJson() << ",\n";
+    o << "  \"plan\": " << result.plan.ToJson() << ",\n";
     o << "  \"classification\": " << result.classification.ToJson() << ",\n";
     o << "  \"validation\": " << result.validation.ToJson() << ",\n";
     o << "  \"qualityGate\": " << result.qualityGate.ToJson() << ",\n";
@@ -264,20 +275,20 @@ GameAssetValidationReport ValidateGameAssetMesh(const MeshData& mesh) {
     r.boundsMinX = r.boundsMinY = r.boundsMinZ = std::numeric_limits<float>::max();
     r.boundsMaxX = r.boundsMaxY = r.boundsMaxZ = -std::numeric_limits<float>::max();
     for (size_t i = 0; i + 2 < mesh.positions.size(); i += 3) {
-        float x = mesh.positions[i + 0], y = mesh.positions[i + 1], z = mesh.positions[i + 2];
+        const float x = mesh.positions[i + 0], y = mesh.positions[i + 1], z = mesh.positions[i + 2];
         if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(z)) { ++r.nonFinitePositions; continue; }
         r.boundsMinX = std::min(r.boundsMinX, x); r.boundsMinY = std::min(r.boundsMinY, y); r.boundsMinZ = std::min(r.boundsMinZ, z);
         r.boundsMaxX = std::max(r.boundsMaxX, x); r.boundsMaxY = std::max(r.boundsMaxY, y); r.boundsMaxZ = std::max(r.boundsMaxZ, z);
     }
     auto pos = [&](std::uint32_t idx) -> Vec3 { size_t p = static_cast<size_t>(idx) * 3; return {mesh.positions[p], mesh.positions[p + 1], mesh.positions[p + 2]}; };
     for (size_t i = 0; i + 2 < mesh.indices.size(); i += 3) {
-        std::uint32_t a = mesh.indices[i + 0], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
+        const std::uint32_t a = mesh.indices[i + 0], b = mesh.indices[i + 1], c = mesh.indices[i + 2];
         if (a >= static_cast<std::uint32_t>(r.vertices) || b >= static_cast<std::uint32_t>(r.vertices) || c >= static_cast<std::uint32_t>(r.vertices)) { ++r.invalidIndices; continue; }
         Vec3 pa = pos(a), pb = pos(b), pc = pos(c);
         Vec3 ab{pb.x - pa.x, pb.y - pa.y, pb.z - pa.z};
         Vec3 ac{pc.x - pa.x, pc.y - pa.y, pc.z - pa.z};
         Vec3 cross{ab.y * ac.z - ab.z * ac.y, ab.z * ac.x - ab.x * ac.z, ab.x * ac.y - ab.y * ac.x};
-        float area2 = cross.x * cross.x + cross.y * cross.y + cross.z * cross.z;
+        const float area2 = cross.x * cross.x + cross.y * cross.y + cross.z * cross.z;
         if (area2 < 1.0e-12f) ++r.degenerateTriangles;
     }
     if (r.vertices == 0) r.warnings.push_back("Mesh has zero vertices.");
@@ -293,13 +304,25 @@ GameAssetValidationReport ValidateGameAssetMesh(const MeshData& mesh) {
 
 GameAssetGenerationResult BuildGenericGameAsset(const ImageRGBA& color, const DepthImage& depth, const std::vector<std::uint8_t>& mask, const std::filesystem::path& outputDir, const GameAssetGeneratorOptions& options) {
     GameAssetGenerationResult result;
-    result.classification = InferGameAssetType(color, mask, depth);
-    switch (result.classification.assetType) {
-        case GameAssetType::Building:
-        case GameAssetType::ArchitecturalPart: result.mesh = BuildBuildingAsset(color, depth, mask, result.classification, options); break;
-        case GameAssetType::Vehicle: result.mesh = BuildVehicleLikeAsset(options); break;
-        default: result.mesh = BuildGenericPrimitiveAsset(color, depth, mask, result.classification, options); break;
+    result.analysis = AnalyzeAsset(color, mask, depth, options.analysis);
+    if (result.analysis.ok) {
+        AssetPlanOptions planOptions = options.plan;
+        planOptions.targetHeight = options.targetHeight;
+        planOptions.defaultDepth = std::max(options.extrusionDepth, options.buildingDepth);
+        result.plan = BuildAssetPlanFromAnalysis(result.analysis, planOptions);
+        result.classification = result.analysis.classification;
+    } else {
+        result.classification = InferGameAssetType(color, mask, depth);
     }
+
+    if (options.useAssetAnalysisPlan && result.plan.ok) {
+        result.mesh = BuildPlannedAssetMesh(result.plan, options);
+    }
+    if (result.mesh.positions.empty()) {
+        if (result.classification.assetType == GameAssetType::Vehicle) result.mesh = BuildVehicleLikeAsset(options);
+        else result.mesh = BuildReliefFallbackAsset(color, depth, mask, options);
+    }
+
     RecomputeNormals(result.mesh);
     result.validation = ValidateGameAssetMesh(result.mesh);
     result.qualityGate = AnalyzeMeshQualityGate(result.mesh, options.qualityGate);
@@ -326,7 +349,12 @@ GameAssetGenerationResult BuildGenericGameAsset(const ImageRGBA& color, const De
     if (!ExportOBJ(result.mesh, result.objPath, "", &error)) { result.message = error; return result; }
     GltfMaterialOptions material;
     material.materialName = "Make3DGameAssetMaterial";
-    material.baseColorFactor = {0.72f, 0.76f, 0.82f, 1.0f};
+    if (!result.plan.materials.empty()) {
+        const PlannedMaterialSlot& m = result.plan.materials.front();
+        material.baseColorFactor = {m.r / 255.0f, m.g / 255.0f, m.b / 255.0f, 1.0f};
+    } else {
+        material.baseColorFactor = {0.72f, 0.76f, 0.82f, 1.0f};
+    }
     if (!ExportGLTFWithMaterial(result.mesh, result.gltfPath, material, &error)) { result.message = error; return result; }
 
     if (options.generateColliderProxy) {
@@ -342,7 +370,7 @@ GameAssetGenerationResult BuildGenericGameAsset(const ImageRGBA& color, const De
         if (!ExportOBJ(result.lodProxyMesh, result.lodObjPath, "", &error)) { result.message = error; return result; }
     }
 
-    result.metadata.assetName = "Make3D_" + std::string(ToString(result.classification.assetType));
+    result.metadata.assetName = result.plan.ok ? result.plan.assetName : "Make3D_" + std::string(ToString(result.classification.assetType));
     result.metadata.assetType = result.classification.assetType;
     result.metadata.pivotX = 0.0f; result.metadata.pivotY = result.validation.boundsMinY; result.metadata.pivotZ = 0.0f;
     result.metadata.colliderMinX = result.validation.boundsMinX; result.metadata.colliderMinY = result.validation.boundsMinY; result.metadata.colliderMinZ = result.validation.boundsMinZ;
@@ -353,7 +381,7 @@ GameAssetGenerationResult BuildGenericGameAsset(const ImageRGBA& color, const De
     std::ofstream report(result.reportPath, std::ios::binary);
     report << MakeMarkdownReport(result);
     result.ok = true;
-    result.message = "Generic game asset generation finished with Phase 0 safe-output gate.";
+    result.message = result.plan.ok ? "Generic game asset generation finished with Phase 1 analysis/plan typed mesh." : "Generic game asset generation finished with fallback mesh.";
     std::ofstream manifest(result.manifestPath, std::ios::binary);
     manifest << MakeManifestJson(result);
     return result;
