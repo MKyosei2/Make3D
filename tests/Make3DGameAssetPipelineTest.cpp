@@ -1,4 +1,4 @@
-#include "Make3DQualityPack.h"
+#include "Make3DGeometryRefinementPack.h"
 
 #include <filesystem>
 #include <fstream>
@@ -95,6 +95,8 @@ int main() {
     if (!scene.ok) return Fail("scene pack failed");
     make3d::QualityPackResult quality = make3d::BuildQualityPack(finalAsset, frames, out / "output", 32);
     if (!quality.ok) return Fail("quality pack failed");
+    make3d::GeometryRefinementPackResult geometry = make3d::BuildGeometryRefinementPack(finalAsset, quality, frames, out / "output", 32);
+    if (!geometry.ok) return Fail("geometry refinement pack failed");
 
     const make3d::CompletedGameAssetResult& complete = finalAsset.complete;
     const make3d::GameAssetResult& result = complete.asset;
@@ -144,9 +146,17 @@ int main() {
     if (!fs::exists(quality.temporalFusionPath)) return Fail("temporal fusion missing");
     if (!fs::exists(quality.facadeFeaturesPath)) return Fail("facade features missing");
     if (!fs::exists(quality.gltfPackagePath)) return Fail("glTF package manifest missing");
+    if (!fs::exists(geometry.repairedMeshPath)) return Fail("repaired mesh missing");
+    if (!fs::exists(geometry.normalMapPath)) return Fail("normal map missing");
+    if (!fs::exists(geometry.occlusionMapPath)) return Fail("occlusion map missing");
+    if (!fs::exists(geometry.meshRepairReportPath)) return Fail("mesh repair report missing");
+    if (!fs::exists(geometry.uvSeamReportPath)) return Fail("UV seam report missing");
+    if (!fs::exists(geometry.projectionQualityPath)) return Fail("projection quality report missing");
+    if (!fs::exists(geometry.partRetopoGuidePath)) return Fail("part retopo guide missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
     if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
+    if (geometry.repairedMesh.positions.empty()) return Fail("repaired mesh empty");
     if (complete.bounds.sizeX <= 0.0f || complete.bounds.sizeY <= 0.0f || complete.bounds.sizeZ <= 0.0f) return Fail("invalid bounds");
     if (complete.joints.empty()) return Fail("pivot metadata missing");
     if (!Contains(result.reportPath, "Game-ready candidate")) return Fail("report metric missing");
@@ -175,6 +185,10 @@ int main() {
     if (!Contains(quality.temporalFusionPath, "temporal_fusion_report")) return Fail("temporal fusion content missing");
     if (!Contains(quality.facadeFeaturesPath, "facade_feature_map")) return Fail("facade features content missing");
     if (!Contains(quality.gltfPackagePath, "gltf_package_manifest")) return Fail("glTF package content missing");
+    if (!Contains(geometry.meshRepairReportPath, "mesh_repair_report")) return Fail("mesh repair report content missing");
+    if (!Contains(geometry.uvSeamReportPath, "uv_seam_report")) return Fail("UV seam report content missing");
+    if (!Contains(geometry.projectionQualityPath, "projection_quality_report")) return Fail("projection quality content missing");
+    if (!Contains(geometry.partRetopoGuidePath, "part_retopology_guide")) return Fail("part retopo guide content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
@@ -185,5 +199,6 @@ int main() {
     std::cout << "Asset catalog: " << audit.assetCatalogPath.u8string() << "\n";
     std::cout << "Scene preview: " << scene.previewPath.u8string() << "\n";
     std::cout << "Quality pack: " << quality.gltfPackagePath.u8string() << "\n";
+    std::cout << "Repaired mesh: " << geometry.repairedMeshPath.u8string() << "\n";
     return 0;
 }
