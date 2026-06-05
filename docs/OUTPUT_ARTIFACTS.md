@@ -27,7 +27,7 @@ This path shows the refined production pipeline rather than the raw reconstructi
 The production pipeline writes:
 
 ```text
-input_noisy_character.ppm
+input_noisy_character.tga
 output/raw/make3d_raw.obj
 output/raw/make3d_raw_material.gltf
 output/polished/make3d_polished.obj
@@ -48,7 +48,7 @@ output/production_report.json
 
 | File | Purpose |
 |---|---|
-| `input_noisy_character.ppm` | Synthetic noisy input used to demonstrate mask refinement and cleanup. |
+| `input_noisy_character.tga` | Synthetic noisy input used to demonstrate mask refinement and cleanup. TGA is used because it is reliably decoded by the image loader. |
 | `output/raw/make3d_raw.obj` | Raw mesh before production polishing. |
 | `output/raw/make3d_raw_material.gltf` | Raw material glTF before production polishing. |
 | `output/polished/make3d_polished.obj` | Polished OBJ after mask refinement, cleanup, component filtering, and smoothing. |
