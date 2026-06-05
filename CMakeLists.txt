@@ -38,6 +38,12 @@ add_executable(Make3DAdvancedCLI
 
 target_link_libraries(Make3DAdvancedCLI PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DGameAssetCLI
+    src/Make3DGameAssetCLI.cpp
+)
+
+target_link_libraries(Make3DGameAssetCLI PRIVATE Make3DAdvancedCore)
+
 if (WIN32)
     add_executable(Make3DAdvancedGui WIN32
         src/Make3DAdvancedGui.cpp
@@ -175,6 +181,7 @@ target_link_libraries(Make3DGameAssetTest PRIVATE Make3DAdvancedCore)
 if (MSVC)
     target_compile_options(Make3DAdvancedCore PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCLI PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DGameAssetCLI PRIVATE /W4 /permissive-)
     if (TARGET Make3DAdvancedGui)
         target_compile_options(Make3DAdvancedGui PRIVATE /W4 /permissive-)
     endif()
@@ -201,6 +208,7 @@ if (MSVC)
 else()
     target_compile_options(Make3DAdvancedCore PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCLI PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DGameAssetCLI PRIVATE -Wall -Wextra -Wpedantic)
     if (TARGET Make3DAdvancedGui)
         target_compile_options(Make3DAdvancedGui PRIVATE -Wall -Wextra -Wpedantic)
     endif()
@@ -241,6 +249,7 @@ add_test(NAME Make3DModelPolisherTest COMMAND Make3DModelPolisherTest)
 add_test(NAME Make3DMaskRefinerTest COMMAND Make3DMaskRefinerTest)
 add_test(NAME Make3DVoxelVolumeTest COMMAND Make3DVoxelVolumeTest)
 add_test(NAME Make3DGameAssetTest COMMAND Make3DGameAssetTest)
+add_test(NAME Make3DGameAssetCLIHelp COMMAND Make3DGameAssetCLI --help)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
 add_test(NAME Make3DGenerateMeshQualityReport COMMAND Make3DGenerateMeshQualityReport ${CMAKE_CURRENT_BINARY_DIR}/mesh_quality)
 add_test(NAME Make3DGenerateProductionPipelineSample COMMAND Make3DGenerateProductionPipelineSample ${CMAKE_CURRENT_BINARY_DIR}/production_pipeline)
@@ -253,7 +262,7 @@ add_test(NAME Make3DVerifyProductionSampleArtifact
 set_tests_properties(Make3DVerifyProductionSampleArtifact PROPERTIES DEPENDS Make3DGenerateProductionPipelineSample)
 add_test(NAME Make3DTrainLearnedShapeModel COMMAND Make3DTrainLearnedShapeModel ${CMAKE_CURRENT_BINARY_DIR}/learned_shape_training)
 
-install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample Make3DGenerateGenericAssetSample Make3DGenerateCompleteGameAssetSuite Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
+install(TARGETS Make3DAdvancedCLI Make3DGameAssetCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample Make3DGenerateGenericAssetSample Make3DGenerateCompleteGameAssetSuite Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
 if (TARGET Make3DAdvancedGui)
     install(TARGETS Make3DAdvancedGui RUNTIME DESTINATION bin)
 endif()
