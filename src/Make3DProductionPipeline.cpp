@@ -15,6 +15,10 @@ namespace fs = std::filesystem;
 
 namespace {
 
+static bool WantsGenericReconstruction(const ProductionPipelineOptions& options) {
+    return options.exportRaw || options.exportPolished || options.exportVoxelVolume;
+}
+
 static void WriteDebugMask(const fs::path& path, int w, int h, const std::vector<std::uint8_t>& mask) {
     std::vector<std::uint8_t> rgb(static_cast<size_t>(w) * h * 3, 0);
     for (int i = 0; i < w * h; ++i) {
@@ -40,28 +44,36 @@ static void WriteDebugDepth(const fs::path& path, int w, int h, const DepthImage
     SaveDebugPPM(path, w, h, rgb, nullptr);
 }
 
+static std::string MaybePath(const fs::path& p, const char* disabledText) {
+    return p.empty() ? std::string(disabledText) : p.generic_string();
+}
+
 static std::string MakeProductionMarkdown(const ProductionPipelineResult& result) {
     std::ostringstream o;
     o << "# Make3D Production Pipeline Report\n\n";
+    o << "## Review target\n\n";
+    o << "Open this first:\n\n";
+    o << "```text\n" << MaybePath(result.heroVertexColorGltfPath, "hero output not generated") << "\n```\n\n";
+    o << "The hero character output is the primary portfolio artifact. Generic raw/polished/voxel outputs are optional fallback artifacts and may be disabled in review mode.\n\n";
     o << "## Shape inference\n\n" << result.shapeInferenceReport.ToMarkdown() << "\n";
     o << "## Learned shape model\n\n" << result.learnedShapeReport.ToMarkdown() << "\n";
     o << "## Hero character reconstruction\n\n" << result.heroReport.ToMarkdown() << "\n";
     o << "## Reconstruction\n\n" << result.reconstructionReport.ToMarkdown() << "\n";
     o << "## Mask refinement\n\n" << result.maskReport.ToMarkdown() << "\n";
-    o << "## Mesh polish\n\n" << result.polishReport.ToMarkdown() << "\n";
-    o << "## Voxel-style volume\n\n" << result.voxelReport.ToMarkdown() << "\n";
+    if (!result.polishedMesh.positions.empty()) o << "## Mesh polish\n\n" << result.polishReport.ToMarkdown() << "\n";
+    if (!result.voxelMesh.positions.empty()) o << "## Voxel-style volume\n\n" << result.voxelReport.ToMarkdown() << "\n";
     o << "## Output files\n\n";
-    o << "- hero/make3d_hero_character.obj\n";
-    o << "- hero/make3d_hero_character_material.gltf\n";
-    o << "- hero/make3d_hero_character_vertex_color.gltf\n";
-    o << "- raw/make3d_raw.obj\n";
-    o << "- raw/make3d_raw_material.gltf\n";
-    o << "- polished/make3d_polished.obj\n";
-    o << "- polished/make3d_polished_material.gltf\n";
-    o << "- polished/make3d_polished_vertex_color.gltf\n";
-    o << "- voxel/make3d_voxel_volume.obj\n";
-    o << "- voxel/make3d_voxel_volume_material.gltf\n";
-    o << "- voxel/make3d_voxel_volume_vertex_color.gltf\n";
+    o << "- " << MaybePath(result.heroObjPath, "hero OBJ disabled or failed") << "\n";
+    o << "- " << MaybePath(result.heroMaterialGltfPath, "hero material glTF disabled or failed") << "\n";
+    o << "- " << MaybePath(result.heroVertexColorGltfPath, "hero semantic vertex-color glTF disabled or failed") << "\n";
+    if (!result.rawObjPath.empty()) o << "- " << result.rawObjPath.generic_string() << "\n";
+    if (!result.rawMaterialGltfPath.empty()) o << "- " << result.rawMaterialGltfPath.generic_string() << "\n";
+    if (!result.polishedObjPath.empty()) o << "- " << result.polishedObjPath.generic_string() << "\n";
+    if (!result.polishedMaterialGltfPath.empty()) o << "- " << result.polishedMaterialGltfPath.generic_string() << "\n";
+    if (!result.polishedVertexColorGltfPath.empty()) o << "- " << result.polishedVertexColorGltfPath.generic_string() << "\n";
+    if (!result.voxelObjPath.empty()) o << "- " << result.voxelObjPath.generic_string() << "\n";
+    if (!result.voxelMaterialGltfPath.empty()) o << "- " << result.voxelMaterialGltfPath.generic_string() << "\n";
+    if (!result.voxelVertexColorGltfPath.empty()) o << "- " << result.voxelVertexColorGltfPath.generic_string() << "\n";
     o << "- debug_mask_refined.ppm\n";
     o << "- debug_depth_refined.ppm\n";
     o << "- debug_depth_inferred.ppm\n";
@@ -72,6 +84,7 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
 static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     std::ostringstream o;
     o << "{\n";
+    o << "  \"reviewTarget\": \"" << MaybePath(result.heroVertexColorGltfPath, "") << "\",\n";
     o << "  \"shapeInference\": " << result.shapeInferenceReport.ToJson() << ",\n";
     o << "  \"learnedShape\": " << result.learnedShapeReport.ToJson() << ",\n";
     o << "  \"heroCharacter\": " << result.heroReport.ToJson() << ",\n";
@@ -79,15 +92,41 @@ static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     o << "  \"maskRefine\": " << result.maskReport.ToJson() << ",\n";
     o << "  \"polish\": " << result.polishReport.ToJson() << ",\n";
     o << "  \"voxelVolume\": " << result.voxelReport.ToJson() << ",\n";
-    o << "  \"heroMaterialGltf\": \"hero/make3d_hero_character_material.gltf\",\n";
-    o << "  \"heroVertexColorGltf\": \"hero/make3d_hero_character_vertex_color.gltf\",\n";
-    o << "  \"rawMaterialGltf\": \"raw/make3d_raw_material.gltf\",\n";
-    o << "  \"polishedMaterialGltf\": \"polished/make3d_polished_material.gltf\",\n";
-    o << "  \"polishedVertexColorGltf\": \"polished/make3d_polished_vertex_color.gltf\",\n";
-    o << "  \"voxelMaterialGltf\": \"voxel/make3d_voxel_volume_material.gltf\",\n";
-    o << "  \"voxelVertexColorGltf\": \"voxel/make3d_voxel_volume_vertex_color.gltf\"\n";
+    o << "  \"heroMaterialGltf\": \"" << MaybePath(result.heroMaterialGltfPath, "") << "\",\n";
+    o << "  \"heroVertexColorGltf\": \"" << MaybePath(result.heroVertexColorGltfPath, "") << "\",\n";
+    o << "  \"rawMaterialGltf\": \"" << MaybePath(result.rawMaterialGltfPath, "") << "\",\n";
+    o << "  \"polishedMaterialGltf\": \"" << MaybePath(result.polishedMaterialGltfPath, "") << "\",\n";
+    o << "  \"polishedVertexColorGltf\": \"" << MaybePath(result.polishedVertexColorGltfPath, "") << "\",\n";
+    o << "  \"voxelMaterialGltf\": \"" << MaybePath(result.voxelMaterialGltfPath, "") << "\",\n";
+    o << "  \"voxelVertexColorGltf\": \"" << MaybePath(result.voxelVertexColorGltfPath, "") << "\"\n";
     o << "}\n";
     return o.str();
+}
+
+static void WriteReportsAndDebugImages(
+    const fs::path& outputDir,
+    const ImageRGBA& color,
+    const std::vector<std::uint8_t>& mask,
+    const DepthImage& depth,
+    const DepthImage& inferredDepth,
+    const DepthImage& reconstructionDepth,
+    ProductionPipelineResult& result,
+    const ProductionPipelineOptions& options) {
+
+    if (options.writeDebugImages) {
+        WriteDebugMask(outputDir / "debug_mask_refined.ppm", color.width, color.height, mask);
+        WriteDebugDepth(outputDir / "debug_depth_refined.ppm", color.width, color.height, depth);
+        WriteDebugDepth(outputDir / "debug_depth_inferred.ppm", color.width, color.height, inferredDepth);
+        WriteDebugDepth(outputDir / "debug_depth_learned.ppm", color.width, color.height, reconstructionDepth);
+    }
+
+    if (options.writeReports) {
+        result.productionReportPath = outputDir / "production_report.md";
+        std::ofstream md(result.productionReportPath, std::ios::binary);
+        md << MakeProductionMarkdown(result);
+        std::ofstream js(outputDir / "production_report.json", std::ios::binary);
+        js << MakeProductionJson(result);
+    }
 }
 
 } // namespace
@@ -110,10 +149,10 @@ ProductionPipelineResult BuildProductionModelFromImage(
     if (depthPath) providedDepth = LoadDepthImage(*depthPath, &error);
 
     fs::create_directories(outputDir);
-    fs::create_directories(outputDir / "raw");
-    fs::create_directories(outputDir / "polished");
-    fs::create_directories(outputDir / "voxel");
     fs::create_directories(outputDir / "hero");
+    if (options.exportRaw) fs::create_directories(outputDir / "raw");
+    if (options.exportPolished) fs::create_directories(outputDir / "polished");
+    if (options.exportVoxelVolume) fs::create_directories(outputDir / "voxel");
 
     result.reconstructionReport.imageWidth = color->width;
     result.reconstructionReport.imageHeight = color->height;
@@ -132,16 +171,12 @@ ProductionPipelineResult BuildProductionModelFromImage(
     DepthImage reconstructionDepth = depth;
     if (options.enableShapeInference) {
         result.shapeInferenceReport = RunShapeInference(*color, mask, depth, options.shapeInference);
-        if (!result.shapeInferenceReport.adjustedDepth.values.empty()) {
-            reconstructionDepth = result.shapeInferenceReport.adjustedDepth;
-        }
+        if (!result.shapeInferenceReport.adjustedDepth.values.empty()) reconstructionDepth = result.shapeInferenceReport.adjustedDepth;
     }
     DepthImage inferredDepth = reconstructionDepth;
     if (options.enableLearnedShapeModel) {
         result.learnedShapeReport = RunLearnedShapeModel(*color, mask, reconstructionDepth, result.shapeInferenceReport, options.learnedShape);
-        if (result.learnedShapeReport.ok && !result.learnedShapeReport.learnedDepth.values.empty()) {
-            reconstructionDepth = result.learnedShapeReport.learnedDepth;
-        }
+        if (result.learnedShapeReport.ok && !result.learnedShapeReport.learnedDepth.values.empty()) reconstructionDepth = result.learnedShapeReport.learnedDepth;
     }
 
     if (options.exportHeroCharacter) {
@@ -150,22 +185,32 @@ ProductionPipelineResult BuildProductionModelFromImage(
         AddHeroFineDetails(result.heroMesh, options.heroCharacter);
         result.heroReport.vertices = static_cast<int>(result.heroMesh.positions.size() / 3);
         result.heroReport.triangles = static_cast<int>(result.heroMesh.indices.size() / 3);
-        if (!result.heroMesh.positions.empty() && !result.heroMesh.indices.empty()) {
-            result.heroObjPath = outputDir / "hero" / "make3d_hero_character.obj";
-            result.heroMaterialGltfPath = outputDir / "hero" / "make3d_hero_character_material.gltf";
-            result.heroVertexColorGltfPath = outputDir / "hero" / "make3d_hero_character_vertex_color.gltf";
-            GltfMaterialOptions heroMaterial;
-            heroMaterial.materialName = "Make3DHeroCharacterMaterial";
-            heroMaterial.baseColorFactor = {0.76f, 0.70f, 0.64f, 1.0f};
-            if (!ExportOBJ(result.heroMesh, result.heroObjPath, "", &error)) { result.message = error; return result; }
-            if (!ExportGLTFWithMaterial(result.heroMesh, result.heroMaterialGltfPath, heroMaterial, &error)) { result.message = error; return result; }
-            if (options.exportVertexColorGltf) {
-                HeroSemanticPalette palette = ExtractHeroSemanticPalette(*color, mask);
-                HeroSemanticGltfOptions semanticOptions;
-                semanticOptions.materialName = "Make3DHeroSemanticVertexColorMaterial";
-                if (!ExportHeroSemanticGLTF(result.heroMesh, palette, result.heroVertexColorGltfPath, semanticOptions, &error)) { result.message = error; return result; }
-            }
+        if (result.heroMesh.positions.empty() || result.heroMesh.indices.empty()) {
+            result.message = "Hero character reconstruction failed.";
+            return result;
         }
+
+        result.heroObjPath = outputDir / "hero" / "make3d_hero_character.obj";
+        result.heroMaterialGltfPath = outputDir / "hero" / "make3d_hero_character_material.gltf";
+        result.heroVertexColorGltfPath = outputDir / "hero" / "make3d_hero_character_vertex_color.gltf";
+        GltfMaterialOptions heroMaterial;
+        heroMaterial.materialName = "Make3DHeroCharacterMaterial";
+        heroMaterial.baseColorFactor = {0.76f, 0.70f, 0.64f, 1.0f};
+        if (!ExportOBJ(result.heroMesh, result.heroObjPath, "", &error)) { result.message = error; return result; }
+        if (!ExportGLTFWithMaterial(result.heroMesh, result.heroMaterialGltfPath, heroMaterial, &error)) { result.message = error; return result; }
+        if (options.exportVertexColorGltf) {
+            HeroSemanticPalette palette = ExtractHeroSemanticPalette(*color, mask);
+            HeroSemanticGltfOptions semanticOptions;
+            semanticOptions.materialName = "Make3DHeroSemanticVertexColorMaterial";
+            if (!ExportHeroSemanticGLTF(result.heroMesh, palette, result.heroVertexColorGltfPath, semanticOptions, &error)) { result.message = error; return result; }
+        }
+    }
+
+    if (!WantsGenericReconstruction(options)) {
+        WriteReportsAndDebugImages(outputDir, *color, mask, depth, inferredDepth, reconstructionDepth, result, options);
+        result.ok = true;
+        result.message = "Production pipeline finished in hero-only review mode.";
+        return result;
     }
 
     result.rawMesh = ReconstructMesh(*color, reconstructionDepth, mask, options.reconstruction, &result.reconstructionReport);
@@ -226,20 +271,7 @@ ProductionPipelineResult BuildProductionModelFromImage(
         }
     }
 
-    if (options.writeDebugImages) {
-        WriteDebugMask(outputDir / "debug_mask_refined.ppm", color->width, color->height, mask);
-        WriteDebugDepth(outputDir / "debug_depth_refined.ppm", color->width, color->height, depth);
-        WriteDebugDepth(outputDir / "debug_depth_inferred.ppm", color->width, color->height, inferredDepth);
-        WriteDebugDepth(outputDir / "debug_depth_learned.ppm", color->width, color->height, reconstructionDepth);
-    }
-
-    if (options.writeReports) {
-        result.productionReportPath = outputDir / "production_report.md";
-        std::ofstream md(result.productionReportPath, std::ios::binary);
-        md << MakeProductionMarkdown(result);
-        std::ofstream js(outputDir / "production_report.json", std::ios::binary);
-        js << MakeProductionJson(result);
-    }
+    WriteReportsAndDebugImages(outputDir, *color, mask, depth, inferredDepth, reconstructionDepth, result, options);
 
     result.ok = true;
     result.message = "Production pipeline finished.";
