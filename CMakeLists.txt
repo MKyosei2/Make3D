@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(Make3DAdvancedCore STATIC
     src/Make3DAdvancedCore.cpp
+    src/Make3DBenchmark.cpp
     src/Make3DGuiAdapter.cpp
     src/Make3DMeshTools.cpp
     src/Make3DGltfMaterialExporter.cpp
