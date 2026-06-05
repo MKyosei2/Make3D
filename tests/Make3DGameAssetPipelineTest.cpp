@@ -1,4 +1,4 @@
-#include "Make3DProductionQualityPack.h"
+#include "Make3DImageDetailPack.h"
 
 #include <filesystem>
 #include <fstream>
@@ -99,6 +99,8 @@ int main() {
     if (!geometry.ok) return Fail("geometry refinement pack failed");
     make3d::ProductionQualityPackResult production = make3d::BuildProductionQualityPack(finalAsset, quality, geometry, out / "output");
     if (!production.ok) return Fail("production quality pack failed");
+    make3d::ImageDetailPackResult detail = make3d::BuildImageDetailPack(finalAsset, geometry, frames, out / "output", 32);
+    if (!detail.ok) return Fail("image detail pack failed");
 
     const make3d::CompletedGameAssetResult& complete = finalAsset.complete;
     const make3d::GameAssetResult& result = complete.asset;
@@ -161,10 +163,17 @@ int main() {
     if (!fs::exists(production.engineImportValidationPath)) return Fail("engine import validation missing");
     if (!fs::exists(production.readinessScorePath)) return Fail("readiness score missing");
     if (!fs::exists(production.textureBakeManifestPath)) return Fail("texture bake manifest missing");
+    if (!fs::exists(detail.edgeMapPath)) return Fail("edge map missing");
+    if (!fs::exists(detail.heightMapPath)) return Fail("height map missing");
+    if (!fs::exists(detail.detailNormalPath)) return Fail("detail normal missing");
+    if (!fs::exists(detail.displacedMeshPath)) return Fail("displaced preview mesh missing");
+    if (!fs::exists(detail.featureLinesPath)) return Fail("feature lines missing");
+    if (!fs::exists(detail.detailQualityPath)) return Fail("detail quality report missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
     if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
     if (geometry.repairedMesh.positions.empty()) return Fail("repaired mesh empty");
+    if (detail.displacedMesh.positions.empty()) return Fail("displaced mesh empty");
     if (complete.bounds.sizeX <= 0.0f || complete.bounds.sizeY <= 0.0f || complete.bounds.sizeZ <= 0.0f) return Fail("invalid bounds");
     if (complete.joints.empty()) return Fail("pivot metadata missing");
     if (!Contains(result.reportPath, "Game-ready candidate")) return Fail("report metric missing");
@@ -203,6 +212,8 @@ int main() {
     if (!Contains(production.engineImportValidationPath, "engine_import_validation")) return Fail("engine import validation content missing");
     if (!Contains(production.readinessScorePath, "production_readiness_score")) return Fail("readiness score content missing");
     if (!Contains(production.textureBakeManifestPath, "texture_bake_manifest")) return Fail("texture bake content missing");
+    if (!Contains(detail.featureLinesPath, "image_feature_lines")) return Fail("feature lines content missing");
+    if (!Contains(detail.detailQualityPath, "image_detail_quality_report")) return Fail("detail quality content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
@@ -215,5 +226,6 @@ int main() {
     std::cout << "Quality pack: " << quality.gltfPackagePath.u8string() << "\n";
     std::cout << "Repaired mesh: " << geometry.repairedMeshPath.u8string() << "\n";
     std::cout << "Production score: " << production.readinessScorePath.u8string() << "\n";
+    std::cout << "Image detail: " << detail.detailQualityPath.u8string() << "\n";
     return 0;
 }
