@@ -2,9 +2,61 @@
 
 **Make3D** は、画像・深度画像・動画フレームからゲーム開発向けの **3D proxy asset** を生成する C++ / Win32 製ツールです。
 
-このプロジェクトは、単に画像を前後へ押し出すだけのデモではなく、前景抽出、疑似 depth 推定、relief / volume / hybrid mesh reconstruction、OBJ / glTF / material glTF 出力、debug image、mesh quality report までを持つ、検証可能な画像→3D生成パイプラインを目指しています。
+このプロジェクトは、単に画像を前後へ押し出すだけのデモではなく、前景抽出、mask refinement、疑似 depth 推定、relief / volume / hybrid mesh reconstruction、mesh cleanup / polish、OBJ / glTF / material glTF 出力、debug image、Markdown / JSON report までを持つ、検証可能な画像→3D生成パイプラインを目指しています。
 
 > Note: Make3D は、任意の画像から完全な production-ready 3D モデルを復元する生成 AI ではありません。現在の主目的は、ゲーム制作の初期検証やプロキシアセット生成に使える deterministic / inspectable な 3D asset generation tool を C++ で実装することです。
+
+---
+
+## Reviewer: open this first
+
+ポートフォリオ確認では、raw output ではなく **production pipeline artifact** を最初に見てください。
+
+GitHub Actions artifact:
+
+```text
+make3d-production-pipeline-sample
+```
+
+最初に開くファイル:
+
+```text
+production_pipeline/output/polished/make3d_polished_material.gltf
+```
+
+次に確認するファイル:
+
+```text
+production_pipeline/output/debug_mask_refined.ppm
+production_pipeline/output/debug_depth_refined.ppm
+production_pipeline/output/production_report.md
+```
+
+この経路は、単純なraw reconstructionではなく、以下を通した出力です。
+
+```text
+input image
+  ↓
+foreground mask
+  ↓
+mask refinement
+  ↓
+depth preparation
+  ↓
+hybrid mesh reconstruction
+  ↓
+mesh cleanup
+  ↓
+component filtering
+  ↓
+Laplacian smoothing
+  ↓
+polished material glTF
+  ↓
+production report
+```
+
+詳しい出力物の読み方は `docs/OUTPUT_ARTIFACTS.md` を参照してください。
 
 ---
 
@@ -20,7 +72,7 @@ Make3D は以下の課題を扱います。
 - depth画像がない場合でも疑似depthでプロキシ形状を作りたい
 - 出力結果を Unity / Blender / Maya / DCC で確認したい
 - 生成過程を debug mask / debug depth / report で説明できるようにしたい
-- 生成meshをvalidation / cleanupしてから確認したい
+- 生成meshをvalidation / cleanup / polishしてから確認したい
 - GUIだけでなくCLI/CIで再現可能にしたい
 
 ---
@@ -35,83 +87,97 @@ Make3D
 ├─ src/Make3DAdvancedGui.cpp
 │  └─ Lightweight Win32 GUI directly using the advanced backend
 │
-├─ src/Make3DAdvancedCore.h
-├─ src/Make3DAdvancedCore.cpp
+├─ src/Make3DAdvancedCore.h / .cpp
 │  └─ Advanced reconstruction backend
 │
-├─ src/Make3DAdvancedCLI.cpp
-│  └─ Command-line validation path
+├─ src/Make3DProductionPipeline.h / .cpp
+│  └─ Refined production-style pipeline wrapper
 │
-├─ src/Make3DGuiAdapter.h
-├─ src/Make3DGuiAdapter.cpp
-│  └─ Adapter for mapping GUI selections to advanced backend options
+├─ src/Make3DMaskRefiner.h / .cpp
+│  └─ Foreground mask cleanup, hole fill, component filtering, smoothing
 │
-├─ src/Make3DMeshTools.h
-├─ src/Make3DMeshTools.cpp
+├─ src/Make3DModelPolisher.h / .cpp
+│  └─ Mesh component filtering and Laplacian smoothing
+│
+├─ src/Make3DMeshTools.h / .cpp
 │  └─ Mesh validation and cleanup tools
 │
-├─ src/Make3DGltfMaterialExporter.h
-├─ src/Make3DGltfMaterialExporter.cpp
+├─ src/Make3DGltfMaterialExporter.h / .cpp
 │  └─ glTF exporter with material / PBR metadata support
 │
 ├─ tools/GenerateAdvancedSamples.cpp
-│  └─ Synthetic sample generator
-│
 ├─ tools/GenerateMeshQualityReport.cpp
-│  └─ Raw/cleaned mesh quality report generator
+├─ tools/GenerateProductionPipelineSample.cpp
 │
 ├─ tests/
 │  ├─ Make3DAdvancedCoreSmokeTest.cpp
 │  ├─ Make3DMeshToolsTest.cpp
-│  └─ Make3DGltfMaterialExporterTest.cpp
+│  ├─ Make3DGltfMaterialExporterTest.cpp
+│  ├─ Make3DModelPolisherTest.cpp
+│  └─ Make3DMaskRefinerTest.cpp
 │
 └─ .github/workflows/make3d-advanced.yml
-   └─ CI build, test, package, sample generation, and quality report generation
+   └─ CI build, test, package, sample generation, quality report, production pipeline artifact
 ```
 
 ---
 
-## Advanced reconstruction pipeline
+## Production pipeline
+
+The production pipeline is the recommended output path for review.
 
 ```text
 Color image
   ↓
-LoadImageRGBA
-  ↓
 BuildForegroundMask
-  ├─ alpha mask
-  └─ background color estimation
   ↓
-Morphological mask cleanup
+RefineForegroundMask
+  ├─ small component removal
+  ├─ largest component selection
+  ├─ interior hole filling
+  └─ jagged edge smoothing
   ↓
 PrepareDepth
   ├─ provided depth PNG
   └─ single-image pseudo-depth estimation
-  ↓
-Depth smoothing
   ↓
 ReconstructMesh
   ├─ ReliefSurface
   ├─ SilhouetteVolume
   └─ HybridVolume
   ↓
-RecomputeNormals
-  ↓
-NormalizeMesh
+PolishMesh
+  ├─ cleanup
+  ├─ small island / component filtering
+  ├─ boundary-aware Laplacian smoothing
+  └─ normal recomputation
   ↓
 Export
-  ├─ OBJ / MTL
-  ├─ geometry glTF + .bin
-  ├─ material glTF + .bin
-  ├─ debug_mask.ppm
-  ├─ debug_depth.ppm
-  ├─ make3d_report.md
-  └─ make3d_report.json
+  ├─ raw OBJ / material glTF
+  ├─ polished OBJ / material glTF
+  ├─ refined mask/depth debug images
+  └─ production Markdown / JSON report
+```
+
+Run the production sample generator:
+
+```bash
+Make3DGenerateProductionPipelineSample output/production_pipeline
+```
+
+Important output:
+
+```text
+output/polished/make3d_polished_material.gltf
+output/debug_mask_refined.ppm
+output/debug_depth_refined.ppm
+output/production_report.md
+output/production_report.json
 ```
 
 ---
 
-## Reconstruction modes
+## Advanced reconstruction modes
 
 | Mode | Purpose | Description |
 |---|---|---|
@@ -120,17 +186,7 @@ Export
 | SilhouetteVolume | Volumetric proxy | silhouetteのrow widthからring-based volume meshを生成 |
 | HybridVolume | Stronger proxy asset | volume meshとrelief detailを組み合わせる |
 
-### ReliefSurface
-
-front/back depth surface を生成し、境界にwallを作ります。従来の単純な押し出しに近い用途も扱えますが、front surface は depth field によって変形します。
-
-### SilhouetteVolume
-
-シルエットの横幅を高さ方向にサンプリングし、複数のringから立体的なvolumeを作ります。単なる板状メッシュよりも、複数角度から見たときにプロキシアセットとして使いやすくなります。
-
-### HybridVolume
-
-SilhouetteVolume と ReliefSurface を組み合わせます。単画像からでも「体積」と「前面の起伏」を両方持たせるためのモードです。
+`HybridVolume` は主力デモ用のモードです。volume mesh と relief detail を組み合わせ、単なる板状の押し出しよりもプロキシアセットとして見せやすい出力を狙います。
 
 ---
 
@@ -140,28 +196,27 @@ SilhouetteVolume と ReliefSurface を組み合わせます。単画像からで
 |---|---:|---|
 | Legacy Win32 GUI | Implemented | `MainApp.cpp` に既存GUIあり |
 | Advanced Win32 GUI | Implemented | `Make3DAdvancedGui` target |
+| Production pipeline wrapper | Implemented | mask refine → reconstruction → polish → material glTF → report |
 | PNG / image loading | Implemented | `stb_image` 使用 |
 | Video representative frame | Implemented | Media Foundation使用、既存GUI側 |
 | Foreground mask | Implemented | alpha / background estimation |
-| Mask cleanup | Implemented | morphological close |
+| Mask refinement | Implemented | component removal, hole fill, jagged edge smoothing |
 | Single-image pseudo-depth | Implemented | silhouette distance + luminance + vertical bias |
 | Provided depth image | Implemented | optional depth PNG |
 | Relief mesh | Implemented | front/back depth surface + boundary wall |
 | Silhouette volume | Implemented | row-width based radial volume |
 | Hybrid volume | Implemented | volume + relief |
+| Mesh validation | Implemented | invalid triangle, degenerate triangle, boundary edge, non-manifold edge checks |
+| Mesh cleanup | Implemented | invalid/degenerate triangle removal and unused vertex compaction |
+| Mesh polish | Implemented | component filtering and Laplacian smoothing |
 | OBJ / MTL export | Implemented | geometry export |
 | geometry glTF export | Implemented | geometry + external binary buffer |
 | material glTF export | Implemented | material, baseColorFactor, roughness, metallic, doubleSided, optional texture URI |
-| Mesh validation | Implemented | invalid triangle, degenerate triangle, boundary edge, non-manifold edge checks |
-| Mesh cleanup | Implemented | invalid/degenerate triangle removal and unused vertex compaction |
 | Debug mask/depth images | Implemented | PPM output |
-| Markdown / JSON reconstruction report | Implemented | mesh stats and warnings |
-| Mesh quality report | Implemented | before/after validation report with cleaned OBJ/glTF outputs |
+| Markdown / JSON reports | Implemented | reconstruction, quality, and production reports |
 | CLI | Implemented | `Make3DAdvancedCLI` |
-| Smoke test | Implemented | synthetic image → mesh → OBJ/glTF |
-| Sample generator | Implemented | synthetic character / box samples |
-| CI | Implemented | Windows build/test/package/sample/quality-report generation |
-| Production validation | In progress | real sample set and screenshots are still needed |
+| CI | Implemented | Windows build/test/package/sample/quality/production pipeline generation |
+| Real-world validation | In progress | real sample set and screenshots are still needed |
 
 ---
 
@@ -179,9 +234,12 @@ Make3DAdvancedGui
 Make3DAdvancedCLI
 Make3DGenerateAdvancedSamples
 Make3DGenerateMeshQualityReport
+Make3DGenerateProductionPipelineSample
 Make3DAdvancedCoreSmokeTest
 Make3DMeshToolsTest
 Make3DGltfMaterialExporterTest
+Make3DModelPolisherTest
+Make3DMaskRefinerTest
 ```
 
 Run tests:
@@ -210,8 +268,6 @@ Workflow:
 6. Click `Build Advanced 3D`.
 7. Open the output folder and inspect OBJ, geometry glTF, material glTF, debug images, and reports.
 
-The advanced GUI directly uses `Make3DGuiAdapter` and `Make3DAdvancedCore`. The adapter also writes `make3d_advanced_material.gltf` for easier DCC/runtime inspection.
-
 ---
 
 ## CLI usage
@@ -224,18 +280,6 @@ With depth:
 
 ```bash
 Make3DAdvancedCLI --input samples/input.png --depth samples/depth.png --output output --mode hybrid --quality detailed
-```
-
-Options:
-
-```text
---mode auto|relief|volume|hybrid
---quality draft|standard|detailed
---grid <number>
---segments <number>
---no-gltf
---no-obj
---no-debug
 ```
 
 Typical output files:
@@ -255,39 +299,13 @@ make3d_report.json
 
 ---
 
-## Generate samples
-
-```bash
-Make3DGenerateAdvancedSamples output/generated_samples
-```
-
-Generated sample folders contain:
-
-```text
-input.ppm
-output/make3d_advanced.obj
-output/make3d_advanced.mtl
-output/make3d_advanced.gltf
-output/make3d_advanced.bin
-output/make3d_advanced_material.gltf
-output/make3d_advanced_material.bin
-output/debug_mask.ppm
-output/debug_depth.ppm
-output/make3d_report.md
-output/make3d_report.json
-```
-
-CI uploads these generated samples as an artifact.
-
----
-
 ## Mesh quality report
 
 ```bash
 Make3DGenerateMeshQualityReport output/mesh_quality
 ```
 
-This tool generates a synthetic input, reconstructs a raw mesh, validates it, cleans it, validates the cleaned mesh, and writes both geometry and material glTF outputs.
+This tool generates a synthetic input, reconstructs a raw mesh, validates it, cleans it, polishes it, and writes geometry/material glTF outputs.
 
 Output structure:
 
@@ -300,19 +318,9 @@ raw/make3d_advanced.gltf
 cleaned/make3d_cleaned.obj
 cleaned/make3d_cleaned.gltf
 cleaned/make3d_cleaned_material.gltf
+polished/make3d_polished.obj
+polished/make3d_polished_material.gltf
 ```
-
-The report compares:
-
-- vertices before / after cleanup
-- triangles before / after cleanup
-- invalid triangles
-- degenerate triangles
-- boundary edges
-- non-manifold edges
-- surface area
-- export validity
-- watertight-candidate status
 
 ---
 
@@ -333,27 +341,6 @@ This makes generated assets easier to inspect in Blender, Unity, and glTF viewer
 
 ---
 
-## Report output
-
-Each advanced build writes a Markdown and JSON report.
-
-Tracked metrics include:
-
-- image width / height
-- foreground pixel count
-- foreground coverage
-- depth min / max / mean
-- reconstruction mode
-- vertex count
-- triangle count
-- whether provided depth was used
-- whether the mesh is a watertight candidate
-- warnings
-
-This is important for portfolio use because the generation process becomes inspectable instead of relying only on screenshots.
-
----
-
 ## GitHub Actions
 
 The workflow at `.github/workflows/make3d-advanced.yml` runs:
@@ -365,6 +352,7 @@ cmake build
 ctest
 sample generation
 mesh quality report generation
+production pipeline sample generation
 portable package staging
 artifact upload
 ```
@@ -375,6 +363,7 @@ Artifacts:
 - `make3d-smoke-test-output`
 - `make3d-generated-advanced-samples`
 - `make3d-mesh-quality-report`
+- `make3d-production-pipeline-sample`
 
 ---
 
@@ -382,16 +371,17 @@ Artifacts:
 
 - C++17 standalone reconstruction backend
 - Lightweight Win32 GUI for the advanced backend
-- Namespaced core types to avoid collision with legacy GUI types
+- Production pipeline wrapper for refined review output
 - Deterministic foreground extraction
+- Mask refinement before reconstruction
 - Single-image pseudo-depth estimation
 - Volume reconstruction from silhouette row profiles
 - Hybrid volume + relief generation
+- Mesh validation, cleanup, component filtering, and smoothing
 - OBJ and geometry glTF export
 - material glTF export with PBR metadata
-- mesh validation and cleanup module
-- Markdown/JSON reconstruction and quality reports
-- CMake build and CTest smoke tests
+- Markdown/JSON reconstruction, quality, and production reports
+- CMake build and CTest smoke/integration tests
 - GitHub Actions build/test/sample/package pipeline
 
 ---
@@ -405,9 +395,10 @@ Current limitations:
 - Single-image reconstruction cannot infer hidden backside details.
 - Texture image generation/copying is still limited; material glTF currently supports material factors and optional texture URI.
 - Real-world photo backgrounds may require better segmentation.
-- The original `MainApp.cpp` GUI still exists as a legacy path; the new `Make3DAdvancedGui` is the advanced path.
+- The original `MainApp.cpp` GUI still exists as a legacy path; the new `Make3DAdvancedGui` and production pipeline are the current review paths.
 - Video workflow still uses representative-frame logic in the legacy GUI path.
 - Automated tests are smoke/integration tests, not full geometry correctness tests.
+- SDF / voxel / marching-cubes style reconstruction is still a future improvement.
 
 These limitations are intentionally documented to keep the portfolio claim defensible.
 
@@ -417,7 +408,7 @@ These limitations are intentionally documented to keep the portfolio claim defen
 
 Strong wording:
 
-> Make3D is a deterministic C++ image-to-3D proxy asset generator. It extracts foreground regions, estimates or consumes depth, reconstructs relief / volume / hybrid meshes, exports OBJ and glTF, writes material glTF outputs, and generates debug artifacts and mesh quality reports so the generation process can be inspected.
+> Make3D is a deterministic C++ image-to-3D proxy asset generator. It refines foreground masks, estimates or consumes depth, reconstructs relief / volume / hybrid meshes, polishes mesh outputs, exports OBJ and material glTF, and generates debug artifacts plus production reports so the generation process can be inspected.
 
 Avoid wording:
 
@@ -433,5 +424,6 @@ The second claim is too broad. The project is strongest when presented as an ins
 2. Add README screenshots/GIFs.
 3. Add texture image copying into the material glTF output folder.
 4. Add stronger mesh cleanup: duplicate merge, manifold repair, decimation.
-5. Add multi-frame video sampling.
-6. Add more tests for depth, mesh integrity, and export correctness.
+5. Add SDF / voxel / marching-cubes style reconstruction.
+6. Add multi-frame video sampling.
+7. Add more tests for depth, mesh integrity, and export correctness.
