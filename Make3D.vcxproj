@@ -105,6 +105,7 @@
   <ItemGroup>
     <ClCompile Include="src\Make3DAdvancedGui.cpp" />
     <ClCompile Include="src\Make3DAdvancedCore.cpp" />
+    <ClCompile Include="src\Make3DBenchmark.cpp" />
     <ClCompile Include="src\Make3DAssetTypes.cpp" />
     <ClCompile Include="src\Make3DCompleteGameAssetPipeline.cpp" />
     <ClCompile Include="src\Make3DGameAssetGenerator.cpp" />
@@ -125,6 +126,7 @@
   <ItemGroup>
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="src\Make3DAdvancedCore.h" />
+    <ClInclude Include="src\Make3DBenchmark.h" />
     <ClInclude Include="src\Make3DAssetTypes.h" />
     <ClInclude Include="src\Make3DCompleteGameAssetPipeline.h" />
     <ClInclude Include="src\Make3DGameAssetGenerator.h" />
