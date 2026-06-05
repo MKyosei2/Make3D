@@ -52,6 +52,7 @@ make3d_exe(Make3DLearnedShapeModelTest tests/Make3DLearnedShapeModelTest.cpp)
 make3d_exe(Make3DLearnedShapeTrainerTest tests/Make3DLearnedShapeTrainerTest.cpp)
 make3d_exe(Make3DMaskRefinerTest tests/Make3DMaskRefinerTest.cpp)
 make3d_exe(Make3DMeshQualityGateTest tests/Make3DMeshQualityGateTest.cpp)
+make3d_exe(Make3DBenchmarkTest tests/Make3DBenchmarkTest.cpp)
 
 add_executable(Make3DGameAssetCLI
     src/Make3DGameAssetCLI.cpp
@@ -88,7 +89,8 @@ foreach(test_name IN ITEMS
     Make3DLearnedShapeModelTest
     Make3DLearnedShapeTrainerTest
     Make3DMaskRefinerTest
-    Make3DMeshQualityGateTest)
+    Make3DMeshQualityGateTest
+    Make3DBenchmarkTest)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
 
@@ -111,7 +113,7 @@ add_test(NAME Make3DVerifyGameAssetArtifacts
         -DCOMPLETE_SUITE_DIR=${CMAKE_CURRENT_BINARY_DIR}/complete_game_asset_suite
         -DTYPED_ASSET_DIR=${CMAKE_CURRENT_BINARY_DIR}/typed_assets
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyGameAssetArtifacts.cmake)
-set_tests_properties(Make3DVerifyGameAssetArtifacts PROPERTIES DEPENDS "Make3DGenerateGenericAssetSample;Make3DGenerateCompleteGameAssetSuite;Make3DGenerateTypedFurniture;Make3DGenerateTypedMachine;Make3DGenerateTypedTool;Make3DGenerateTypedTerrain")
+set_tests_properties(Make3DVerifyGameAssetArtifacts PROPERTIES DEPENDS "Make3DGenerateGenericAssetSample;Make3DGenerateCompleteGameAssetSuite;Make3DTypedFurniture;Make3DTypedMachine;Make3DTypedTool;Make3DTypedTerrain")
 add_test(NAME Make3DTrainLearnedShapeModel COMMAND Make3DTrainLearnedShapeModel ${CMAKE_CURRENT_BINARY_DIR}/learned_shape_training)
 
 install(TARGETS Make3D Make3DAdvancedCLI Make3DGameAssetCLI Make3DTypedAssetCLI Make3DGenerateProductionPipelineSample Make3DGenerateGenericAssetSample Make3DGenerateCompleteGameAssetSuite Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
