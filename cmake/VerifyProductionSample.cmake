@@ -31,6 +31,7 @@ set(forbidden_paths
     "${OUTPUT_DIR}/output/raw"
     "${OUTPUT_DIR}/output/polished"
     "${OUTPUT_DIR}/output/voxel"
+    "${OUTPUT_DIR}/output/debug_fallback"
 )
 
 foreach(path IN LISTS forbidden_paths)
