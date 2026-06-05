@@ -2,6 +2,7 @@
 
 #include "Make3DAdvancedCore.h"
 #include "Make3DGltfMaterialExporter.h"
+#include "Make3DLearnedShapeModel.h"
 #include "Make3DMaskRefiner.h"
 #include "Make3DModelPolisher.h"
 #include "Make3DShapeInference.h"
@@ -20,11 +21,13 @@ struct ProductionPipelineOptions {
     MeshPolishOptions polish;
     VoxelVolumeOptions voxel;
     ShapeInferenceOptions shapeInference;
+    LearnedShapeModelOptions learnedShape;
     bool exportRaw = true;
     bool exportPolished = true;
     bool exportVoxelVolume = true;
     bool exportVertexColorGltf = true;
     bool enableShapeInference = true;
+    bool enableLearnedShapeModel = true;
     bool writeReports = true;
     bool writeDebugImages = true;
 };
@@ -40,6 +43,7 @@ struct ProductionPipelineResult {
     MeshPolishReport polishReport;
     VoxelVolumeReport voxelReport;
     ShapeInferenceResult shapeInferenceReport;
+    LearnedShapeModelResult learnedShapeReport;
     std::filesystem::path rawObjPath;
     std::filesystem::path rawMaterialGltfPath;
     std::filesystem::path polishedObjPath;
