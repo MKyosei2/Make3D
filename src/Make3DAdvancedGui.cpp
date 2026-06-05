@@ -1,4 +1,6 @@
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 #include <commctrl.h>
 #include <commdlg.h>
@@ -36,6 +38,10 @@ constexpr int ID_DEPTH_PATH = 1010;
 constexpr int ID_OUTPUT_PATH = 1011;
 constexpr int ID_SAVE = 1012;
 constexpr int ID_SAMPLE = 1013;
+
+HMENU ControlId(int id) {
+    return reinterpret_cast<HMENU>(static_cast<INT_PTR>(id));
+}
 
 struct GuiState {
     HWND hwnd = nullptr;
@@ -102,7 +108,7 @@ std::string SafePathString(const fs::path& p) {
 fs::path ExePath() {
     std::vector<wchar_t> buffer(32768, L'\0');
     DWORD len = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
-    if (len > 0 && len < buffer.size()) return fs::path(buffer.data());
+    if (len > 0 && len < static_cast<DWORD>(buffer.size())) return fs::path(buffer.data());
     return fs::path();
 }
 
@@ -200,7 +206,7 @@ RECT PreviewRect(HWND hwnd) {
     GetClientRect(hwnd, &rc);
     RECT out{};
     out.left = 16;
-    out.top = 372;
+    out.top = 378;
     out.right = std::max(out.left + 100, rc.right - 16);
     out.bottom = std::max(out.top + 100, rc.bottom - 16);
     return out;
@@ -342,11 +348,11 @@ HWND CreateLabel(HWND parent, const wchar_t* text, int x, int y, int w, int h) {
 }
 
 HWND CreateButton(HWND parent, const wchar_t* text, int id, int x, int y, int w, int h) {
-    return CreateWindowW(L"BUTTON", text, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, x, y, w, h, parent, reinterpret_cast<HMENU>(id), nullptr, nullptr);
+    return CreateWindowW(L"BUTTON", text, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, x, y, w, h, parent, ControlId(id), nullptr, nullptr);
 }
 
 HWND CreateEdit(HWND parent, int id, int x, int y, int w, int h) {
-    return CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, x, y, w, h, parent, reinterpret_cast<HMENU>(id), nullptr, nullptr);
+    return CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL, x, y, w, h, parent, ControlId(id), nullptr, nullptr);
 }
 
 void Layout(HWND hwnd) {
@@ -383,17 +389,6 @@ void Layout(HWND hwnd) {
     MoveWindow(g.openButton, editX + 348, y, 150, 34, TRUE);
     y += 52;
     MoveWindow(g.status, pad, y, W - pad * 2, 52, TRUE);
-}
-
-RECT PreviewRect(HWND hwnd) {
-    RECT rc{};
-    GetClientRect(hwnd, &rc);
-    RECT out{};
-    out.left = 16;
-    out.top = 378;
-    out.right = std::max(out.left + 100, rc.right - 16);
-    out.bottom = std::max(out.top + 100, rc.bottom - 16);
-    return out;
 }
 
 POINT ProjectVertex(float x, float y, float z, const RECT& r, float scale, float cx, float cy) {
@@ -436,7 +431,9 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     float centerX = (r.left + r.right) * 0.5f;
     float centerY = (r.top + r.bottom) * 0.62f;
     float scale = std::max(80.0f, static_cast<float>(std::min(r.right - r.left, r.bottom - r.top)) * 0.33f);
-    for (size_t i = 0; i < pts.size(); ++i) pts[i] = ProjectVertex(g.previewMesh.positions[i * 3], g.previewMesh.positions[i * 3 + 1], g.previewMesh.positions[i * 3 + 2], r, scale, centerX, centerY);
+    for (size_t i = 0; i < pts.size(); ++i) {
+        pts[i] = ProjectVertex(g.previewMesh.positions[i * 3], g.previewMesh.positions[i * 3 + 1], g.previewMesh.positions[i * 3 + 2], r, scale, centerX, centerY);
+    }
     HPEN meshPen = CreatePen(PS_SOLID, 1, RGB(65, 78, 92));
     oldPen = SelectObject(hdc, meshPen);
     for (size_t i = 0; i + 2 < g.previewMesh.indices.size(); i += 3) {
@@ -474,14 +471,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         g.sampleButton = CreateButton(hwnd, L"Use sample PNG", ID_SAMPLE, 650, 18, 130, 28);
         g.depthButton = CreateButton(hwnd, L"Choose depth...", ID_DEPTH, 510, 60, 130, 28);
         g.outputButton = CreateButton(hwnd, L"Choose output...", ID_OUTPUT, 510, 102, 130, 28);
-        g.modeCombo = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 136, 152, 240, 160, hwnd, reinterpret_cast<HMENU>(ID_MODE), nullptr, nullptr);
-        g.qualityCombo = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 136, 194, 240, 120, hwnd, reinterpret_cast<HMENU>(ID_QUALITY), nullptr, nullptr);
+        g.modeCombo = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 136, 152, 240, 160, hwnd, ControlId(ID_MODE), nullptr, nullptr);
+        g.qualityCombo = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 136, 194, 240, 120, hwnd, ControlId(ID_QUALITY), nullptr, nullptr);
         InitCombo(g.modeCombo, {L"Auto", L"Relief Surface", L"Silhouette Volume", L"Hybrid Volume"}, 3);
         InitCombo(g.qualityCombo, {L"Draft", L"Standard", L"Detailed"}, 2);
         g.previewButton = CreateButton(hwnd, L"Preview 3D", ID_PREVIEW, 136, 246, 160, 34);
         g.saveButton = CreateButton(hwnd, L"Save OBJ/glTF", ID_SAVE, 310, 246, 160, 34);
         g.openButton = CreateButton(hwnd, L"Open output", ID_OPEN, 484, 246, 150, 34);
-        g.status = CreateWindowW(L"STATIC", L"Ready. Choose a PNG, or press Use sample PNG. Preview does not save files.", WS_CHILD | WS_VISIBLE, 16, 300, 620, 52, hwnd, reinterpret_cast<HMENU>(ID_STATUS), nullptr, nullptr);
+        g.status = CreateWindowW(L"STATIC", L"Ready. Choose a PNG, or press Use sample PNG. Preview does not save files.", WS_CHILD | WS_VISIBLE, 16, 300, 620, 52, hwnd, ControlId(ID_STATUS), nullptr, nullptr);
         SetWindowTextW(g.outputPath, DefaultOutputDir().wstring().c_str());
         HWND controls[] = { g.colorPath, g.depthPath, g.outputPath, g.colorButton, g.depthButton, g.outputButton, g.sampleButton, g.modeCombo, g.qualityCombo, g.previewButton, g.saveButton, g.openButton, g.status };
         for (HWND c : controls) SendMessageW(c, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
