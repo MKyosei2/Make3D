@@ -11,11 +11,11 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <optional>
 #include <sstream>
 #include <vector>
 
 namespace make3d {
-
 namespace {
 
 constexpr float Pi = 3.14159265358979323846f;
@@ -71,7 +71,7 @@ Vec3 Cross(const Vec3& a, const Vec3& b) {
 }
 
 Vec3 NormalizeVec(const Vec3& v) {
-    const float len = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    float len = std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
     return len > 1.0e-6f ? Vec3{v.x / len, v.y / len, v.z / len} : Vec3{0.0f, 1.0f, 0.0f};
 }
 
@@ -94,10 +94,10 @@ void AddQuad(MeshData& mesh, int a, int b, int c, int d) {
 }
 
 void AddBox(MeshData& mesh, float cx, float cy, float cz, float sx, float sy, float sz) {
-    const int base = VertexCountLocal(mesh);
-    const float x0 = cx - sx * 0.5f, x1 = cx + sx * 0.5f;
-    const float y0 = cy - sy * 0.5f, y1 = cy + sy * 0.5f;
-    const float z0 = cz - sz * 0.5f, z1 = cz + sz * 0.5f;
+    int base = VertexCountLocal(mesh);
+    float x0 = cx - sx * 0.5f, x1 = cx + sx * 0.5f;
+    float y0 = cy - sy * 0.5f, y1 = cy + sy * 0.5f;
+    float z0 = cz - sz * 0.5f, z1 = cz + sz * 0.5f;
     AddVertex(mesh, x0, y0, z0, 0, 0); AddVertex(mesh, x1, y0, z0, 1, 0); AddVertex(mesh, x1, y1, z0, 1, 1); AddVertex(mesh, x0, y1, z0, 0, 1);
     AddVertex(mesh, x0, y0, z1, 0, 0); AddVertex(mesh, x1, y0, z1, 1, 0); AddVertex(mesh, x1, y1, z1, 1, 1); AddVertex(mesh, x0, y1, z1, 0, 1);
     AddQuad(mesh, base + 0, base + 1, base + 2, base + 3);
@@ -108,9 +108,36 @@ void AddBox(MeshData& mesh, float cx, float cy, float cz, float sx, float sy, fl
     AddQuad(mesh, base + 4, base + 5, base + 1, base + 0);
 }
 
+void AddEllipsoid(MeshData& mesh, float cx, float cy, float cz, float rx, float ry, float rz, int segments, int rings) {
+    segments = std::max(8, segments);
+    rings = std::max(4, rings);
+    int base = VertexCountLocal(mesh);
+    for (int y = 0; y <= rings; ++y) {
+        float v = static_cast<float>(y) / static_cast<float>(rings);
+        float theta = -Pi * 0.5f + v * Pi;
+        float sy = std::sin(theta);
+        float cr = std::cos(theta);
+        for (int x = 0; x <= segments; ++x) {
+            float u = static_cast<float>(x) / static_cast<float>(segments);
+            float a = u * Pi * 2.0f;
+            AddVertex(mesh, cx + std::cos(a) * cr * rx, cy + sy * ry, cz + std::sin(a) * cr * rz, u, v);
+        }
+    }
+    int stride = segments + 1;
+    for (int y = 0; y < rings; ++y) {
+        for (int x = 0; x < segments; ++x) {
+            int a = base + y * stride + x;
+            int b = a + 1;
+            int c = a + stride + 1;
+            int d = a + stride;
+            AddQuad(mesh, a, b, c, d);
+        }
+    }
+}
+
 void AddCylinder(MeshData& mesh, float cx, float cy0, float cy1, float cz, float rx, float rz, int segments) {
     segments = std::max(8, segments);
-    const int base = VertexCountLocal(mesh);
+    int base = VertexCountLocal(mesh);
     for (int y = 0; y < 2; ++y) {
         float cy = y == 0 ? cy0 : cy1;
         for (int s = 0; s < segments; ++s) {
@@ -132,39 +159,53 @@ void AddCylinder(MeshData& mesh, float cx, float cy0, float cy1, float cz, float
     }
 }
 
-MeshData BuildSafeCoreProxy(const ImageRGBA& color, const std::vector<std::uint8_t>& mask, const AdvancedOptions& options) {
+void AddCharacterProxy(MeshData& mesh, int seg) {
+    AddEllipsoid(mesh, 0.0f, 1.10f, 0.0f, 0.34f, 0.52f, 0.23f, seg, 10);       // torso
+    AddEllipsoid(mesh, 0.0f, 0.73f, 0.0f, 0.32f, 0.18f, 0.20f, seg, 6);        // pelvis
+    AddCylinder(mesh, 0.0f, 1.55f, 1.68f, 0.0f, 0.08f, 0.08f, 12);             // neck
+    AddEllipsoid(mesh, 0.0f, 1.88f, 0.0f, 0.24f, 0.28f, 0.23f, seg, 10);       // head
+    AddEllipsoid(mesh, 0.0f, 2.10f, -0.01f, 0.28f, 0.10f, 0.24f, seg, 5);      // hair / cap mass
+    AddEllipsoid(mesh, -0.08f, 1.90f, 0.22f, 0.035f, 0.035f, 0.02f, 8, 4);     // eye marker
+    AddEllipsoid(mesh,  0.08f, 1.90f, 0.22f, 0.035f, 0.035f, 0.02f, 8, 4);
+    AddEllipsoid(mesh, 0.0f, 1.80f, 0.24f, 0.075f, 0.025f, 0.02f, 8, 4);       // mouth / muzzle proxy
+    AddCylinder(mesh, -0.43f, 0.96f, 1.47f, 0.0f, 0.075f, 0.065f, 12);         // left arm
+    AddCylinder(mesh,  0.43f, 0.96f, 1.47f, 0.0f, 0.075f, 0.065f, 12);         // right arm
+    AddEllipsoid(mesh, -0.43f, 1.50f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);       // shoulders
+    AddEllipsoid(mesh,  0.43f, 1.50f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);
+    AddEllipsoid(mesh, -0.43f, 0.88f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);       // hands
+    AddEllipsoid(mesh,  0.43f, 0.88f, 0.0f, 0.10f, 0.10f, 0.08f, 12, 5);
+    AddCylinder(mesh, -0.15f, 0.22f, 0.77f, 0.0f, 0.085f, 0.075f, 12);         // legs
+    AddCylinder(mesh,  0.15f, 0.22f, 0.77f, 0.0f, 0.085f, 0.075f, 12);
+    AddEllipsoid(mesh, -0.15f, 0.11f, 0.09f, 0.15f, 0.06f, 0.18f, 12, 5);      // feet
+    AddEllipsoid(mesh,  0.15f, 0.11f, 0.09f, 0.15f, 0.06f, 0.18f, 12, 5);
+}
+
+MeshData BuildDetailedProxy(const ImageRGBA& color, const std::vector<std::uint8_t>& mask, const AdvancedOptions& options) {
     int minX = color.width, minY = color.height, maxX = -1, maxY = -1, fg = 0;
-    for (int y = 0; y < color.height; ++y) {
-        for (int x = 0; x < color.width; ++x) {
-            if (!mask[static_cast<size_t>(y) * color.width + x]) continue;
-            ++fg; minX = std::min(minX, x); minY = std::min(minY, y); maxX = std::max(maxX, x); maxY = std::max(maxY, y);
-        }
+    for (int y = 0; y < color.height; ++y) for (int x = 0; x < color.width; ++x) {
+        if (!mask[static_cast<size_t>(y) * color.width + x]) continue;
+        ++fg; minX = std::min(minX, x); minY = std::min(minY, y); maxX = std::max(maxX, x); maxY = std::max(maxY, y);
     }
     int bw = std::max(1, maxX - minX + 1);
     int bh = std::max(1, maxY - minY + 1);
     float aspect = static_cast<float>(bh) / static_cast<float>(bw);
     float coverage = color.width > 0 && color.height > 0 ? static_cast<float>(fg) / static_cast<float>(color.width * color.height) : 0.0f;
+    int seg = std::max(18, options.volumeRadialSegments + 6);
     MeshData mesh;
-    int seg = std::max(12, options.volumeRadialSegments);
-    if (aspect > 1.20f) {
-        AddCylinder(mesh, 0.0f, 0.0f, 1.25f, 0.0f, 0.25f, 0.18f, seg);
-        AddCylinder(mesh, 0.0f, 1.18f, 1.65f, 0.0f, 0.19f, 0.19f, seg);
-        AddCylinder(mesh, -0.36f, 0.45f, 1.12f, 0.0f, 0.06f, 0.06f, 10);
-        AddCylinder(mesh,  0.36f, 0.45f, 1.12f, 0.0f, 0.06f, 0.06f, 10);
-        AddCylinder(mesh, -0.13f, 0.00f, 0.60f, 0.0f, 0.07f, 0.07f, 10);
-        AddCylinder(mesh,  0.13f, 0.00f, 0.60f, 0.0f, 0.07f, 0.07f, 10);
-    } else if (aspect < 0.70f && coverage > 0.04f) {
-        AddBox(mesh, 0.0f, 0.45f, 0.0f, 1.75f, 0.52f, 0.72f);
-        AddBox(mesh, 0.10f, 0.86f, 0.0f, 0.85f, 0.38f, 0.62f);
-        AddCylinder(mesh, -0.62f, 0.12f, 0.24f, 0.38f, 0.16f, 0.16f, seg);
-        AddCylinder(mesh,  0.62f, 0.12f, 0.24f, 0.38f, 0.16f, 0.16f, seg);
-        AddCylinder(mesh, -0.62f, 0.12f, 0.24f, -0.38f, 0.16f, 0.16f, seg);
-        AddCylinder(mesh,  0.62f, 0.12f, 0.24f, -0.38f, 0.16f, 0.16f, seg);
+    if (aspect > 1.15f) {
+        AddCharacterProxy(mesh, seg);
+    } else if (aspect < 0.72f && coverage > 0.04f) {
+        AddBox(mesh, 0.0f, 0.55f, 0.0f, 1.90f, 0.56f, 0.78f);
+        AddBox(mesh, 0.12f, 0.96f, 0.0f, 0.92f, 0.42f, 0.66f);
+        for (float x : {-0.70f, 0.70f}) for (float z : {-0.40f, 0.40f}) AddEllipsoid(mesh, x, 0.15f, z, 0.19f, 0.19f, 0.19f, seg, 8);
     } else {
-        float width = std::clamp(2.0f / std::max(0.35f, aspect), 0.55f, 2.4f);
-        AddBox(mesh, 0.0f, 1.0f, 0.0f, width, 2.0f, 0.58f);
-        AddBox(mesh, 0.0f, 2.08f, 0.0f, width * 1.08f, 0.18f, 0.68f);
-        for (int row = 0; row < 3; ++row) for (int col = 0; col < 3; ++col) AddBox(mesh, -width * 0.28f + width * 0.28f * col, 0.75f + 0.35f * row, 0.33f, width * 0.10f, 0.12f, 0.05f);
+        float width = std::clamp(2.0f / std::max(0.35f, aspect), 0.65f, 2.5f);
+        AddBox(mesh, 0.0f, 0.95f, 0.0f, width, 1.90f, 0.62f);
+        AddBox(mesh, 0.0f, 1.96f, 0.0f, width * 1.10f, 0.20f, 0.72f);
+        AddBox(mesh, 0.0f, 0.12f, 0.35f, width * 0.20f, 0.24f, 0.08f);
+        for (int row = 0; row < 4; ++row) for (int col = 0; col < 4; ++col) {
+            AddBox(mesh, -width * 0.34f + width * 0.23f * col, 0.60f + 0.30f * row, 0.35f, width * 0.09f, 0.11f, 0.05f);
+        }
     }
     RecomputeNormals(mesh);
     NormalizeMesh(mesh, 2.0f);
@@ -249,8 +290,14 @@ DepthImage PrepareDepth(const ImageRGBA& color, const std::optional<DepthImage>&
 }
 
 MeshData ReconstructMesh(const ImageRGBA& color, const DepthImage&, const std::vector<std::uint8_t>& mask, const AdvancedOptions& options, ReconstructionReport* report) {
-    MeshData mesh = BuildSafeCoreProxy(color, mask, options);
-    if (report) { report->reconstructionMode = "SafeTypedProxy"; report->vertices = VertexCountLocal(mesh); report->triangles = TriangleCountLocal(mesh); report->watertightCandidate = true; }
+    MeshData mesh = BuildDetailedProxy(color, mask, options);
+    if (report) {
+        report->reconstructionMode = "DetailedEditableProxy";
+        report->vertices = VertexCountLocal(mesh);
+        report->triangles = TriangleCountLocal(mesh);
+        report->watertightCandidate = true;
+        report->warnings.push_back("Generated as a multi-part editable proxy mesh for preview and manual refinement.");
+    }
     return mesh;
 }
 
@@ -264,7 +311,7 @@ void RecomputeNormals(MeshData& mesh) {
         Vec3 c{mesh.positions[ic * 3], mesh.positions[ic * 3 + 1], mesh.positions[ic * 3 + 2]};
         Vec3 n = Cross({b.x - a.x, b.y - a.y, b.z - a.z}, {c.x - a.x, c.y - a.y, c.z - a.z});
         std::uint32_t vs[3] = {ia, ib, ic};
-        for (std::uint32_t vi : vs) { mesh.normals[vi * 3] += n.x; mesh.normals[vi * 3 + 1] += n.y; mesh.normals[vi * 3 + 2] += n.z; }
+        for (std::uint32_t vi : vs) { size_t p = static_cast<size_t>(vi) * 3; mesh.normals[p] += n.x; mesh.normals[p + 1] += n.y; mesh.normals[p + 2] += n.z; }
     }
     for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) { Vec3 n = NormalizeVec({mesh.normals[i], mesh.normals[i + 1], mesh.normals[i + 2]}); mesh.normals[i] = n.x; mesh.normals[i + 1] = n.y; mesh.normals[i + 2] = n.z; }
 }
@@ -282,7 +329,7 @@ void NormalizeMesh(MeshData& mesh, float targetHeight) {
 bool ExportOBJ(const MeshData& mesh, const fs::path& objPath, const std::string& materialTextureName, std::string* error) {
     std::error_code ec; fs::create_directories(objPath.parent_path(), ec);
     std::ofstream obj(objPath, std::ios::binary); if (!obj) { if (error) *error = "Failed to open OBJ for writing."; return false; }
-    obj << "mtllib make3d_material.mtl\n" << "o Make3DSafeTypedModel\n";
+    obj << "mtllib make3d_material.mtl\n" << "o Make3DDetailedEditableProxy\n";
     for (size_t i = 0; i + 2 < mesh.positions.size(); i += 3) obj << "v " << mesh.positions[i] << ' ' << mesh.positions[i + 1] << ' ' << mesh.positions[i + 2] << "\n";
     for (size_t i = 0; i + 1 < mesh.uvs.size(); i += 2) obj << "vt " << mesh.uvs[i] << ' ' << (1.0f - mesh.uvs[i + 1]) << "\n";
     for (size_t i = 0; i + 2 < mesh.normals.size(); i += 3) obj << "vn " << mesh.normals[i] << ' ' << mesh.normals[i + 1] << ' ' << mesh.normals[i + 2] << "\n";
@@ -304,13 +351,12 @@ bool ExportGLTF(const MeshData& mesh, const fs::path& gltfPath, std::string* err
     bin.write(reinterpret_cast<const char*>(mesh.normals.data()), static_cast<std::streamsize>(normBytes));
     bin.write(reinterpret_cast<const char*>(mesh.uvs.data()), static_cast<std::streamsize>(uvBytes));
     bin.write(reinterpret_cast<const char*>(mesh.indices.data()), static_cast<std::streamsize>(idxBytes));
-    Vec3 mn{0,0,0}, mx{0,0,0};
-    if (!mesh.positions.empty()) { mn = {mesh.positions[0], mesh.positions[1], mesh.positions[2]}; mx = mn; }
+    Vec3 mn{0,0,0}, mx{0,0,0}; if (!mesh.positions.empty()) { mn = {mesh.positions[0], mesh.positions[1], mesh.positions[2]}; mx = mn; }
     for (size_t i = 0; i + 2 < mesh.positions.size(); i += 3) { mn.x = std::min(mn.x, mesh.positions[i]); mn.y = std::min(mn.y, mesh.positions[i + 1]); mn.z = std::min(mn.z, mesh.positions[i + 2]); mx.x = std::max(mx.x, mesh.positions[i]); mx.y = std::max(mx.y, mesh.positions[i + 1]); mx.z = std::max(mx.z, mesh.positions[i + 2]); }
     std::ofstream gltf(gltfPath, std::ios::binary); if (!gltf) { if (error) *error = "Failed to open glTF for writing."; return false; }
     gltf << std::fixed << std::setprecision(6);
-    gltf << "{\n  \"asset\": { \"version\": \"2.0\", \"generator\": \"Make3D safe typed output\" },\n";
-    gltf << "  \"scene\": 0,\n  \"scenes\": [{ \"nodes\": [0] }],\n  \"nodes\": [{ \"mesh\": 0, \"name\": \"Make3DSafeTypedModel\" }],\n";
+    gltf << "{\n  \"asset\": { \"version\": \"2.0\", \"generator\": \"Make3D detailed editable proxy\" },\n";
+    gltf << "  \"scene\": 0,\n  \"scenes\": [{ \"nodes\": [0] }],\n  \"nodes\": [{ \"mesh\": 0, \"name\": \"Make3DDetailedEditableProxy\" }],\n";
     gltf << "  \"meshes\": [{ \"primitives\": [{ \"attributes\": { \"POSITION\": 0, \"NORMAL\": 1, \"TEXCOORD_0\": 2 }, \"indices\": 3, \"mode\": 4 }] }],\n";
     gltf << "  \"buffers\": [{ \"uri\": \"make3d_advanced.bin\", \"byteLength\": " << totalSize << " }],\n";
     gltf << "  \"bufferViews\": [{ \"buffer\": 0, \"byteOffset\": " << posOffset << ", \"byteLength\": " << posBytes << ", \"target\": 34962 },{ \"buffer\": 0, \"byteOffset\": " << normOffset << ", \"byteLength\": " << normBytes << ", \"target\": 34962 },{ \"buffer\": 0, \"byteOffset\": " << uvOffset << ", \"byteLength\": " << uvBytes << ", \"target\": 34962 },{ \"buffer\": 0, \"byteOffset\": " << idxOffset << ", \"byteLength\": " << idxBytes << ", \"target\": 34963 }],\n";
@@ -330,14 +376,15 @@ std::string ReconstructionReport::ToMarkdown() const {
     std::ostringstream oss;
     oss << "# Make3D Advanced Reconstruction Report\n\n| Metric | Value |\n|---|---:|\n";
     oss << "| Image width | " << imageWidth << " |\n| Image height | " << imageHeight << " |\n| Foreground pixels | " << foregroundPixels << " |\n| Foreground coverage | " << foregroundCoverage << " |\n";
-    oss << "| Reconstruction mode | " << reconstructionMode << " |\n| Vertices | " << vertices << " |\n| Triangles | " << triangles << " |\n| Watertight candidate | " << (watertightCandidate ? "yes" : "no") << " |\n\n";
+    oss << "| Depth min | " << depthMin << " |\n| Depth max | " << depthMax << " |\n| Depth mean | " << depthMean << " |\n| Reconstruction mode | " << reconstructionMode << " |\n";
+    oss << "| Vertices | " << vertices << " |\n| Triangles | " << triangles << " |\n| Watertight candidate | " << (watertightCandidate ? "yes" : "no") << " |\n\n";
     if (!warnings.empty()) { oss << "## Warnings\n\n"; for (const auto& w : warnings) oss << "- " << w << "\n"; }
     return oss.str();
 }
 
 std::string ReconstructionReport::ToJson() const {
     std::ostringstream oss;
-    oss << "{\n  \"imageWidth\": " << imageWidth << ",\n  \"imageHeight\": " << imageHeight << ",\n  \"foregroundPixels\": " << foregroundPixels << ",\n  \"foregroundCoverage\": " << foregroundCoverage << ",\n  \"reconstructionMode\": \"" << EscapeJson(reconstructionMode) << "\",\n  \"vertices\": " << vertices << ",\n  \"triangles\": " << triangles << ",\n  \"watertightCandidate\": " << (watertightCandidate ? "true" : "false") << "\n}";
+    oss << "{\n  \"imageWidth\": " << imageWidth << ",\n  \"imageHeight\": " << imageHeight << ",\n  \"foregroundPixels\": " << foregroundPixels << ",\n  \"foregroundCoverage\": " << foregroundCoverage << ",\n  \"depthMin\": " << depthMin << ",\n  \"depthMax\": " << depthMax << ",\n  \"depthMean\": " << depthMean << ",\n  \"reconstructionMode\": \"" << EscapeJson(reconstructionMode) << "\",\n  \"vertices\": " << vertices << ",\n  \"triangles\": " << triangles << ",\n  \"watertightCandidate\": " << (watertightCandidate ? "true" : "false") << "\n}";
     return oss.str();
 }
 
@@ -351,7 +398,7 @@ BuildOutput BuildModelFromImage(const fs::path& colorPath, const std::optional<f
     out.mesh = ReconstructMesh(*color, depth, mask, options, &out.report);
     if (out.mesh.positions.empty() || out.mesh.indices.empty()) { out.message = "Mesh reconstruction failed."; return out; }
     RecomputeNormals(out.mesh); NormalizeMesh(out.mesh, 2.0f);
-    out.report.reconstructionMode = "SafeTypedProxy"; out.report.vertices = VertexCountLocal(out.mesh); out.report.triangles = TriangleCountLocal(out.mesh); out.report.watertightCandidate = true;
+    out.report.reconstructionMode = "DetailedEditableProxy"; out.report.vertices = VertexCountLocal(out.mesh); out.report.triangles = TriangleCountLocal(out.mesh); out.report.watertightCandidate = true;
     std::error_code ec; fs::create_directories(outputDir, ec);
     fs::path objPath = outputDir / "make3d_advanced.obj", gltfPath = outputDir / "make3d_advanced.gltf", reportMd = outputDir / "make3d_report.md", reportJson = outputDir / "make3d_report.json";
     if (options.exportObj && !ExportOBJ(out.mesh, objPath, "", &error)) { out.message = error; return out; }
@@ -365,7 +412,7 @@ BuildOutput BuildModelFromImage(const fs::path& colorPath, const std::optional<f
         SaveDebugPPM(outputDir / "debug_mask.ppm", color->width, color->height, maskRgb, nullptr);
         SaveDebugPPM(outputDir / "debug_depth.ppm", color->width, color->height, depthRgb, nullptr);
     }
-    out.ok = true; out.message = "Advanced reconstruction finished with filesystem-safe PNG loading."; return out;
+    out.ok = true; out.message = "Advanced reconstruction finished with detailed editable proxy output."; return out;
 }
 
 const char* ToString(ReconstructionMode mode) {
