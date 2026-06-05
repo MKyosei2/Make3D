@@ -41,6 +41,7 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     std::ostringstream o;
     o << "# Make3D Production Pipeline Report\n\n";
     o << "## Shape inference\n\n" << result.shapeInferenceReport.ToMarkdown() << "\n";
+    o << "## Learned shape model\n\n" << result.learnedShapeReport.ToMarkdown() << "\n";
     o << "## Reconstruction\n\n" << result.reconstructionReport.ToMarkdown() << "\n";
     o << "## Mask refinement\n\n" << result.maskReport.ToMarkdown() << "\n";
     o << "## Mesh polish\n\n" << result.polishReport.ToMarkdown() << "\n";
@@ -57,6 +58,7 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     o << "- debug_mask_refined.ppm\n";
     o << "- debug_depth_refined.ppm\n";
     o << "- debug_depth_inferred.ppm\n";
+    o << "- debug_depth_learned.ppm\n";
     return o.str();
 }
 
@@ -64,6 +66,7 @@ static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     std::ostringstream o;
     o << "{\n";
     o << "  \"shapeInference\": " << result.shapeInferenceReport.ToJson() << ",\n";
+    o << "  \"learnedShape\": " << result.learnedShapeReport.ToJson() << ",\n";
     o << "  \"reconstruction\": " << result.reconstructionReport.ToJson() << ",\n";
     o << "  \"maskRefine\": " << result.maskReport.ToJson() << ",\n";
     o << "  \"polish\": " << result.polishReport.ToJson() << ",\n";
@@ -120,6 +123,13 @@ ProductionPipelineResult BuildProductionModelFromImage(
         result.shapeInferenceReport = RunShapeInference(*color, mask, depth, options.shapeInference);
         if (!result.shapeInferenceReport.adjustedDepth.values.empty()) {
             reconstructionDepth = result.shapeInferenceReport.adjustedDepth;
+        }
+    }
+    DepthImage inferredDepth = reconstructionDepth;
+    if (options.enableLearnedShapeModel) {
+        result.learnedShapeReport = RunLearnedShapeModel(*color, mask, reconstructionDepth, result.shapeInferenceReport, options.learnedShape);
+        if (result.learnedShapeReport.ok && !result.learnedShapeReport.learnedDepth.values.empty()) {
+            reconstructionDepth = result.learnedShapeReport.learnedDepth;
         }
     }
 
@@ -184,7 +194,8 @@ ProductionPipelineResult BuildProductionModelFromImage(
     if (options.writeDebugImages) {
         WriteDebugMask(outputDir / "debug_mask_refined.ppm", color->width, color->height, mask);
         WriteDebugDepth(outputDir / "debug_depth_refined.ppm", color->width, color->height, depth);
-        WriteDebugDepth(outputDir / "debug_depth_inferred.ppm", color->width, color->height, reconstructionDepth);
+        WriteDebugDepth(outputDir / "debug_depth_inferred.ppm", color->width, color->height, inferredDepth);
+        WriteDebugDepth(outputDir / "debug_depth_learned.ppm", color->width, color->height, reconstructionDepth);
     }
 
     if (options.writeReports) {
