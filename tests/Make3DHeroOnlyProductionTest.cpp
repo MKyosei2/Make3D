@@ -78,6 +78,7 @@ int main() {
 
     make3d::ProductionPipelineOptions options;
     options.exportHeroCharacter = true;
+    options.exportGameAsset = true;
     options.exportRaw = false;
     options.exportPolished = false;
     options.exportVoxelVolume = false;
@@ -96,6 +97,14 @@ int main() {
     if (!fs::exists(result.heroVertexColorGltfPath)) return Fail("hero semantic vertex-color glTF missing");
     if (!fs::exists(result.productionReportPath)) return Fail("production report missing");
 
+    if (result.gameAssetMesh.positions.empty()) return Fail("game asset mesh positions missing");
+    if (result.gameAssetMesh.indices.empty()) return Fail("game asset mesh indices missing");
+    if (!result.gameAssetReport.ok) return Fail("game asset report should be ok");
+    if (!fs::exists(result.gameAssetObjPath)) return Fail("game asset OBJ missing");
+    if (!fs::exists(result.gameAssetGltfPath)) return Fail("game asset glTF missing");
+    if (!fs::exists(result.gameAssetReportPath)) return Fail("game asset report missing");
+    if (!fs::exists(result.gameAssetManifestPath)) return Fail("game asset manifest missing");
+
     if (!result.rawObjPath.empty()) return Fail("raw path should stay empty in hero-only mode");
     if (!result.polishedObjPath.empty()) return Fail("polished path should stay empty in hero-only mode");
     if (!result.voxelObjPath.empty()) return Fail("voxel path should stay empty in hero-only mode");
@@ -107,7 +116,12 @@ int main() {
     std::string text((std::istreambuf_iterator<char>(gltf)), std::istreambuf_iterator<char>());
     if (text.find("COLOR_0") == std::string::npos) return Fail("hero semantic glTF missing COLOR_0");
 
+    std::ifstream report(result.productionReportPath, std::ios::binary);
+    std::string reportText((std::istreambuf_iterator<char>(report)), std::istreambuf_iterator<char>());
+    if (reportText.find("Generic game asset") == std::string::npos) return Fail("production report missing generic game asset section");
+
     std::cout << "[PASS] Make3D hero-only production regression test\n";
     std::cout << "Review target: " << result.heroVertexColorGltfPath.u8string() << "\n";
+    std::cout << "Game asset: " << result.gameAssetObjPath.u8string() << "\n";
     return 0;
 }

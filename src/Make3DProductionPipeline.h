@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Make3DAdvancedCore.h"
+#include "Make3DGameAssetGenerator.h"
 #include "Make3DGltfMaterialExporter.h"
 #include "Make3DHeroCharacterModel.h"
 #include "Make3DLearnedShapeModel.h"
@@ -24,10 +25,12 @@ struct ProductionPipelineOptions {
     HeroCharacterOptions heroCharacter;
     ShapeInferenceOptions shapeInference;
     LearnedShapeModelOptions learnedShape;
+    GameAssetGeneratorOptions gameAsset;
     bool exportRaw = true;
     bool exportPolished = true;
     bool exportVoxelVolume = true;
     bool exportHeroCharacter = true;
+    bool exportGameAsset = true;
     bool exportVertexColorGltf = true;
     bool enableShapeInference = true;
     bool enableLearnedShapeModel = true;
@@ -42,6 +45,7 @@ struct ProductionPipelineResult {
     MeshData polishedMesh;
     MeshData voxelMesh;
     MeshData heroMesh;
+    MeshData gameAssetMesh;
     ReconstructionReport reconstructionReport;
     MaskRefineReport maskReport;
     MeshPolishReport polishReport;
@@ -49,6 +53,7 @@ struct ProductionPipelineResult {
     HeroCharacterReport heroReport;
     ShapeInferenceResult shapeInferenceReport;
     LearnedShapeModelResult learnedShapeReport;
+    GameAssetGenerationResult gameAssetReport;
     std::filesystem::path rawObjPath;
     std::filesystem::path rawMaterialGltfPath;
     std::filesystem::path polishedObjPath;
@@ -60,6 +65,10 @@ struct ProductionPipelineResult {
     std::filesystem::path heroObjPath;
     std::filesystem::path heroMaterialGltfPath;
     std::filesystem::path heroVertexColorGltfPath;
+    std::filesystem::path gameAssetObjPath;
+    std::filesystem::path gameAssetGltfPath;
+    std::filesystem::path gameAssetReportPath;
+    std::filesystem::path gameAssetManifestPath;
     std::filesystem::path productionReportPath;
 };
 

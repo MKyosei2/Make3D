@@ -55,6 +55,12 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     o << "Open this first:\n\n";
     o << "```text\n" << MaybePath(result.heroVertexColorGltfPath, "hero output not generated") << "\n```\n\n";
     o << "The hero character output is the primary portfolio artifact. Generic raw/polished/voxel outputs are optional fallback artifacts and may be disabled in review mode.\n\n";
+    if (!result.gameAssetMesh.positions.empty()) {
+        o << "## Generic game asset\n\n";
+        o << result.gameAssetReport.classification.ToMarkdown() << "\n";
+        o << "### Game asset mesh validation\n\n" << result.gameAssetReport.validation.ToMarkdown() << "\n";
+        o << "### Game asset metadata\n\n" << result.gameAssetReport.metadata.ToMarkdown() << "\n";
+    }
     o << "## Shape inference\n\n" << result.shapeInferenceReport.ToMarkdown() << "\n";
     o << "## Learned shape model\n\n" << result.learnedShapeReport.ToMarkdown() << "\n";
     o << "## Hero character reconstruction\n\n" << result.heroReport.ToMarkdown() << "\n";
@@ -66,6 +72,10 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     o << "- " << MaybePath(result.heroObjPath, "hero OBJ disabled or failed") << "\n";
     o << "- " << MaybePath(result.heroMaterialGltfPath, "hero material glTF disabled or failed") << "\n";
     o << "- " << MaybePath(result.heroVertexColorGltfPath, "hero semantic vertex-color glTF disabled or failed") << "\n";
+    if (!result.gameAssetObjPath.empty()) o << "- " << result.gameAssetObjPath.generic_string() << "\n";
+    if (!result.gameAssetGltfPath.empty()) o << "- " << result.gameAssetGltfPath.generic_string() << "\n";
+    if (!result.gameAssetReportPath.empty()) o << "- " << result.gameAssetReportPath.generic_string() << "\n";
+    if (!result.gameAssetManifestPath.empty()) o << "- " << result.gameAssetManifestPath.generic_string() << "\n";
     if (!result.rawObjPath.empty()) o << "- " << result.rawObjPath.generic_string() << "\n";
     if (!result.rawMaterialGltfPath.empty()) o << "- " << result.rawMaterialGltfPath.generic_string() << "\n";
     if (!result.polishedObjPath.empty()) o << "- " << result.polishedObjPath.generic_string() << "\n";
@@ -92,6 +102,11 @@ static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     o << "  \"maskRefine\": " << result.maskReport.ToJson() << ",\n";
     o << "  \"polish\": " << result.polishReport.ToJson() << ",\n";
     o << "  \"voxelVolume\": " << result.voxelReport.ToJson() << ",\n";
+    o << "  \"gameAssetType\": \"" << ToString(result.gameAssetReport.classification.assetType) << "\",\n";
+    o << "  \"gameAssetObj\": \"" << MaybePath(result.gameAssetObjPath, "") << "\",\n";
+    o << "  \"gameAssetGltf\": \"" << MaybePath(result.gameAssetGltfPath, "") << "\",\n";
+    o << "  \"gameAssetReport\": \"" << MaybePath(result.gameAssetReportPath, "") << "\",\n";
+    o << "  \"gameAssetManifest\": \"" << MaybePath(result.gameAssetManifestPath, "") << "\",\n";
     o << "  \"heroMaterialGltf\": \"" << MaybePath(result.heroMaterialGltfPath, "") << "\",\n";
     o << "  \"heroVertexColorGltf\": \"" << MaybePath(result.heroVertexColorGltfPath, "") << "\",\n";
     o << "  \"rawMaterialGltf\": \"" << MaybePath(result.rawMaterialGltfPath, "") << "\",\n";
@@ -129,6 +144,28 @@ static void WriteReportsAndDebugImages(
     }
 }
 
+static bool BuildProductionGameAsset(
+    const ImageRGBA& color,
+    const DepthImage& reconstructionDepth,
+    const std::vector<std::uint8_t>& mask,
+    const fs::path& outputDir,
+    const ProductionPipelineOptions& options,
+    ProductionPipelineResult& result) {
+
+    if (!options.exportGameAsset) return true;
+    result.gameAssetReport = BuildGenericGameAsset(color, reconstructionDepth, mask, outputDir / "game_asset", options.gameAsset);
+    if (!result.gameAssetReport.ok) {
+        result.message = result.gameAssetReport.message;
+        return false;
+    }
+    result.gameAssetMesh = result.gameAssetReport.mesh;
+    result.gameAssetObjPath = result.gameAssetReport.objPath;
+    result.gameAssetGltfPath = result.gameAssetReport.gltfPath;
+    result.gameAssetReportPath = result.gameAssetReport.reportPath;
+    result.gameAssetManifestPath = result.gameAssetReport.manifestPath;
+    return true;
+}
+
 } // namespace
 
 ProductionPipelineResult BuildProductionModelFromImage(
@@ -150,6 +187,7 @@ ProductionPipelineResult BuildProductionModelFromImage(
 
     fs::create_directories(outputDir);
     fs::create_directories(outputDir / "hero");
+    if (options.exportGameAsset) fs::create_directories(outputDir / "game_asset");
     if (options.exportRaw) fs::create_directories(outputDir / "raw");
     if (options.exportPolished) fs::create_directories(outputDir / "polished");
     if (options.exportVoxelVolume) fs::create_directories(outputDir / "voxel");
@@ -205,6 +243,8 @@ ProductionPipelineResult BuildProductionModelFromImage(
             if (!ExportHeroSemanticGLTF(result.heroMesh, palette, result.heroVertexColorGltfPath, semanticOptions, &error)) { result.message = error; return result; }
         }
     }
+
+    if (!BuildProductionGameAsset(*color, reconstructionDepth, mask, outputDir, options, result)) return result;
 
     if (!WantsGenericReconstruction(options)) {
         WriteReportsAndDebugImages(outputDir, *color, mask, depth, inferredDepth, reconstructionDepth, result, options);

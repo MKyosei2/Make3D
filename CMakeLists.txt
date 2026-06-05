@@ -20,6 +20,11 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DModelPolisher.cpp
     src/Make3DMaskRefiner.cpp
     src/Make3DVoxelVolume.cpp
+    src/Make3DAssetTypes.cpp
+    src/Make3DGameAssetGenerator.cpp
+    src/Make3DMeshRepairAndTexture.cpp
+    src/Make3DCompleteGameAssetPipeline.cpp
+    src/Make3DTypedProceduralAssets.cpp
     src/Make3DProductionPipeline.cpp
     src/Make3DGameAssetPipeline.cpp
 )
@@ -55,6 +60,18 @@ make3d_exe(Make3DModelPolisherTest tests/Make3DModelPolisherTest.cpp)
 make3d_exe(Make3DMaskRefinerTest tests/Make3DMaskRefinerTest.cpp)
 make3d_exe(Make3DVoxelVolumeTest tests/Make3DVoxelVolumeTest.cpp)
 make3d_exe(Make3DGameAssetPipelineTest tests/Make3DGameAssetPipelineTest.cpp)
+
+add_executable(Make3DGameAssetCLI
+    src/Make3DGameAssetCLI.cpp
+)
+
+target_link_libraries(Make3DGameAssetCLI PRIVATE Make3DAdvancedCore)
+
+add_executable(Make3DTypedAssetCLI
+    src/Make3DTypedAssetCLI.cpp
+)
+
+target_link_libraries(Make3DTypedAssetCLI PRIVATE Make3DAdvancedCore)
 
 if (WIN32)
     make3d_exe(Make3DAdvancedGui src/Make3DAdvancedGui.cpp)
@@ -96,9 +113,16 @@ add_test(NAME Make3DVerifyProductionSampleArtifact
         -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/production_pipeline
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyProductionSample.cmake)
 set_tests_properties(Make3DVerifyProductionSampleArtifact PROPERTIES DEPENDS Make3DGenerateProductionPipelineSample)
+add_test(NAME Make3DVerifyGameAssetArtifacts
+    COMMAND ${CMAKE_COMMAND}
+        -DGENERIC_ASSET_DIR=${CMAKE_CURRENT_BINARY_DIR}/generic_asset
+        -DCOMPLETE_SUITE_DIR=${CMAKE_CURRENT_BINARY_DIR}/complete_game_asset_suite
+        -DTYPED_ASSET_DIR=${CMAKE_CURRENT_BINARY_DIR}/typed_assets
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyGameAssetArtifacts.cmake)
+set_tests_properties(Make3DVerifyGameAssetArtifacts PROPERTIES DEPENDS "Make3DGenerateGenericAssetSample;Make3DGenerateCompleteGameAssetSuite;Make3DGenerateTypedFurniture;Make3DGenerateTypedMachine;Make3DGenerateTypedTool;Make3DGenerateTypedTerrain")
 add_test(NAME Make3DTrainLearnedShapeModel COMMAND Make3DTrainLearnedShapeModel ${CMAKE_CURRENT_BINARY_DIR}/learned_shape_training)
 
-install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
+install(TARGETS Make3DAdvancedCLI Make3DGameAssetCLI Make3DTypedAssetCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample Make3DGenerateGenericAssetSample Make3DGenerateCompleteGameAssetSuite Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
 if (TARGET Make3DAdvancedGui)
     install(TARGETS Make3DAdvancedGui RUNTIME DESTINATION bin)
 endif()
