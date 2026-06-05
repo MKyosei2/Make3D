@@ -4,145 +4,130 @@ This document is written for portfolio reviewers and interviewers.
 
 ## One-line summary
 
-Make3D is a deterministic C++ image-to-3D proxy asset generator. It extracts foreground regions, estimates or consumes depth, reconstructs relief / volume / hybrid meshes, exports OBJ, geometry glTF, and material glTF, and writes debug artifacts plus mesh quality reports so the generation process can be inspected.
+Make3D is a C++ / Win32 character-oriented image-to-3D asset generation pipeline. It converts a 2D character image into an inspectable hero-style glTF asset using foreground refinement, pseudo-depth and local learned-shape inference, character-specific geometry priors, hair/clothing/detail volumes, semantic vertex coloring, and debug/report artifacts.
 
-## What to run first
+## What to open first
 
-On Windows, build with CMake:
+From the GitHub Actions artifact:
+
+```text
+make3d-production-pipeline-sample
+```
+
+Open:
+
+```text
+production_pipeline/output/hero/make3d_hero_character_vertex_color.gltf
+```
+
+Then inspect:
+
+```text
+production_pipeline/output/hero/make3d_hero_character_material.gltf
+production_pipeline/output/production_report.md
+production_pipeline/output/debug_mask_refined.ppm
+production_pipeline/output/debug_depth_inferred.ppm
+production_pipeline/output/debug_depth_learned.ppm
+```
+
+## Why the hero output matters
+
+The older generic reconstruction path produces raw/polished/voxel outputs. Those are still included, but the current portfolio direction is the hero character path.
+
+The hero path adds:
+
+```text
+head / torso / arms / legs
+hair volume
+clothing shell
+neck / shoulder connectors
+hands / feet
+eyes / nose / mouth hints
+hair strand hints
+clothing fold hints
+finger hints
+shoe soles
+semantic vertex colors
+```
+
+This is intentionally less generic and more focused on character/figure-like output.
+
+## How to build
 
 ```bash
 cmake -S . -B build
 cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-Then run:
-
-```text
-build/Release/Make3DAdvancedGui.exe
-```
-
-or:
+## How to generate the portfolio sample
 
 ```bash
-build/Release/Make3DAdvancedCLI.exe --input <image> --output output --mode hybrid --quality detailed
+build/Release/Make3DGenerateProductionPipelineSample.exe output/production_pipeline
 ```
 
-For generated proof artifacts, run:
+With locally trained weights:
 
 ```bash
-build/Release/Make3DGenerateAdvancedSamples.exe output/generated_samples
-build/Release/Make3DGenerateMeshQualityReport.exe output/mesh_quality
+build/Release/Make3DTrainLearnedShapeModel.exe output/learned_shape_training
+build/Release/Make3DGenerateProductionPipelineSample.exe output/production_pipeline output/learned_shape_training/learned_shape.weights
 ```
-
-## What the reviewer should inspect
-
-After running the advanced GUI or CLI, inspect:
-
-```text
-make3d_advanced.obj
-make3d_advanced.gltf
-make3d_advanced.bin
-make3d_advanced_material.gltf
-make3d_advanced_material.bin
-debug_mask.ppm
-debug_depth.ppm
-make3d_report.md
-make3d_report.json
-```
-
-The preferred modern asset output is `make3d_advanced_material.gltf` because it includes material metadata in addition to mesh geometry.
-
-For output details, see:
-
-```text
-docs/OUTPUT_ARTIFACTS.md
-```
-
-## Mesh quality proof
-
-The mesh quality generator creates raw and cleaned outputs:
-
-```text
-mesh_quality_report.md
-mesh_quality_report.json
-raw/make3d_advanced.obj
-raw/make3d_advanced.gltf
-cleaned/make3d_cleaned.obj
-cleaned/make3d_cleaned.gltf
-cleaned/make3d_cleaned_material.gltf
-```
-
-This demonstrates that Make3D does not only export a model; it also checks invalid triangles, degenerate triangles, boundary edges, non-manifold edges, and export validity.
-
-## Why this is not just image extrusion
-
-The advanced backend performs several steps before geometry export:
-
-1. Foreground extraction from alpha or background color estimation.
-2. Morphological cleanup of the mask.
-3. Depth preparation from either a depth PNG or single-image pseudo-depth estimation.
-4. Reconstruction mode selection.
-5. Relief surface, silhouette volume, or hybrid reconstruction.
-6. Normal recomputation and mesh normalization.
-7. OBJ / geometry glTF / material glTF export.
-8. Debug artifact and report generation.
-9. Mesh quality validation and cleanup through dedicated tools.
-
-The `HybridVolume` mode is the main portfolio mode because it combines a volumetric proxy with front-surface depth detail.
-
-## What is intentionally not claimed
-
-Make3D does not claim to generate perfect production models from arbitrary images.
-
-The defensible claim is:
-
-> Make3D generates inspectable proxy 3D assets from 2D inputs using deterministic C++ image processing, mesh reconstruction, material glTF export, and mesh validation reports.
-
-This is stronger and more technically honest than claiming universal 3D reconstruction.
 
 ## Current proof points
 
 - Advanced backend is separated from the GUI.
-- CLI path makes the algorithm reproducible.
-- Advanced GUI allows non-technical reviewers to run the backend.
-- Smoke test validates mask/depth/mesh/export pipeline.
-- Mesh tools test validates cleanup and mesh inspection logic.
-- glTF material exporter test verifies material sections are written.
-- CI builds, tests, generates samples, generates mesh quality reports, and uploads artifacts.
+- Production pipeline generates a hero character output, generic polished output, voxel output, debug images, and reports.
+- Local learned-shape model supports built-in weights and external weight files.
+- Synthetic trainer generates `learned_shape.weights` and training reports.
+- Hero character model creates character-specific base geometry.
+- Hero detail enhancer adds hair, clothing, neck/shoulder connectors, hands, and feet.
+- Hero fine detail pass adds eyes, nose, mouth, hair strand hints, clothing folds, finger hints, and shoe soles.
+- Hero semantic glTF exporter writes `COLOR_0` vertex-color glTF with skin/hair/face/clothing/shoe regions.
+- CI builds, tests, trains, generates samples, packages outputs, and uploads artifacts.
+
+## What is intentionally not claimed
+
+Make3D does not claim to be a perfect one-click Blender/ZBrush replacement.
+
+The defensible claim is:
+
+> Make3D generates inspectable hero-style character 3D assets from 2D inputs using deterministic C++ image processing, local learned-shape inference, character-specific geometry priors, semantic vertex coloring, glTF export, debug images, and Markdown/JSON reports.
+
+This is stronger and more technically honest than claiming universal single-image 3D reconstruction.
 
 ## Interview talking points
 
-### 1. Why deterministic reconstruction?
+### 1. Why specialize in character output?
 
-The goal is to make each processing stage inspectable. Unlike a black-box generator, Make3D can output the mask, depth preview, mesh statistics, warnings, and quality reports.
+Generic single-image 3D reconstruction is extremely hard because hidden geometry is not observable. The project therefore focuses on a narrower, portfolio-visible target: character/figure-style assets where a strong prior can produce more convincing shapes.
 
-### 2. Why proxy assets?
+### 2. Why deterministic and inspectable?
 
-Single-image reconstruction cannot infer hidden geometry. By positioning the output as game-development proxy assets, the tool remains useful while keeping its claim realistic.
+Every major stage produces debug artifacts or reports: mask, depth, shape inference, learned-shape summary, hero reconstruction statistics, mesh quality reports, and glTF outputs. This makes the pipeline reviewable rather than a black box.
 
-### 3. Why glTF in addition to OBJ?
+### 3. Why local learned-shape support?
 
-OBJ is simple and widely inspectable. glTF is more suitable for modern runtime/game asset workflows. The material glTF path adds PBR metadata such as base color, roughness, metallic factor, and double-sided rendering.
+The project avoids relying on external generation services. The local learned-shape stage supports built-in weights, external weight loading, and a small synthetic trainer so the pipeline has a real training/inference boundary.
 
-### 4. Why mesh validation?
+### 4. Why semantic vertex colors?
 
-Generated geometry can contain invalid or degenerate data. The validation path makes the output safer to inspect by reporting export validity, boundary edges, non-manifold edges, and cleaned mesh statistics.
+Texture projection and UV unwrapping are still future work. Semantic `COLOR_0` glTF coloring gives reviewers an immediate visual distinction between skin, hair, face, clothing, lower clothing, and shoes in modern glTF viewers.
 
 ### 5. What would be improved next?
 
-- Real sample set with screenshots and generated outputs.
-- Texture image copying into the material glTF output folder.
-- Stronger mesh cleanup: duplicate merge, manifold repair, and decimation.
-- Better segmentation for real-world photos.
-- Multi-frame video sampling.
-- More geometry validation tests.
+- True UV unwrapping.
+- Texture projection.
+- Retopology / remeshing.
+- Better image-dependent pose and part detection.
+- Stronger learned model trained on real character data.
+- Blender screenshot or turntable artifact generation in CI.
 
 ## Suggested portfolio wording
 
 Japanese:
 
-> 画像・深度画像からゲーム開発向けのプロキシ3Dアセットを生成するC++/Win32ツールを開発。前景抽出、疑似depth推定、relief/volume/hybrid mesh reconstruction、OBJ/glTF/material glTF出力、debug mask/depth、Markdown/JSON report、mesh quality report出力までを実装し、生成過程と出力品質を検証可能な形にした。
+> 2Dキャラクター画像から、ゲーム開発向けのhero-style 3Dアセットを生成するC++/Win32ツールを開発。前景抽出、mask refinement、疑似depth推定、local learned-shape inference、キャラクター専用の頭・胴体・腕・脚・髪・服・手足・顔パーツ生成、semantic vertex-color glTF出力、debug mask/depth、Markdown/JSON report、CI artifact生成までを実装し、生成過程と出力品質を検証可能な形にした。
 
 English:
 
-> Developed a C++/Win32 image-to-3D proxy asset generator for game-development workflows. The tool extracts foreground masks, estimates or consumes depth, reconstructs relief/volume/hybrid meshes, exports OBJ, geometry glTF, and material glTF, and writes debug artifacts plus Markdown/JSON quality reports for inspectable validation.
+> Developed a C++/Win32 hero-style character asset generation pipeline from 2D inputs. The tool performs foreground refinement, pseudo-depth estimation, local learned-shape inference, character-specific geometry generation, hair/clothing/face/detail passes, semantic vertex-color glTF export, debug mask/depth outputs, Markdown/JSON reports, and CI artifact generation for inspectable technical review.
