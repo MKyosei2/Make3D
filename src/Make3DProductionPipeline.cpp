@@ -42,11 +42,14 @@ static std::string MakeProductionMarkdown(const ProductionPipelineResult& result
     o << "## Reconstruction\n\n" << result.reconstructionReport.ToMarkdown() << "\n";
     o << "## Mask refinement\n\n" << result.maskReport.ToMarkdown() << "\n";
     o << "## Mesh polish\n\n" << result.polishReport.ToMarkdown() << "\n";
+    o << "## Voxel-style volume\n\n" << result.voxelReport.ToMarkdown() << "\n";
     o << "## Output files\n\n";
     o << "- raw/make3d_raw.obj\n";
     o << "- raw/make3d_raw_material.gltf\n";
     o << "- polished/make3d_polished.obj\n";
     o << "- polished/make3d_polished_material.gltf\n";
+    o << "- voxel/make3d_voxel_volume.obj\n";
+    o << "- voxel/make3d_voxel_volume_material.gltf\n";
     o << "- debug_mask_refined.ppm\n";
     o << "- debug_depth_refined.ppm\n";
     return o.str();
@@ -58,8 +61,10 @@ static std::string MakeProductionJson(const ProductionPipelineResult& result) {
     o << "  \"reconstruction\": " << result.reconstructionReport.ToJson() << ",\n";
     o << "  \"maskRefine\": " << result.maskReport.ToJson() << ",\n";
     o << "  \"polish\": " << result.polishReport.ToJson() << ",\n";
+    o << "  \"voxelVolume\": " << result.voxelReport.ToJson() << ",\n";
     o << "  \"rawMaterialGltf\": \"raw/make3d_raw_material.gltf\",\n";
-    o << "  \"polishedMaterialGltf\": \"polished/make3d_polished_material.gltf\"\n";
+    o << "  \"polishedMaterialGltf\": \"polished/make3d_polished_material.gltf\",\n";
+    o << "  \"voxelMaterialGltf\": \"voxel/make3d_voxel_volume_material.gltf\"\n";
     o << "}\n";
     return o.str();
 }
@@ -86,6 +91,7 @@ ProductionPipelineResult BuildProductionModelFromImage(
     fs::create_directories(outputDir);
     fs::create_directories(outputDir / "raw");
     fs::create_directories(outputDir / "polished");
+    fs::create_directories(outputDir / "voxel");
 
     result.reconstructionReport.imageWidth = color->width;
     result.reconstructionReport.imageHeight = color->height;
@@ -109,6 +115,23 @@ ProductionPipelineResult BuildProductionModelFromImage(
 
     result.polishedMesh = result.rawMesh;
     result.polishReport = PolishMesh(result.polishedMesh, options.polish);
+
+    if (options.exportVoxelVolume) {
+        result.voxelMesh = BuildVoxelVolumeMesh(*color, depth, mask, options.voxel, &result.voxelReport);
+        if (!result.voxelMesh.positions.empty() && !result.voxelMesh.indices.empty()) {
+            MeshPolishOptions voxelPolish = options.polish;
+            voxelPolish.keepLargestComponentOnly = true;
+            voxelPolish.smoothingIterations = std::max(2, options.polish.smoothingIterations / 2);
+            PolishMesh(result.voxelMesh, voxelPolish);
+            result.voxelObjPath = outputDir / "voxel" / "make3d_voxel_volume.obj";
+            result.voxelMaterialGltfPath = outputDir / "voxel" / "make3d_voxel_volume_material.gltf";
+            GltfMaterialOptions material;
+            material.materialName = "Make3DVoxelVolumeMaterial";
+            material.baseColorFactor = {0.66f, 0.76f, 0.90f, 1.0f};
+            if (!ExportOBJ(result.voxelMesh, result.voxelObjPath, "", &error)) { result.message = error; return result; }
+            if (!ExportGLTFWithMaterial(result.voxelMesh, result.voxelMaterialGltfPath, material, &error)) { result.message = error; return result; }
+        }
+    }
 
     if (options.exportRaw) {
         result.rawObjPath = outputDir / "raw" / "make3d_raw.obj";
