@@ -14,6 +14,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DLearnedShapeModel.cpp
     src/Make3DLearnedShapeTrainer.cpp
     src/Make3DHeroCharacterModel.cpp
+    src/Make3DHeroDetailEnhancer.cpp
     src/Make3DModelPolisher.cpp
     src/Make3DMaskRefiner.cpp
     src/Make3DVoxelVolume.cpp
