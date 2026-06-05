@@ -1,4 +1,5 @@
 #include "Make3DProductionPipeline.h"
+#include "Make3DHeroDetailEnhancer.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -143,6 +144,7 @@ ProductionPipelineResult BuildProductionModelFromImage(
 
     if (options.exportHeroCharacter) {
         result.heroMesh = BuildHeroCharacterMesh(*color, reconstructionDepth, mask, options.heroCharacter, &result.heroReport);
+        AddHeroDetailVolumes(result.heroMesh, options.heroCharacter, &result.heroReport);
         if (!result.heroMesh.positions.empty() && !result.heroMesh.indices.empty()) {
             result.heroObjPath = outputDir / "hero" / "make3d_hero_character.obj";
             result.heroMaterialGltfPath = outputDir / "hero" / "make3d_hero_character_material.gltf";
