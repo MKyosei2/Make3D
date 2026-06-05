@@ -1,4 +1,4 @@
-#include "Make3DGameAssetFinalization.h"
+#include "Make3DDeliveryPack.h"
 
 #include <filesystem>
 #include <fstream>
@@ -86,6 +86,8 @@ int main() {
     frames.push_back(MakeBoxInput(out, "frame1.tga"));
     make3d::FinalGameAssetResult finalAsset = make3d::BuildFinalGameAssetFromFrames(frames, out / "output", options);
     if (!finalAsset.ok) return Fail(finalAsset.message);
+    make3d::DeliveryPackResult delivery = make3d::BuildDeliveryPack(finalAsset, out / "output");
+    if (!delivery.ok) return Fail("delivery pack failed");
 
     const make3d::CompletedGameAssetResult& complete = finalAsset.complete;
     const make3d::GameAssetResult& result = complete.asset;
@@ -117,6 +119,8 @@ int main() {
     if (!fs::exists(finalAsset.frameConsistencyPath)) return Fail("frame consistency missing");
     if (!fs::exists(finalAsset.textureAtlasPath)) return Fail("texture atlas missing");
     if (!fs::exists(finalAsset.runtimeChecklistPath)) return Fail("runtime checklist missing");
+    if (!fs::exists(delivery.turntablePlanPath)) return Fail("turntable plan missing");
+    if (!fs::exists(delivery.deliveryManifestPath)) return Fail("delivery manifest missing");
     if (!finalAsset.meshCheck.usable) return Fail("mesh check not usable");
     if (finalAsset.retopoProxy.positions.empty()) return Fail("retopo proxy mesh empty");
     if (finalAsset.lod2Mesh.positions.empty()) return Fail("LOD2 mesh empty");
@@ -131,11 +135,14 @@ int main() {
     if (!Contains(finalAsset.vertexInfluencesPath, "influences")) return Fail("vertex influences content missing");
     if (!Contains(finalAsset.frameConsistencyPath, "consistent")) return Fail("frame consistency content missing");
     if (!Contains(finalAsset.runtimeChecklistPath, "Runtime Import Checklist")) return Fail("runtime checklist content missing");
+    if (!Contains(delivery.turntablePlanPath, "turntable_preview_plan")) return Fail("turntable plan content missing");
+    if (!Contains(delivery.deliveryManifestPath, "Make3DDeliveryPack")) return Fail("delivery manifest content missing");
 
     std::cout << "[PASS] Make3D final game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
     std::cout << "Manifest: " << complete.manifestPath.u8string() << "\n";
     std::cout << "Retopo proxy: " << finalAsset.retopoProxyPath.u8string() << "\n";
     std::cout << "LOD2: " << finalAsset.lod2Path.u8string() << "\n";
+    std::cout << "Delivery manifest: " << delivery.deliveryManifestPath.u8string() << "\n";
     return 0;
 }
