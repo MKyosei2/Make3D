@@ -4,6 +4,7 @@
 #include "Make3DGltfMaterialExporter.h"
 #include "Make3DMaskRefiner.h"
 #include "Make3DModelPolisher.h"
+#include "Make3DShapeInference.h"
 #include "Make3DVertexColorGltfExporter.h"
 #include "Make3DVoxelVolume.h"
 
@@ -18,10 +19,12 @@ struct ProductionPipelineOptions {
     MaskRefineOptions maskRefine;
     MeshPolishOptions polish;
     VoxelVolumeOptions voxel;
+    ShapeInferenceOptions shapeInference;
     bool exportRaw = true;
     bool exportPolished = true;
     bool exportVoxelVolume = true;
     bool exportVertexColorGltf = true;
+    bool enableShapeInference = true;
     bool writeReports = true;
     bool writeDebugImages = true;
 };
@@ -36,6 +39,7 @@ struct ProductionPipelineResult {
     MaskRefineReport maskReport;
     MeshPolishReport polishReport;
     VoxelVolumeReport voxelReport;
+    ShapeInferenceResult shapeInferenceReport;
     std::filesystem::path rawObjPath;
     std::filesystem::path rawMaterialGltfPath;
     std::filesystem::path polishedObjPath;
