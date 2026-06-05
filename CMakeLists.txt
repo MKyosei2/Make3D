@@ -12,6 +12,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DVertexColorGltfExporter.cpp
     src/Make3DShapeInference.cpp
     src/Make3DLearnedShapeModel.cpp
+    src/Make3DLearnedShapeTrainer.cpp
     src/Make3DModelPolisher.cpp
     src/Make3DMaskRefiner.cpp
     src/Make3DVoxelVolume.cpp
@@ -61,6 +62,12 @@ add_executable(Make3DGenerateProductionPipelineSample
 
 target_link_libraries(Make3DGenerateProductionPipelineSample PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DTrainLearnedShapeModel
+    tools/TrainLearnedShapeModel.cpp
+)
+
+target_link_libraries(Make3DTrainLearnedShapeModel PRIVATE Make3DAdvancedCore)
+
 add_executable(Make3DAdvancedCoreSmokeTest
     tests/Make3DAdvancedCoreSmokeTest.cpp
 )
@@ -97,6 +104,12 @@ add_executable(Make3DLearnedShapeModelTest
 
 target_link_libraries(Make3DLearnedShapeModelTest PRIVATE Make3DAdvancedCore)
 
+add_executable(Make3DLearnedShapeTrainerTest
+    tests/Make3DLearnedShapeTrainerTest.cpp
+)
+
+target_link_libraries(Make3DLearnedShapeTrainerTest PRIVATE Make3DAdvancedCore)
+
 add_executable(Make3DModelPolisherTest
     tests/Make3DModelPolisherTest.cpp
 )
@@ -124,12 +137,14 @@ if (MSVC)
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE /W4 /permissive-)
     target_compile_options(Make3DGenerateMeshQualityReport PRIVATE /W4 /permissive-)
     target_compile_options(Make3DGenerateProductionPipelineSample PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DTrainLearnedShapeModel PRIVATE /W4 /permissive-)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DMeshToolsTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DVertexColorGltfExporterTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DShapeInferenceTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DLearnedShapeModelTest PRIVATE /W4 /permissive-)
+    target_compile_options(Make3DLearnedShapeTrainerTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DModelPolisherTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DMaskRefinerTest PRIVATE /W4 /permissive-)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE /W4 /permissive-)
@@ -142,12 +157,14 @@ else()
     target_compile_options(Make3DGenerateAdvancedSamples PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DGenerateMeshQualityReport PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DGenerateProductionPipelineSample PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DTrainLearnedShapeModel PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DAdvancedCoreSmokeTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DMeshToolsTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DGltfMaterialExporterTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DVertexColorGltfExporterTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DShapeInferenceTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DLearnedShapeModelTest PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(Make3DLearnedShapeTrainerTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DModelPolisherTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DMaskRefinerTest PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(Make3DVoxelVolumeTest PRIVATE -Wall -Wextra -Wpedantic)
@@ -160,14 +177,16 @@ add_test(NAME Make3DGltfMaterialExporterTest COMMAND Make3DGltfMaterialExporterT
 add_test(NAME Make3DVertexColorGltfExporterTest COMMAND Make3DVertexColorGltfExporterTest)
 add_test(NAME Make3DShapeInferenceTest COMMAND Make3DShapeInferenceTest)
 add_test(NAME Make3DLearnedShapeModelTest COMMAND Make3DLearnedShapeModelTest)
+add_test(NAME Make3DLearnedShapeTrainerTest COMMAND Make3DLearnedShapeTrainerTest)
 add_test(NAME Make3DModelPolisherTest COMMAND Make3DModelPolisherTest)
 add_test(NAME Make3DMaskRefinerTest COMMAND Make3DMaskRefinerTest)
 add_test(NAME Make3DVoxelVolumeTest COMMAND Make3DVoxelVolumeTest)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
 add_test(NAME Make3DGenerateMeshQualityReport COMMAND Make3DGenerateMeshQualityReport ${CMAKE_CURRENT_BINARY_DIR}/mesh_quality)
 add_test(NAME Make3DGenerateProductionPipelineSample COMMAND Make3DGenerateProductionPipelineSample ${CMAKE_CURRENT_BINARY_DIR}/production_pipeline)
+add_test(NAME Make3DTrainLearnedShapeModel COMMAND Make3DTrainLearnedShapeModel ${CMAKE_CURRENT_BINARY_DIR}/learned_shape_training)
 
-install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample RUNTIME DESTINATION bin)
+install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
 if (TARGET Make3DAdvancedGui)
     install(TARGETS Make3DAdvancedGui RUNTIME DESTINATION bin)
 endif()
