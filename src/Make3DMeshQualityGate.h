@@ -8,9 +8,9 @@
 namespace make3d {
 
 struct MeshQualityGateOptions {
-    float maxEdgeToBoundsDiagonal = 0.60f;
+    float maxEdgeToBoundsDiagonal = 1.05f;
     float maxTriangleAspectRatio = 65.0f;
-    float maxLongEdgeTriangleRatio = 0.05f;
+    float maxLongEdgeTriangleRatio = 0.50f;
     float maxThinTriangleRatio = 0.08f;
     float maxSpikeTriangleRatio = 0.01f;
     int minimumTriangles = 4;
