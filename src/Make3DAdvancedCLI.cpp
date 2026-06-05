@@ -1,5 +1,4 @@
 #include "Make3DAdvancedCore.h"
-#include "Make3DGltfMaterialExporter.h"
 #include "Make3DProductionPipeline.h"
 
 #include <algorithm>
@@ -16,17 +15,13 @@ void PrintUsage() {
         "Usage:\n"
         "  Make3DAdvancedCLI --input <color.png> [--depth <depth.png>] --output <folder> [options]\n\n"
         "Default behavior:\n"
-        "  Runs the production-safe hero/game-asset pipeline. Open the reported hero semantic glTF\n"
-        "  or game_asset glTF first. Legacy raw reconstruction is no longer the default.\n\n"
+        "  Runs only the production-safe hero/game-asset pipeline. Legacy raw reconstruction\n"
+        "  and raw/polished/voxel fallback outputs are not exposed from this CLI.\n\n"
         "Options:\n"
         "  --mode auto|relief|volume|hybrid\n"
         "  --quality draft|standard|detailed\n"
-        "  --grid <number>          Max relief grid resolution. Default: 192\n"
-        "  --segments <number>      Radial segments for silhouette volume. Default: 20\n"
-        "  --legacy-raw             Use the old AdvancedCore raw reconstruction path\n"
-        "  --debug-fallbacks        Also write raw/polished/voxel debug_fallback outputs when safe\n"
-        "  --no-gltf                Legacy raw mode only: do not export glTF\n"
-        "  --no-obj                 Legacy raw mode only: do not export OBJ\n"
+        "  --grid <number>          Max analysis grid resolution. Default: 192\n"
+        "  --segments <number>      Procedural radial segments. Default: 20\n"
         "  --no-debug               Do not write debug images\n";
 }
 
@@ -44,8 +39,6 @@ int main(int argc, char** argv) {
     std::optional<std::filesystem::path> depth;
     std::filesystem::path output = "output_advanced";
     make3d::AdvancedOptions options;
-    bool legacyRaw = false;
-    bool debugFallbacks = false;
     bool writeDebug = true;
 
     for (int i = 1; i < argc; ++i) {
@@ -93,14 +86,6 @@ int main(int argc, char** argv) {
             auto v = needValue("--segments");
             if (!v) return 2;
             options.volumeRadialSegments = std::max(6, std::atoi(v->c_str()));
-        } else if (Equals(arg, "--legacy-raw")) {
-            legacyRaw = true;
-        } else if (Equals(arg, "--debug-fallbacks")) {
-            debugFallbacks = true;
-        } else if (Equals(arg, "--no-gltf")) {
-            options.exportGltf = false;
-        } else if (Equals(arg, "--no-obj")) {
-            options.exportObj = false;
         } else if (Equals(arg, "--no-debug")) {
             options.writeDebugImages = false;
             writeDebug = false;
@@ -119,72 +104,37 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    if (!legacyRaw) {
-        make3d::ProductionPipelineOptions production;
-        production.reconstruction = options;
-        production.exportHeroCharacter = true;
-        production.exportGameAsset = true;
-        production.exportVertexColorGltf = true;
-        production.exportRaw = debugFallbacks;
-        production.exportPolished = debugFallbacks;
-        production.exportVoxelVolume = debugFallbacks;
-        production.writeDebugImages = writeDebug;
-        production.writeReports = true;
-        production.maskRefine.keepLargestComponentOnly = true;
-        production.gameAsset.targetHeight = 2.0f;
-        production.gameAsset.gridResolution = options.maxGridResolution;
-        production.gameAsset.radialSegments = options.volumeRadialSegments;
-        production.gameAsset.useAssetAnalysisPlan = true;
+    make3d::ProductionPipelineOptions production;
+    production.reconstruction = options;
+    production.exportHeroCharacter = true;
+    production.exportGameAsset = true;
+    production.exportVertexColorGltf = true;
+    production.exportRaw = false;
+    production.exportPolished = false;
+    production.exportVoxelVolume = false;
+    production.writeDebugImages = writeDebug;
+    production.writeReports = true;
+    production.maskRefine.keepLargestComponentOnly = true;
+    production.gameAsset.targetHeight = 2.0f;
+    production.gameAsset.gridResolution = options.maxGridResolution;
+    production.gameAsset.radialSegments = options.volumeRadialSegments;
+    production.gameAsset.useAssetAnalysisPlan = true;
+    production.gameAsset.enforceSafeMeshQuality = true;
 
-        auto result = make3d::BuildProductionModelFromImage(*input, depth, output, production);
-        if (!result.ok) {
-            std::cerr << "Failed: " << result.message << "\n";
-            return 3;
-        }
-
-        std::cout << result.message << "\n";
-        std::cout << "Pipeline: production-safe hero/game-asset\n";
-        std::cout << "Hero OBJ: " << result.heroObjPath.u8string() << "\n";
-        std::cout << "Hero semantic glTF: " << result.heroVertexColorGltfPath.u8string() << "\n";
-        std::cout << "Game asset OBJ: " << result.gameAssetObjPath.u8string() << "\n";
-        std::cout << "Game asset glTF: " << result.gameAssetGltfPath.u8string() << "\n";
-        std::cout << "Game asset report: " << result.gameAssetReportPath.u8string() << "\n";
-        std::cout << "Game asset manifest: " << result.gameAssetManifestPath.u8string() << "\n";
-        std::cout << "Production report: " << result.productionReportPath.u8string() << "\n";
-        return 0;
-    }
-
-    auto result = make3d::BuildModelFromImage(*input, depth, output, options);
+    auto result = make3d::BuildProductionModelFromImage(*input, depth, output, production);
     if (!result.ok) {
         std::cerr << "Failed: " << result.message << "\n";
         return 3;
     }
 
-    std::filesystem::path materialGltf = output / "make3d_advanced_material.gltf";
-    if (options.exportGltf) {
-        make3d::GltfMaterialOptions material;
-        material.materialName = "Make3DGeneratedMaterial";
-        std::string materialError;
-        if (!make3d::ExportGLTFWithMaterial(result.mesh, materialGltf, material, &materialError)) {
-            std::cerr << "Material glTF export failed: " << materialError << "\n";
-            return 4;
-        }
-    }
-
     std::cout << result.message << "\n";
-    std::cout << "Pipeline: legacy raw AdvancedCore reconstruction\n";
-    std::cout << "Mode: " << result.report.reconstructionMode << "\n";
-    std::cout << "Vertices: " << result.report.vertices << "\n";
-    std::cout << "Triangles: " << result.report.triangles << "\n";
-    if (options.exportObj) std::cout << "OBJ: " << result.report.objPath.u8string() << "\n";
-    if (options.exportGltf) {
-        std::cout << "glTF: " << result.report.gltfPath.u8string() << "\n";
-        std::cout << "Material glTF: " << materialGltf.u8string() << "\n";
-    }
-    std::cout << "Report: " << result.report.reportPath.u8string() << "\n";
-    if (!result.report.warnings.empty()) {
-        std::cout << "Warnings:\n";
-        for (const auto& w : result.report.warnings) std::cout << "  - " << w << "\n";
-    }
+    std::cout << "Pipeline: production-safe hero/game-asset\n";
+    std::cout << "Hero OBJ: " << result.heroObjPath.u8string() << "\n";
+    std::cout << "Hero semantic glTF: " << result.heroVertexColorGltfPath.u8string() << "\n";
+    std::cout << "Game asset OBJ: " << result.gameAssetObjPath.u8string() << "\n";
+    std::cout << "Game asset glTF: " << result.gameAssetGltfPath.u8string() << "\n";
+    std::cout << "Game asset report: " << result.gameAssetReportPath.u8string() << "\n";
+    std::cout << "Game asset manifest: " << result.gameAssetManifestPath.u8string() << "\n";
+    std::cout << "Production report: " << result.productionReportPath.u8string() << "\n";
     return 0;
 }
