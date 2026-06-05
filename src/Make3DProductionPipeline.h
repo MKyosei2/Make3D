@@ -2,6 +2,7 @@
 
 #include "Make3DAdvancedCore.h"
 #include "Make3DGltfMaterialExporter.h"
+#include "Make3DHeroCharacterModel.h"
 #include "Make3DLearnedShapeModel.h"
 #include "Make3DMaskRefiner.h"
 #include "Make3DModelPolisher.h"
@@ -20,11 +21,13 @@ struct ProductionPipelineOptions {
     MaskRefineOptions maskRefine;
     MeshPolishOptions polish;
     VoxelVolumeOptions voxel;
+    HeroCharacterOptions heroCharacter;
     ShapeInferenceOptions shapeInference;
     LearnedShapeModelOptions learnedShape;
     bool exportRaw = true;
     bool exportPolished = true;
     bool exportVoxelVolume = true;
+    bool exportHeroCharacter = true;
     bool exportVertexColorGltf = true;
     bool enableShapeInference = true;
     bool enableLearnedShapeModel = true;
@@ -38,10 +41,12 @@ struct ProductionPipelineResult {
     MeshData rawMesh;
     MeshData polishedMesh;
     MeshData voxelMesh;
+    MeshData heroMesh;
     ReconstructionReport reconstructionReport;
     MaskRefineReport maskReport;
     MeshPolishReport polishReport;
     VoxelVolumeReport voxelReport;
+    HeroCharacterReport heroReport;
     ShapeInferenceResult shapeInferenceReport;
     LearnedShapeModelResult learnedShapeReport;
     std::filesystem::path rawObjPath;
@@ -52,6 +57,9 @@ struct ProductionPipelineResult {
     std::filesystem::path voxelObjPath;
     std::filesystem::path voxelMaterialGltfPath;
     std::filesystem::path voxelVertexColorGltfPath;
+    std::filesystem::path heroObjPath;
+    std::filesystem::path heroMaterialGltfPath;
+    std::filesystem::path heroVertexColorGltfPath;
     std::filesystem::path productionReportPath;
 };
 
