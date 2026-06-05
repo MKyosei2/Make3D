@@ -94,10 +94,11 @@ static void WriteOpenThisFirstGuide(const fs::path& outDir, const make3d::Produc
     std::ofstream guide(outDir / "OPEN_THIS_FIRST.txt", std::ios::binary);
     guide << "Open this file first:\n";
     guide << result.heroVertexColorGltfPath.u8string() << "\n\n";
-    guide << "Do not judge the portfolio sample from raw/polished/voxel fallback files first.\n";
-    guide << "The review target is the hero semantic vertex-color glTF.\n\n";
+    guide << "This sample is generated in hero-only review mode.\n";
+    guide << "Raw/polished/voxel fallback meshes are intentionally not generated, because they are not the review target and can look broken.\n\n";
     guide << "Secondary files:\n";
     guide << result.heroMaterialGltfPath.u8string() << "\n";
+    guide << result.heroObjPath.u8string() << "\n";
     guide << result.productionReportPath.u8string() << "\n";
 }
 
@@ -124,6 +125,10 @@ int main(int argc, char** argv) {
     options.polish.keepLargestComponentOnly = true;
     options.voxel.verticalSamples = 96;
     options.voxel.radialSegments = 32;
+    options.exportHeroCharacter = true;
+    options.exportRaw = false;
+    options.exportPolished = false;
+    options.exportVoxelVolume = false;
     options.exportVertexColorGltf = true;
     if (!weightsPath.empty()) {
         options.learnedShape.useExternalWeights = true;
@@ -144,8 +149,6 @@ int main(int argc, char** argv) {
     std::cout << "Hero material glTF: " << result.heroMaterialGltfPath.u8string() << "\n";
     std::cout << "Hero OBJ: " << result.heroObjPath.u8string() << "\n";
     std::cout << "Report: " << result.productionReportPath.u8string() << "\n";
-    std::cout << "\nSecondary fallback outputs, not the primary review target:\n";
-    std::cout << "Voxel vertex-color glTF: " << result.voxelVertexColorGltfPath.u8string() << "\n";
-    std::cout << "Polished vertex-color glTF: " << result.polishedVertexColorGltfPath.u8string() << "\n";
+    std::cout << "\nHero-only review mode: raw/polished/voxel fallback outputs were intentionally skipped.\n";
     return 0;
 }
