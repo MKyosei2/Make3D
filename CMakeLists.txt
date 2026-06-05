@@ -215,6 +215,11 @@ add_test(NAME Make3DVoxelVolumeTest COMMAND Make3DVoxelVolumeTest)
 add_test(NAME Make3DGenerateAdvancedSamples COMMAND Make3DGenerateAdvancedSamples ${CMAKE_CURRENT_BINARY_DIR}/generated_samples)
 add_test(NAME Make3DGenerateMeshQualityReport COMMAND Make3DGenerateMeshQualityReport ${CMAKE_CURRENT_BINARY_DIR}/mesh_quality)
 add_test(NAME Make3DGenerateProductionPipelineSample COMMAND Make3DGenerateProductionPipelineSample ${CMAKE_CURRENT_BINARY_DIR}/production_pipeline)
+add_test(NAME Make3DVerifyProductionSampleArtifact
+    COMMAND ${CMAKE_COMMAND}
+        -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/production_pipeline
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/VerifyProductionSample.cmake)
+set_tests_properties(Make3DVerifyProductionSampleArtifact PROPERTIES DEPENDS Make3DGenerateProductionPipelineSample)
 add_test(NAME Make3DTrainLearnedShapeModel COMMAND Make3DTrainLearnedShapeModel ${CMAKE_CURRENT_BINARY_DIR}/learned_shape_training)
 
 install(TARGETS Make3DAdvancedCLI Make3DGenerateAdvancedSamples Make3DGenerateMeshQualityReport Make3DGenerateProductionPipelineSample Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
