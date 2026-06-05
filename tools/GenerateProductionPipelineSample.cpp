@@ -67,20 +67,31 @@ static make3d::ImageRGBA CreateNoisyCharacterImage() {
     return image;
 }
 
-static bool SavePPM(const fs::path& path, const make3d::ImageRGBA& image) {
+static bool SaveTGA(const fs::path& path, const make3d::ImageRGBA& image) {
     std::error_code ec;
     fs::create_directories(path.parent_path(), ec);
     std::ofstream file(path, std::ios::binary);
     if (!file) return false;
-    file << "P6\n" << image.width << ' ' << image.height << "\n255\n";
+
+    unsigned char header[18] = {};
+    header[2] = 2;
+    header[12] = static_cast<unsigned char>(image.width & 0xFF);
+    header[13] = static_cast<unsigned char>((image.width >> 8) & 0xFF);
+    header[14] = static_cast<unsigned char>(image.height & 0xFF);
+    header[15] = static_cast<unsigned char>((image.height >> 8) & 0xFF);
+    header[16] = 32;
+    header[17] = 8 | 0x20;
+    file.write(reinterpret_cast<const char*>(header), sizeof(header));
+
     for (int i = 0; i < image.width * image.height; ++i) {
         size_t p = static_cast<size_t>(i) * 4;
-        char rgb[3] = {
-            static_cast<char>(image.pixels[p + 0]),
-            static_cast<char>(image.pixels[p + 1]),
-            static_cast<char>(image.pixels[p + 2])
+        unsigned char bgra[4] = {
+            image.pixels[p + 2],
+            image.pixels[p + 1],
+            image.pixels[p + 0],
+            image.pixels[p + 3]
         };
-        file.write(rgb, 3);
+        file.write(reinterpret_cast<const char*>(bgra), 4);
     }
     return true;
 }
@@ -89,8 +100,8 @@ int main(int argc, char** argv) {
     fs::path outDir = argc >= 2 ? fs::path(argv[1]) : fs::path("production_pipeline_sample");
     fs::create_directories(outDir);
 
-    fs::path input = outDir / "input_noisy_character.ppm";
-    if (!SavePPM(input, CreateNoisyCharacterImage())) {
+    fs::path input = outDir / "input_noisy_character.tga";
+    if (!SaveTGA(input, CreateNoisyCharacterImage())) {
         std::cerr << "Failed to write input image.\n";
         return 1;
     }
@@ -105,6 +116,9 @@ int main(int argc, char** argv) {
     options.polish.smoothingIterations = 12;
     options.polish.smoothingStrength = 0.30f;
     options.polish.keepLargestComponentOnly = true;
+    options.voxel.verticalSamples = 96;
+    options.voxel.radialSegments = 32;
+    options.exportVertexColorGltf = true;
 
     make3d::ProductionPipelineResult result = make3d::BuildProductionModelFromImage(input, std::nullopt, outDir / "output", options);
     if (!result.ok) {
@@ -113,7 +127,9 @@ int main(int argc, char** argv) {
     }
 
     std::cout << result.message << "\n";
-    std::cout << "Raw material glTF: " << result.rawMaterialGltfPath.u8string() << "\n";
+    std::cout << "Voxel vertex-color glTF: " << result.voxelVertexColorGltfPath.u8string() << "\n";
+    std::cout << "Voxel material glTF: " << result.voxelMaterialGltfPath.u8string() << "\n";
+    std::cout << "Polished vertex-color glTF: " << result.polishedVertexColorGltfPath.u8string() << "\n";
     std::cout << "Polished material glTF: " << result.polishedMaterialGltfPath.u8string() << "\n";
     std::cout << "Report: " << result.productionReportPath.u8string() << "\n";
     return 0;
