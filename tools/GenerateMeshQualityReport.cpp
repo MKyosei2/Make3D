@@ -1,6 +1,7 @@
 #include "Make3DAdvancedCore.h"
 #include "Make3DGltfMaterialExporter.h"
 #include "Make3DMeshTools.h"
+#include "Make3DModelPolisher.h"
 
 #include <filesystem>
 #include <fstream>
@@ -112,6 +113,13 @@ int main(int argc, char** argv) {
     make3d::MeshData cleaned = built.mesh;
     make3d::MeshValidationReport after = make3d::CleanupMesh(cleaned);
 
+    make3d::MeshData polished = cleaned;
+    make3d::MeshPolishOptions polishOptions;
+    polishOptions.smoothingIterations = 10;
+    polishOptions.smoothingStrength = 0.32f;
+    polishOptions.keepLargestComponentOnly = true;
+    make3d::MeshPolishReport polish = make3d::PolishMesh(polished, polishOptions);
+
     std::string error;
     if (!make3d::ExportOBJ(cleaned, outDir / "cleaned" / "make3d_cleaned.obj", "", &error)) {
         std::cerr << error << "\n";
@@ -129,26 +137,43 @@ int main(int argc, char** argv) {
         return 5;
     }
 
+    make3d::GltfMaterialOptions polishedMaterial;
+    polishedMaterial.materialName = "Make3DPolishedMaterial";
+    polishedMaterial.baseColorFactor = {0.72f, 0.78f, 0.86f, 1.0f};
+    if (!make3d::ExportOBJ(polished, outDir / "polished" / "make3d_polished.obj", "", &error)) {
+        std::cerr << error << "\n";
+        return 6;
+    }
+    if (!make3d::ExportGLTFWithMaterial(polished, outDir / "polished" / "make3d_polished_material.gltf", polishedMaterial, &error)) {
+        std::cerr << error << "\n";
+        return 7;
+    }
+
     std::ofstream md(outDir / "mesh_quality_report.md", std::ios::binary);
     md << "# Make3D Mesh Quality Report\n\n";
     md << "## Before cleanup\n\n" << before.ToMarkdown() << "\n";
     md << "## After cleanup\n\n" << after.ToMarkdown() << "\n";
+    md << "## Polished mesh\n\n" << polish.ToMarkdown() << "\n";
     md << "## Exported files\n\n";
     md << "- raw/make3d_advanced.obj\n";
     md << "- raw/make3d_advanced.gltf\n";
     md << "- cleaned/make3d_cleaned.obj\n";
     md << "- cleaned/make3d_cleaned.gltf\n";
     md << "- cleaned/make3d_cleaned_material.gltf\n";
+    md << "- polished/make3d_polished.obj\n";
+    md << "- polished/make3d_polished_material.gltf\n";
 
     std::ofstream js(outDir / "mesh_quality_report.json", std::ios::binary);
     js << "{\n";
     js << "  \"before\": " << before.ToJson() << ",\n";
     js << "  \"after\": " << after.ToJson() << ",\n";
-    js << "  \"cleanedMaterialGltf\": \"cleaned/make3d_cleaned_material.gltf\"\n";
+    js << "  \"polished\": " << polish.ToJson() << ",\n";
+    js << "  \"cleanedMaterialGltf\": \"cleaned/make3d_cleaned_material.gltf\",\n";
+    js << "  \"polishedMaterialGltf\": \"polished/make3d_polished_material.gltf\"\n";
     js << "}\n";
 
     std::cout << "Generated mesh quality report: " << (outDir / "mesh_quality_report.md").u8string() << "\n";
-    std::cout << "Cleaned OBJ: " << (outDir / "cleaned" / "make3d_cleaned.obj").u8string() << "\n";
     std::cout << "Cleaned material glTF: " << (outDir / "cleaned" / "make3d_cleaned_material.gltf").u8string() << "\n";
+    std::cout << "Polished material glTF: " << (outDir / "polished" / "make3d_polished_material.gltf").u8string() << "\n";
     return 0;
 }
