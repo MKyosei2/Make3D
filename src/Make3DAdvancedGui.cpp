@@ -8,6 +8,7 @@
 #include <shlobj.h>
 
 #include "Make3DGuiAdapter.h"
+#include "Make3DGltfMaterialExporter.h"
 
 #include <algorithm>
 #include <cmath>
@@ -59,6 +60,8 @@ struct GuiState {
     HWND openButton = nullptr;
     HWND status = nullptr;
     std::optional<fs::path> lastOutput;
+    std::optional<fs::path> previewSourcePath;
+    make3d::ImageRGBA previewImage;
     make3d::MeshData previewMesh;
     make3d::ReconstructionReport previewReport;
     bool hasPreview = false;
@@ -222,6 +225,8 @@ make3d::AdvancedOptions CurrentOptions() {
 
 void ClearPreview() {
     g.hasPreview = false;
+    g.previewSourcePath.reset();
+    g.previewImage = make3d::ImageRGBA{};
     g.previewMesh = make3d::MeshData{};
     g.previewReport = make3d::ReconstructionReport{};
     EnableUi(true);
@@ -236,8 +241,9 @@ bool BuildPreviewMesh(std::string& error) {
         return false;
     }
 
+    fs::path colorPath(colorText);
     make3d::AdvancedOptions options = CurrentOptions();
-    auto color = make3d::LoadImageRGBA(fs::path(colorText), &error);
+    auto color = make3d::LoadImageRGBA(colorPath, &error);
     if (!color) return false;
 
     std::optional<make3d::DepthImage> providedDepth;
@@ -262,10 +268,12 @@ bool BuildPreviewMesh(std::string& error) {
     }
     make3d::RecomputeNormals(g.previewMesh);
     make3d::NormalizeMesh(g.previewMesh, 2.0f);
+    g.previewImage = *color;
+    g.previewSourcePath = colorPath;
     g.previewReport.vertices = static_cast<int>(g.previewMesh.positions.size() / 3);
     g.previewReport.triangles = static_cast<int>(g.previewMesh.indices.size() / 3);
     g.previewReport.watertightCandidate = true;
-    g.previewReport.reconstructionMode = "DetailedEditablePreview";
+    if (g.previewReport.reconstructionMode.empty()) g.previewReport.reconstructionMode = "ImagePreservingPreview";
     g.hasPreview = true;
     return true;
 }
@@ -273,7 +281,7 @@ bool BuildPreviewMesh(std::string& error) {
 void DoPreview() {
     try {
         EnableUi(false);
-        SetStatus("Generating in-memory preview...");
+        SetStatus("Generating image-preserving in-memory preview...");
         std::string error;
         if (!BuildPreviewMesh(error)) {
             g.hasPreview = false;
@@ -287,7 +295,7 @@ void DoPreview() {
         oss << "Preview ready. vertices=" << g.previewReport.vertices
             << ", triangles=" << g.previewReport.triangles
             << ", mode=" << g.previewReport.reconstructionMode
-            << ". Review the 3D view, then press Save OBJ/glTF.";
+            << ". Source colors are shown in the preview; press Save OBJ/glTF to write textured files.";
         SetStatus(oss.str());
         EnableUi(true);
         InvalidateRect(g.hwnd, nullptr, TRUE);
@@ -315,17 +323,31 @@ void DoSave() {
         fs::path gltfPath = output / L"make3d_advanced.gltf";
         fs::path reportPath = output / L"make3d_report.md";
         fs::path reportJsonPath = output / L"make3d_report.json";
+        fs::path texturePath = output / L"make3d_texture.png";
+
+        if (g.previewSourcePath) {
+            fs::copy_file(*g.previewSourcePath, texturePath, fs::copy_options::overwrite_existing, ec);
+        }
+
         std::string error;
-        if (!make3d::ExportOBJ(g.previewMesh, objPath, "", &error)) { ShowCaughtError("Save failed", error); return; }
-        if (!make3d::ExportGLTF(g.previewMesh, gltfPath, &error)) { ShowCaughtError("Save failed", error); return; }
+        if (!make3d::ExportOBJ(g.previewMesh, objPath, "make3d_texture.png", &error)) { ShowCaughtError("Save failed", error); return; }
+
+        make3d::GltfMaterialOptions material;
+        material.materialName = "Make3DSourceTextureMaterial";
+        material.baseColorFactor = {1.0f, 1.0f, 1.0f, 1.0f};
+        material.roughnessFactor = 0.82f;
+        material.doubleSided = true;
+        if (fs::exists(texturePath, ec)) material.textureUri = texturePath;
+        if (!make3d::ExportGLTFWithMaterial(g.previewMesh, gltfPath, material, &error)) { ShowCaughtError("Save failed", error); return; }
+
         g.previewReport.objPath = objPath;
         g.previewReport.gltfPath = gltfPath;
         g.previewReport.reportPath = reportPath;
         std::ofstream md(reportPath, std::ios::binary); md << g.previewReport.ToMarkdown();
         std::ofstream js(reportJsonPath, std::ios::binary); js << g.previewReport.ToJson();
         g.lastOutput = output;
-        SetStatus("Saved OBJ/glTF after preview: " + SafePathString(objPath));
-        MessageBoxW(g.hwnd, Widen("Saved after preview.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
+        SetStatus("Saved textured OBJ/glTF after preview: " + SafePathString(objPath));
+        MessageBoxW(g.hwnd, Widen("Saved textured model after preview.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nTexture: " + SafePathString(texturePath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
     } catch (const std::exception& e) {
         ShowCaughtError("Save failed", e.what());
     } catch (...) {
@@ -405,6 +427,15 @@ POINT ProjectVertex(float x, float y, float z, const RECT& r, float scale, float
     return {px, py};
 }
 
+COLORREF SamplePreviewColor(float u, float v) {
+    if (g.previewImage.width <= 0 || g.previewImage.height <= 0 || g.previewImage.pixels.empty()) return RGB(70, 82, 96);
+    int x = std::clamp(static_cast<int>(u * static_cast<float>(g.previewImage.width - 1)), 0, g.previewImage.width - 1);
+    int y = std::clamp(static_cast<int>(v * static_cast<float>(g.previewImage.height - 1)), 0, g.previewImage.height - 1);
+    size_t p = (static_cast<size_t>(y) * g.previewImage.width + x) * 4;
+    if (p + 2 >= g.previewImage.pixels.size()) return RGB(70, 82, 96);
+    return RGB(g.previewImage.pixels[p + 0], g.previewImage.pixels[p + 1], g.previewImage.pixels[p + 2]);
+}
+
 void DrawPreview(HDC hdc, HWND hwnd) {
     RECT r = PreviewRect(hwnd);
     HBRUSH bg = CreateSolidBrush(RGB(250, 250, 250));
@@ -417,6 +448,7 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     SelectObject(hdc, oldBrush);
     SelectObject(hdc, oldPen);
     DeleteObject(border);
+
     RECT title = r;
     title.left += 10;
     title.top += 8;
@@ -426,7 +458,8 @@ void DrawPreview(HDC hdc, HWND hwnd) {
         DrawTextW(hdc, L"Preview area: choose a PNG or press Use sample PNG, then press Preview 3D.", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
         return;
     }
-    DrawTextW(hdc, L"3D Preview - review this before saving", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    DrawTextW(hdc, L"Textured 3D Preview - source image colors are preserved", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
+
     std::vector<POINT> pts(g.previewMesh.positions.size() / 3);
     float centerX = (r.left + r.right) * 0.5f;
     float centerY = (r.top + r.bottom) * 0.62f;
@@ -434,18 +467,28 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     for (size_t i = 0; i < pts.size(); ++i) {
         pts[i] = ProjectVertex(g.previewMesh.positions[i * 3], g.previewMesh.positions[i * 3 + 1], g.previewMesh.positions[i * 3 + 2], r, scale, centerX, centerY);
     }
-    HPEN meshPen = CreatePen(PS_SOLID, 1, RGB(65, 78, 92));
-    oldPen = SelectObject(hdc, meshPen);
+
+    HPEN edgePen = CreatePen(PS_SOLID, 1, RGB(95, 105, 115));
+    oldPen = SelectObject(hdc, edgePen);
     for (size_t i = 0; i + 2 < g.previewMesh.indices.size(); i += 3) {
         std::uint32_t ia = g.previewMesh.indices[i], ib = g.previewMesh.indices[i + 1], ic = g.previewMesh.indices[i + 2];
         if (ia >= pts.size() || ib >= pts.size() || ic >= pts.size()) continue;
-        MoveToEx(hdc, pts[ia].x, pts[ia].y, nullptr);
-        LineTo(hdc, pts[ib].x, pts[ib].y);
-        LineTo(hdc, pts[ic].x, pts[ic].y);
-        LineTo(hdc, pts[ia].x, pts[ia].y);
+        float u = 0.5f, v = 0.5f;
+        if ((static_cast<size_t>(std::max({ia, ib, ic})) + 1) * 2 <= g.previewMesh.uvs.size()) {
+            u = (g.previewMesh.uvs[static_cast<size_t>(ia) * 2] + g.previewMesh.uvs[static_cast<size_t>(ib) * 2] + g.previewMesh.uvs[static_cast<size_t>(ic) * 2]) / 3.0f;
+            v = (g.previewMesh.uvs[static_cast<size_t>(ia) * 2 + 1] + g.previewMesh.uvs[static_cast<size_t>(ib) * 2 + 1] + g.previewMesh.uvs[static_cast<size_t>(ic) * 2 + 1]) / 3.0f;
+        }
+        COLORREF color = SamplePreviewColor(u, v);
+        HBRUSH brush = CreateSolidBrush(color);
+        HGDIOBJ oldBrush2 = SelectObject(hdc, brush);
+        POINT poly[3] = { pts[ia], pts[ib], pts[ic] };
+        Polygon(hdc, poly, 3);
+        SelectObject(hdc, oldBrush2);
+        DeleteObject(brush);
     }
     SelectObject(hdc, oldPen);
-    DeleteObject(meshPen);
+    DeleteObject(edgePen);
+
     std::ostringstream info;
     info << "vertices=" << g.previewReport.vertices << "  triangles=" << g.previewReport.triangles << "  mode=" << g.previewReport.reconstructionMode;
     RECT footer = r;
