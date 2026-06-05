@@ -9,6 +9,12 @@ set(required_files
     "${OUTPUT_DIR}/output/hero/make3d_hero_character.obj"
     "${OUTPUT_DIR}/output/hero/make3d_hero_character_material.gltf"
     "${OUTPUT_DIR}/output/hero/make3d_hero_character_vertex_color.gltf"
+    "${OUTPUT_DIR}/output/game_asset/make3d_game_asset.obj"
+    "${OUTPUT_DIR}/output/game_asset/make3d_game_asset.gltf"
+    "${OUTPUT_DIR}/output/game_asset/make3d_game_asset_collider.obj"
+    "${OUTPUT_DIR}/output/game_asset/make3d_game_asset_lod_proxy.obj"
+    "${OUTPUT_DIR}/output/game_asset/make3d_game_asset_report.md"
+    "${OUTPUT_DIR}/output/game_asset/make3d_game_asset_manifest.json"
     "${OUTPUT_DIR}/output/production_report.md"
     "${OUTPUT_DIR}/output/production_report.json"
     "${OUTPUT_DIR}/output/debug_mask_refined.ppm"
@@ -49,6 +55,19 @@ endif()
 file(READ "${OUTPUT_DIR}/output/hero/make3d_hero_character_vertex_color.gltf" hero_gltf)
 if(NOT hero_gltf MATCHES "COLOR_0")
     message(FATAL_ERROR "Hero semantic glTF does not contain COLOR_0")
+endif()
+
+file(READ "${OUTPUT_DIR}/output/game_asset/make3d_game_asset_manifest.json" game_asset_manifest)
+if(NOT game_asset_manifest MATCHES "classification")
+    message(FATAL_ERROR "Production game asset manifest does not include classification")
+endif()
+
+file(READ "${OUTPUT_DIR}/output/production_report.json" production_json)
+if(NOT production_json MATCHES "gameAssetObj")
+    message(FATAL_ERROR "Production report JSON does not include gameAssetObj")
+endif()
+if(NOT production_json MATCHES "gameAssetManifest")
+    message(FATAL_ERROR "Production report JSON does not include gameAssetManifest")
 endif()
 
 message(STATUS "Production sample artifact contract verified: ${OUTPUT_DIR}")
