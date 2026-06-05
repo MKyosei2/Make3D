@@ -109,9 +109,6 @@ int main(int argc, char** argv) {
     production.exportHeroCharacter = true;
     production.exportGameAsset = true;
     production.exportVertexColorGltf = true;
-    production.exportRaw = false;
-    production.exportPolished = false;
-    production.exportVoxelVolume = false;
     production.writeDebugImages = writeDebug;
     production.writeReports = true;
     production.maskRefine.keepLargestComponentOnly = true;
