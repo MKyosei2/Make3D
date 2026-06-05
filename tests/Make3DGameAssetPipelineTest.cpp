@@ -1,4 +1,4 @@
-#include "Make3DGameAssetPipeline.h"
+#include "Make3DGameAssetCompletion.h"
 
 #include <filesystem>
 #include <fstream>
@@ -15,8 +15,7 @@ static int Fail(const std::string& message) {
 }
 
 static bool SaveTga(const fs::path& path, int w, int h, const std::vector<unsigned char>& rgba) {
-    std::error_code ec;
-    fs::create_directories(path.parent_path(), ec);
+    fs::create_directories(path.parent_path());
     std::ofstream file(path, std::ios::binary);
     if (!file || rgba.size() != static_cast<size_t>(w) * h * 4) return false;
     unsigned char header[18] = {};
@@ -43,21 +42,39 @@ static fs::path MakeBoxInput(const fs::path& dir) {
     auto set = [&](int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
         if (x < 0 || y < 0 || x >= W || y >= H) return;
         size_t p = (static_cast<size_t>(y) * W + x) * 4;
-        pixels[p + 0] = r; pixels[p + 1] = g; pixels[p + 2] = b; pixels[p + 3] = a;
+        pixels[p + 0] = r;
+        pixels[p + 1] = g;
+        pixels[p + 2] = b;
+        pixels[p + 3] = a;
     };
-    for (int y = 22; y < 116; ++y) for (int x = 30; x < 98; ++x) set(x, y, 170, 170, 180, 255);
-    for (int y = 14; y < 28; ++y) for (int x = 24; x < 104; ++x) set(x, y, 120, 80, 70, 255);
+    for (int y = 22; y < 116; ++y) {
+        for (int x = 30; x < 98; ++x) set(x, y, 170, 170, 180, 255);
+    }
+    for (int y = 14; y < 28; ++y) {
+        for (int x = 24; x < 104; ++x) set(x, y, 120, 80, 70, 255);
+    }
     for (int row = 0; row < 4; ++row) {
         for (int col = 0; col < 3; ++col) {
             int x0 = 40 + col * 18;
             int y0 = 36 + row * 16;
-            for (int y = y0; y < y0 + 7; ++y) for (int x = x0; x < x0 + 8; ++x) set(x, y, 80, 130, 190, 255);
+            for (int y = y0; y < y0 + 7; ++y) {
+                for (int x = x0; x < x0 + 8; ++x) set(x, y, 80, 130, 190, 255);
+            }
         }
     }
-    for (int y = 96; y < 116; ++y) for (int x = 58; x < 70; ++x) set(x, y, 90, 60, 40, 255);
+    for (int y = 96; y < 116; ++y) {
+        for (int x = 58; x < 70; ++x) set(x, y, 90, 60, 40, 255);
+    }
     fs::path path = dir / "box_input.tga";
     SaveTga(path, W, H, pixels);
     return path;
+}
+
+static bool Contains(const fs::path& path, const std::string& needle) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return false;
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return text.find(needle) != std::string::npos;
 }
 
 int main() {
@@ -65,31 +82,41 @@ int main() {
     fs::remove_all(out);
     fs::create_directories(out);
 
-    make3d::GameAssetGenerationOptions options;
-    options.maskRefine.keepLargestComponentOnly = true;
-    options.triangleBudget = 20000;
+    make3d::CompletedGameAssetOptions options;
+    options.generation.maskRefine.keepLargestComponentOnly = true;
+    options.generation.triangleBudget = 20000;
+    options.enginePreset = make3d::GameEnginePreset::Unity;
+    options.textureSize = 32;
 
-    fs::path input = MakeBoxInput(out);
-    make3d::GameAssetResult result = make3d::BuildGameAssetFromImage(input, std::nullopt, out / "output", options);
-    if (!result.ok) return Fail(result.message);
+    make3d::CompletedGameAssetResult complete = make3d::BuildCompleteGameAssetFromImage(MakeBoxInput(out), std::nullopt, out / "output", options);
+    if (!complete.ok) return Fail(complete.message);
+
+    const make3d::GameAssetResult& result = complete.asset;
     if (result.assetType != make3d::GameAssetType::Building) return Fail("expected building asset type");
-    if (result.mesh.positions.empty()) return Fail("mesh missing");
     if (result.parts.size() < 4) return Fail("editable building parts missing");
     if (!result.validation.hasCollisionMesh) return Fail("collision mesh missing");
     if (!result.validation.hasLodMesh) return Fail("lod mesh missing");
-    if (!result.validation.gameReadyCandidate) return Fail("not marked as game-ready candidate");
+    if (!result.validation.hasUvs) return Fail("uv projection missing");
+    if (!result.validation.gameReadyCandidate) return Fail("not game-ready candidate");
     if (!fs::exists(result.objPath)) return Fail("OBJ missing");
     if (!fs::exists(result.gltfPath)) return Fail("glTF missing");
     if (!fs::exists(result.collisionObjPath)) return Fail("collision OBJ missing");
     if (!fs::exists(result.lodObjPath)) return Fail("LOD OBJ missing");
     if (!fs::exists(result.reportPath)) return Fail("report missing");
+    if (!fs::exists(complete.manifestPath)) return Fail("manifest missing");
+    if (!fs::exists(complete.albedoTexturePath)) return Fail("albedo placeholder missing");
+    if (!fs::exists(complete.normalTexturePath)) return Fail("normal placeholder missing");
+    if (!fs::exists(complete.roughnessTexturePath)) return Fail("roughness placeholder missing");
+    if (!fs::exists(complete.rigMetadataPath)) return Fail("rig metadata missing");
+    if (!fs::exists(complete.enginePresetPath)) return Fail("engine preset missing");
+    if (complete.bounds.sizeX <= 0.0f || complete.bounds.sizeY <= 0.0f || complete.bounds.sizeZ <= 0.0f) return Fail("invalid bounds");
+    if (complete.joints.empty()) return Fail("pivot metadata missing");
+    if (!Contains(result.reportPath, "Game-ready candidate")) return Fail("report metric missing");
+    if (!Contains(complete.enginePresetPath, "Unity")) return Fail("engine preset content missing");
+    if (!Contains(complete.rigMetadataPath, "pivot_center")) return Fail("pivot center missing");
 
-    std::ifstream report(result.reportPath, std::ios::binary);
-    std::string text((std::istreambuf_iterator<char>(report)), std::istreambuf_iterator<char>());
-    if (text.find("Game-ready candidate") == std::string::npos) return Fail("validation report missing game-ready metric");
-    if (text.find("window_") == std::string::npos) return Fail("building report missing generated window parts");
-
-    std::cout << "[PASS] Make3D game asset pipeline regression test\n";
+    std::cout << "[PASS] Make3D complete game asset pipeline regression test\n";
     std::cout << "Review target: " << result.gltfPath.u8string() << "\n";
+    std::cout << "Manifest: " << complete.manifestPath.u8string() << "\n";
     return 0;
 }
