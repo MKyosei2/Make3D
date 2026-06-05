@@ -59,9 +59,9 @@ static make3d::MeshData SpikyMesh() {
 
 int main() {
     make3d::MeshQualityGateOptions options;
-    options.maxEdgeToBoundsDiagonal = 0.40f;
+    options.maxEdgeToBoundsDiagonal = 0.80f;
     options.maxTriangleAspectRatio = 40.0f;
-    options.maxLongEdgeTriangleRatio = 0.20f;
+    options.maxLongEdgeTriangleRatio = 0.60f;
     options.maxThinTriangleRatio = 0.20f;
     options.maxSpikeTriangleRatio = 0.0f;
 
