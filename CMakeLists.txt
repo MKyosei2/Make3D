@@ -40,6 +40,8 @@ function(make3d_exe target source)
     endif()
 endfunction()
 
+# Visual Studio-friendly default executable. This intentionally uses the safe production CLI.
+make3d_exe(Make3D src/Make3DAdvancedCLI.cpp)
 make3d_exe(Make3DAdvancedCLI src/Make3DAdvancedCLI.cpp)
 make3d_exe(Make3DGenerateProductionPipelineSample tools/GenerateProductionPipelineSample.cpp)
 make3d_exe(Make3DGenerateGenericAssetSample tools/GenerateGenericAssetSample.cpp)
@@ -123,7 +125,7 @@ add_test(NAME Make3DVerifyGameAssetArtifacts
 set_tests_properties(Make3DVerifyGameAssetArtifacts PROPERTIES DEPENDS "Make3DGenerateGenericAssetSample;Make3DGenerateCompleteGameAssetSuite;Make3DGenerateTypedFurniture;Make3DGenerateTypedMachine;Make3DGenerateTypedTool;Make3DGenerateTypedTerrain")
 add_test(NAME Make3DTrainLearnedShapeModel COMMAND Make3DTrainLearnedShapeModel ${CMAKE_CURRENT_BINARY_DIR}/learned_shape_training)
 
-install(TARGETS Make3DAdvancedCLI Make3DGameAssetCLI Make3DTypedAssetCLI Make3DGenerateProductionPipelineSample Make3DGenerateGenericAssetSample Make3DGenerateCompleteGameAssetSuite Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
+install(TARGETS Make3D Make3DAdvancedCLI Make3DGameAssetCLI Make3DTypedAssetCLI Make3DGenerateProductionPipelineSample Make3DGenerateGenericAssetSample Make3DGenerateCompleteGameAssetSuite Make3DTrainLearnedShapeModel RUNTIME DESTINATION bin)
 if (TARGET Make3DAdvancedGui)
     install(TARGETS Make3DAdvancedGui RUNTIME DESTINATION bin)
 endif()
