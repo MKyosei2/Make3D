@@ -28,6 +28,12 @@ struct ProductionPipelineOptions {
     bool enableLearnedShapeModel = true;
     bool writeReports = true;
     bool writeDebugImages = true;
+
+    // Kept for compatibility with older hero-only tests and call sites.
+    // The hardened production path no longer emits these legacy review outputs.
+    bool exportRaw = false;
+    bool exportPolished = false;
+    bool exportVoxelVolume = false;
 };
 
 struct ProductionPipelineResult {
