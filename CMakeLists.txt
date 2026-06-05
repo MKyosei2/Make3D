@@ -21,7 +21,6 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DCompleteGameAssetPipeline.cpp
     src/Make3DTypedProceduralAssets.cpp
     src/Make3DProductionPipeline.cpp
-    src/Make3DGameAssetPipeline.cpp
 )
 
 target_include_directories(Make3DAdvancedCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -51,7 +50,6 @@ make3d_exe(Make3DShapeInferenceTest tests/Make3DShapeInferenceTest.cpp)
 make3d_exe(Make3DLearnedShapeModelTest tests/Make3DLearnedShapeModelTest.cpp)
 make3d_exe(Make3DLearnedShapeTrainerTest tests/Make3DLearnedShapeTrainerTest.cpp)
 make3d_exe(Make3DMaskRefinerTest tests/Make3DMaskRefinerTest.cpp)
-make3d_exe(Make3DGameAssetPipelineTest tests/Make3DGameAssetPipelineTest.cpp)
 make3d_exe(Make3DMeshQualityGateTest tests/Make3DMeshQualityGateTest.cpp)
 
 add_executable(Make3DGameAssetCLI
@@ -89,7 +87,6 @@ foreach(test_name IN ITEMS
     Make3DLearnedShapeModelTest
     Make3DLearnedShapeTrainerTest
     Make3DMaskRefinerTest
-    Make3DGameAssetPipelineTest
     Make3DMeshQualityGateTest)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
