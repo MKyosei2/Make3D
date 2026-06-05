@@ -65,6 +65,9 @@ jobs:
           test -f build/cli_benchmark/ablations/ablation_report.csv
           test -f build/cli_benchmark/ablations/ablation_report.md
 
+      - name: Validate benchmark and ablation artifacts
+        run: python scripts/validate_benchmark_ablation.py build docs/reports
+
       - name: Run portfolio validation dry-run
         run: python scripts/portfolio_validation.py --dry-run --report-dir docs/reports --build-dir build
 
