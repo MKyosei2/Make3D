@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -34,12 +35,17 @@ constexpr int ID_COLOR_PATH = 1009;
 constexpr int ID_DEPTH_PATH = 1010;
 constexpr int ID_OUTPUT_PATH = 1011;
 constexpr int ID_SAVE = 1012;
+constexpr int ID_SAMPLE = 1013;
 
 struct GuiState {
     HWND hwnd = nullptr;
     HWND colorPath = nullptr;
     HWND depthPath = nullptr;
     HWND outputPath = nullptr;
+    HWND colorButton = nullptr;
+    HWND depthButton = nullptr;
+    HWND outputButton = nullptr;
+    HWND sampleButton = nullptr;
     HWND modeCombo = nullptr;
     HWND qualityCombo = nullptr;
     HWND previewButton = nullptr;
@@ -86,35 +92,68 @@ void SetWindowTextUtf8(HWND hwnd, const std::string& text) {
 }
 
 void SetStatus(const std::string& text) {
-    SetWindowTextUtf8(g.status, text);
+    if (g.status) SetWindowTextUtf8(g.status, text);
 }
 
 std::string SafePathString(const fs::path& p) {
     try { return p.u8string(); } catch (...) { return "<path>"; }
 }
 
+fs::path ExePath() {
+    std::vector<wchar_t> buffer(32768, L'\0');
+    DWORD len = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (len > 0 && len < buffer.size()) return fs::path(buffer.data());
+    return fs::path();
+}
+
 fs::path DefaultOutputDir() {
-    wchar_t exePath[MAX_PATH] = {};
-    DWORD len = GetModuleFileNameW(nullptr, exePath, MAX_PATH);
-    if (len > 0 && len < MAX_PATH) {
-        fs::path p(exePath);
-        return p.parent_path() / L"advanced_output";
-    }
+    fs::path exe = ExePath();
+    if (!exe.empty()) return exe.parent_path() / L"advanced_output";
     return fs::path(L"advanced_output");
 }
 
-std::optional<fs::path> OpenImageDialog(HWND owner, const wchar_t* title) {
-    wchar_t buffer[MAX_PATH] = {};
+fs::path FindBundledSamplePng() {
+    std::error_code ec;
+    fs::path exe = ExePath();
+    std::vector<fs::path> candidates;
+    if (!exe.empty()) {
+        fs::path dir = exe.parent_path();
+        candidates.push_back(dir / L"samples" / L"input" / L"sample_character.png");
+        candidates.push_back(dir.parent_path() / L"samples" / L"input" / L"sample_character.png");
+        candidates.push_back(dir.parent_path().parent_path() / L"samples" / L"input" / L"sample_character.png");
+        candidates.push_back(dir.parent_path().parent_path().parent_path() / L"samples" / L"input" / L"sample_character.png");
+    }
+    candidates.push_back(fs::current_path(ec) / L"samples" / L"input" / L"sample_character.png");
+    for (const auto& c : candidates) {
+        if (!c.empty() && fs::exists(c, ec)) return c;
+    }
+    return fs::path(L"samples") / L"input" / L"sample_character.png";
+}
+
+std::optional<fs::path> OpenImageDialog(HWND owner, const wchar_t* title, std::string* status) {
+    std::vector<wchar_t> buffer(32768, L'\0');
     OPENFILENAMEW ofn = {};
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = owner;
     ofn.lpstrTitle = title;
-    ofn.lpstrFile = buffer;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrFilter = L"PNG Images\0*.png\0Image Files\0*.png;*.jpg;*.jpeg;*.bmp;*.tga\0All Files\0*.*\0";
-    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
-    if (!GetOpenFileNameW(&ofn)) return std::nullopt;
-    return fs::path(buffer);
+    ofn.lpstrFile = buffer.data();
+    ofn.nMaxFile = static_cast<DWORD>(buffer.size());
+    ofn.lpstrFilter = L"PNG Images (*.png)\0*.png\0Image Files\0*.png;*.jpg;*.jpeg;*.bmp;*.tga\0All Files\0*.*\0\0";
+    ofn.lpstrDefExt = L"png";
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_NOCHANGEDIR;
+    if (!GetOpenFileNameW(&ofn)) {
+        DWORD err = CommDlgExtendedError();
+        if (status) {
+            if (err == 0) *status = "Image selection was cancelled.";
+            else {
+                std::ostringstream oss;
+                oss << "Image selection dialog failed. CommDlgExtendedError=" << err;
+                *status = oss.str();
+            }
+        }
+        return std::nullopt;
+    }
+    return fs::path(buffer.data());
 }
 
 std::optional<fs::path> BrowseFolder(HWND owner) {
@@ -124,11 +163,11 @@ std::optional<fs::path> BrowseFolder(HWND owner) {
     bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
     PIDLIST_ABSOLUTE pidl = SHBrowseForFolderW(&bi);
     if (!pidl) return std::nullopt;
-    wchar_t path[MAX_PATH] = {};
-    bool ok = SHGetPathFromIDListW(pidl, path) != FALSE;
+    std::vector<wchar_t> path(32768, L'\0');
+    bool ok = SHGetPathFromIDListW(pidl, path.data()) != FALSE;
     CoTaskMemFree(pidl);
     if (!ok) return std::nullopt;
-    return fs::path(path);
+    return fs::path(path.data());
 }
 
 void InitCombo(HWND combo, const std::vector<std::wstring>& items, int selected) {
@@ -142,6 +181,10 @@ int ComboIndex(HWND combo, int fallback) {
 }
 
 void EnableUi(bool enable) {
+    EnableWindow(g.colorButton, enable ? TRUE : FALSE);
+    EnableWindow(g.depthButton, enable ? TRUE : FALSE);
+    EnableWindow(g.outputButton, enable ? TRUE : FALSE);
+    EnableWindow(g.sampleButton, enable ? TRUE : FALSE);
     EnableWindow(g.previewButton, enable ? TRUE : FALSE);
     EnableWindow(g.saveButton, enable && g.hasPreview ? TRUE : FALSE);
     EnableWindow(g.openButton, enable ? TRUE : FALSE);
@@ -157,7 +200,7 @@ RECT PreviewRect(HWND hwnd) {
     GetClientRect(hwnd, &rc);
     RECT out{};
     out.left = 16;
-    out.top = 356;
+    out.top = 372;
     out.right = std::max(out.left + 100, rc.right - 16);
     out.bottom = std::max(out.top + 100, rc.bottom - 16);
     return out;
@@ -171,11 +214,19 @@ make3d::AdvancedOptions CurrentOptions() {
     return options;
 }
 
+void ClearPreview() {
+    g.hasPreview = false;
+    g.previewMesh = make3d::MeshData{};
+    g.previewReport = make3d::ReconstructionReport{};
+    EnableUi(true);
+    InvalidateRect(g.hwnd, nullptr, TRUE);
+}
+
 bool BuildPreviewMesh(std::string& error) {
     std::wstring colorText = GetWindowTextWide(g.colorPath);
     std::wstring depthText = GetWindowTextWide(g.depthPath);
     if (colorText.empty()) {
-        error = "Choose a color PNG image first.";
+        error = "Choose a color PNG image first, or press Use sample PNG.";
         return false;
     }
 
@@ -213,89 +264,62 @@ bool BuildPreviewMesh(std::string& error) {
     return true;
 }
 
-void DoPreviewImpl() {
-    EnableUi(false);
-    SetStatus("Generating in-memory preview...");
-    std::string error;
-    if (!BuildPreviewMesh(error)) {
-        g.hasPreview = false;
-        EnableUi(true);
-        SetStatus("Preview failed: " + error);
-        MessageBoxW(g.hwnd, Widen(error).c_str(), L"Preview failed", MB_OK | MB_ICONERROR);
-        InvalidateRect(g.hwnd, nullptr, TRUE);
-        return;
-    }
-
-    std::ostringstream oss;
-    oss << "Preview ready. vertices=" << g.previewReport.vertices
-        << ", triangles=" << g.previewReport.triangles
-        << ", mode=" << g.previewReport.reconstructionMode
-        << ". Review the 3D view, then press Save OBJ/glTF.";
-    SetStatus(oss.str());
-    EnableUi(true);
-    InvalidateRect(g.hwnd, nullptr, TRUE);
-}
-
 void DoPreview() {
     try {
-        DoPreviewImpl();
-    } catch (const std::system_error& e) {
+        EnableUi(false);
+        SetStatus("Generating in-memory preview...");
+        std::string error;
+        if (!BuildPreviewMesh(error)) {
+            g.hasPreview = false;
+            EnableUi(true);
+            SetStatus("Preview failed: " + error);
+            MessageBoxW(g.hwnd, Widen(error).c_str(), L"Preview failed", MB_OK | MB_ICONERROR);
+            InvalidateRect(g.hwnd, nullptr, TRUE);
+            return;
+        }
+        std::ostringstream oss;
+        oss << "Preview ready. vertices=" << g.previewReport.vertices
+            << ", triangles=" << g.previewReport.triangles
+            << ", mode=" << g.previewReport.reconstructionMode
+            << ". Review the 3D view, then press Save OBJ/glTF.";
+        SetStatus(oss.str());
         EnableUi(true);
-        ShowCaughtError("System error", std::string("A filesystem or Windows path error occurred: ") + e.what());
+        InvalidateRect(g.hwnd, nullptr, TRUE);
     } catch (const std::exception& e) {
         EnableUi(true);
-        ShowCaughtError("Preview error", std::string("An unexpected C++ error occurred: ") + e.what());
+        ShowCaughtError("Preview error", e.what());
     } catch (...) {
         EnableUi(true);
-        ShowCaughtError("Preview error", "An unknown error occurred while generating the preview.");
+        ShowCaughtError("Preview error", "Unknown preview error.");
     }
-}
-
-void SavePreviewImpl() {
-    if (!g.hasPreview || g.previewMesh.positions.empty()) {
-        MessageBoxW(g.hwnd, L"Generate a preview first.", L"Make3D Advanced", MB_OK | MB_ICONWARNING);
-        return;
-    }
-    std::wstring outputText = GetWindowTextWide(g.outputPath);
-    fs::path output = outputText.empty() ? DefaultOutputDir() : fs::path(outputText);
-    SetWindowTextW(g.outputPath, output.wstring().c_str());
-
-    std::error_code ec;
-    fs::create_directories(output, ec);
-    fs::path objPath = output / L"make3d_advanced.obj";
-    fs::path gltfPath = output / L"make3d_advanced.gltf";
-    fs::path reportPath = output / L"make3d_report.md";
-    fs::path reportJsonPath = output / L"make3d_report.json";
-
-    std::string error;
-    if (!make3d::ExportOBJ(g.previewMesh, objPath, "", &error)) {
-        ShowCaughtError("Save failed", error);
-        return;
-    }
-    if (!make3d::ExportGLTF(g.previewMesh, gltfPath, &error)) {
-        ShowCaughtError("Save failed", error);
-        return;
-    }
-
-    g.previewReport.objPath = objPath;
-    g.previewReport.gltfPath = gltfPath;
-    g.previewReport.reportPath = reportPath;
-    std::ofstream md(reportPath, std::ios::binary);
-    md << g.previewReport.ToMarkdown();
-    std::ofstream js(reportJsonPath, std::ios::binary);
-    js << g.previewReport.ToJson();
-
-    g.lastOutput = output;
-    std::ostringstream oss;
-    oss << "Saved OBJ/glTF after preview. OBJ=" << SafePathString(objPath)
-        << ", glTF=" << SafePathString(gltfPath);
-    SetStatus(oss.str());
-    MessageBoxW(g.hwnd, Widen("Saved after preview.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
 }
 
 void DoSave() {
     try {
-        SavePreviewImpl();
+        if (!g.hasPreview || g.previewMesh.positions.empty()) {
+            MessageBoxW(g.hwnd, L"Generate a preview first.", L"Make3D Advanced", MB_OK | MB_ICONWARNING);
+            return;
+        }
+        std::wstring outputText = GetWindowTextWide(g.outputPath);
+        fs::path output = outputText.empty() ? DefaultOutputDir() : fs::path(outputText);
+        SetWindowTextW(g.outputPath, output.wstring().c_str());
+        std::error_code ec;
+        fs::create_directories(output, ec);
+        fs::path objPath = output / L"make3d_advanced.obj";
+        fs::path gltfPath = output / L"make3d_advanced.gltf";
+        fs::path reportPath = output / L"make3d_report.md";
+        fs::path reportJsonPath = output / L"make3d_report.json";
+        std::string error;
+        if (!make3d::ExportOBJ(g.previewMesh, objPath, "", &error)) { ShowCaughtError("Save failed", error); return; }
+        if (!make3d::ExportGLTF(g.previewMesh, gltfPath, &error)) { ShowCaughtError("Save failed", error); return; }
+        g.previewReport.objPath = objPath;
+        g.previewReport.gltfPath = gltfPath;
+        g.previewReport.reportPath = reportPath;
+        std::ofstream md(reportPath, std::ios::binary); md << g.previewReport.ToMarkdown();
+        std::ofstream js(reportJsonPath, std::ios::binary); js << g.previewReport.ToJson();
+        g.lastOutput = output;
+        SetStatus("Saved OBJ/glTF after preview: " + SafePathString(objPath));
+        MessageBoxW(g.hwnd, Widen("Saved after preview.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
     } catch (const std::exception& e) {
         ShowCaughtError("Save failed", e.what());
     } catch (...) {
@@ -332,29 +356,48 @@ void Layout(HWND hwnd) {
     int pad = 16;
     int labelW = 120;
     int rowH = 28;
-    int editW = std::max(240, W - pad * 4 - labelW - 130);
+    int buttonW = 130;
+    int sampleW = 130;
+    int editW = std::max(220, W - pad * 5 - labelW - buttonW - sampleW);
     int y = 18;
+    int editX = pad + labelW;
+    int buttonX = editX + editW + pad;
+    int sampleX = buttonX + buttonW + pad;
 
-    MoveWindow(g.colorPath, pad + labelW, y, editW, rowH, TRUE);
+    MoveWindow(g.colorPath, editX, y, editW, rowH, TRUE);
+    MoveWindow(g.colorButton, buttonX, y, buttonW, rowH, TRUE);
+    MoveWindow(g.sampleButton, sampleX, y, sampleW, rowH, TRUE);
     y += 42;
-    MoveWindow(g.depthPath, pad + labelW, y, editW, rowH, TRUE);
+    MoveWindow(g.depthPath, editX, y, editW, rowH, TRUE);
+    MoveWindow(g.depthButton, buttonX, y, buttonW, rowH, TRUE);
     y += 42;
-    MoveWindow(g.outputPath, pad + labelW, y, editW, rowH, TRUE);
+    MoveWindow(g.outputPath, editX, y, editW, rowH, TRUE);
+    MoveWindow(g.outputButton, buttonX, y, buttonW, rowH, TRUE);
     y += 50;
-    MoveWindow(g.modeCombo, pad + labelW, y, 220, rowH + 120, TRUE);
+    MoveWindow(g.modeCombo, editX, y, 220, rowH + 120, TRUE);
     y += 42;
-    MoveWindow(g.qualityCombo, pad + labelW, y, 220, rowH + 90, TRUE);
+    MoveWindow(g.qualityCombo, editX, y, 220, rowH + 90, TRUE);
     y += 52;
-    MoveWindow(g.previewButton, pad + labelW, y, 160, 34, TRUE);
-    MoveWindow(g.saveButton, pad + labelW + 174, y, 160, 34, TRUE);
-    MoveWindow(g.openButton, pad + labelW + 348, y, 150, 34, TRUE);
+    MoveWindow(g.previewButton, editX, y, 160, 34, TRUE);
+    MoveWindow(g.saveButton, editX + 174, y, 160, 34, TRUE);
+    MoveWindow(g.openButton, editX + 348, y, 150, 34, TRUE);
     y += 52;
-    MoveWindow(g.status, pad, y, W - pad * 2, 44, TRUE);
+    MoveWindow(g.status, pad, y, W - pad * 2, 52, TRUE);
+}
+
+RECT PreviewRect(HWND hwnd) {
+    RECT rc{};
+    GetClientRect(hwnd, &rc);
+    RECT out{};
+    out.left = 16;
+    out.top = 378;
+    out.right = std::max(out.left + 100, rc.right - 16);
+    out.bottom = std::max(out.top + 100, rc.bottom - 16);
+    return out;
 }
 
 POINT ProjectVertex(float x, float y, float z, const RECT& r, float scale, float cx, float cy) {
-    float yaw = -0.60f;
-    float pitch = 0.28f;
+    float yaw = -0.60f, pitch = 0.28f;
     float cyaw = std::cos(yaw), syaw = std::sin(yaw);
     float cp = std::cos(pitch), sp = std::sin(pitch);
     float rx = x * cyaw - z * syaw;
@@ -379,50 +422,25 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     SelectObject(hdc, oldBrush);
     SelectObject(hdc, oldPen);
     DeleteObject(border);
-
     RECT title = r;
     title.left += 10;
     title.top += 8;
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(40, 40, 40));
     if (!g.hasPreview || g.previewMesh.positions.empty()) {
-        DrawTextW(hdc, L"Preview area: press Preview 3D to generate an in-memory model before saving.", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
+        DrawTextW(hdc, L"Preview area: choose a PNG or press Use sample PNG, then press Preview 3D.", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
         return;
     }
-
-    std::wstring header = L"3D Preview - review this before saving";
-    DrawTextW(hdc, header.c_str(), -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
-
-    float minX = 1e9f, minY = 1e9f, maxX = -1e9f, maxY = -1e9f;
+    DrawTextW(hdc, L"3D Preview - review this before saving", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
     std::vector<POINT> pts(g.previewMesh.positions.size() / 3);
-    float scale0 = 120.0f;
     float centerX = (r.left + r.right) * 0.5f;
-    float centerY = (r.top + r.bottom) * 0.60f;
-    for (size_t i = 0; i < pts.size(); ++i) {
-        float x = g.previewMesh.positions[i * 3 + 0];
-        float y = g.previewMesh.positions[i * 3 + 1];
-        float z = g.previewMesh.positions[i * 3 + 2];
-        POINT p = ProjectVertex(x, y, z, r, scale0, centerX, centerY);
-        minX = std::min(minX, static_cast<float>(p.x)); minY = std::min(minY, static_cast<float>(p.y));
-        maxX = std::max(maxX, static_cast<float>(p.x)); maxY = std::max(maxY, static_cast<float>(p.y));
-    }
-    float spanX = std::max(1.0f, maxX - minX);
-    float spanY = std::max(1.0f, maxY - minY);
-    float usableW = std::max(50.0f, static_cast<float>(r.right - r.left - 60));
-    float usableH = std::max(50.0f, static_cast<float>(r.bottom - r.top - 80));
-    float scale = scale0 * std::min(usableW / spanX, usableH / spanY);
-    centerX = (r.left + r.right) * 0.5f;
-    centerY = (r.top + r.bottom) * 0.62f;
-    for (size_t i = 0; i < pts.size(); ++i) {
-        pts[i] = ProjectVertex(g.previewMesh.positions[i * 3 + 0], g.previewMesh.positions[i * 3 + 1], g.previewMesh.positions[i * 3 + 2], r, scale, centerX, centerY);
-    }
-
+    float centerY = (r.top + r.bottom) * 0.62f;
+    float scale = std::max(80.0f, static_cast<float>(std::min(r.right - r.left, r.bottom - r.top)) * 0.33f);
+    for (size_t i = 0; i < pts.size(); ++i) pts[i] = ProjectVertex(g.previewMesh.positions[i * 3], g.previewMesh.positions[i * 3 + 1], g.previewMesh.positions[i * 3 + 2], r, scale, centerX, centerY);
     HPEN meshPen = CreatePen(PS_SOLID, 1, RGB(65, 78, 92));
     oldPen = SelectObject(hdc, meshPen);
     for (size_t i = 0; i + 2 < g.previewMesh.indices.size(); i += 3) {
-        std::uint32_t ia = g.previewMesh.indices[i + 0];
-        std::uint32_t ib = g.previewMesh.indices[i + 1];
-        std::uint32_t ic = g.previewMesh.indices[i + 2];
+        std::uint32_t ia = g.previewMesh.indices[i], ib = g.previewMesh.indices[i + 1], ic = g.previewMesh.indices[i + 2];
         if (ia >= pts.size() || ib >= pts.size() || ic >= pts.size()) continue;
         MoveToEx(hdc, pts[ia].x, pts[ia].y, nullptr);
         LineTo(hdc, pts[ib].x, pts[ib].y);
@@ -431,7 +449,6 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     }
     SelectObject(hdc, oldPen);
     DeleteObject(meshPen);
-
     std::ostringstream info;
     info << "vertices=" << g.previewReport.vertices << "  triangles=" << g.previewReport.triangles << "  mode=" << g.previewReport.reconstructionMode;
     RECT footer = r;
@@ -453,9 +470,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         g.colorPath = CreateEdit(hwnd, ID_COLOR_PATH, 136, 18, 360, 28);
         g.depthPath = CreateEdit(hwnd, ID_DEPTH_PATH, 136, 60, 360, 28);
         g.outputPath = CreateEdit(hwnd, ID_OUTPUT_PATH, 136, 102, 360, 28);
-        CreateButton(hwnd, L"Choose color...", ID_COLOR, 510, 18, 130, 28);
-        CreateButton(hwnd, L"Choose depth...", ID_DEPTH, 510, 60, 130, 28);
-        CreateButton(hwnd, L"Choose output...", ID_OUTPUT, 510, 102, 130, 28);
+        g.colorButton = CreateButton(hwnd, L"Choose color...", ID_COLOR, 510, 18, 130, 28);
+        g.sampleButton = CreateButton(hwnd, L"Use sample PNG", ID_SAMPLE, 650, 18, 130, 28);
+        g.depthButton = CreateButton(hwnd, L"Choose depth...", ID_DEPTH, 510, 60, 130, 28);
+        g.outputButton = CreateButton(hwnd, L"Choose output...", ID_OUTPUT, 510, 102, 130, 28);
         g.modeCombo = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 136, 152, 240, 160, hwnd, reinterpret_cast<HMENU>(ID_MODE), nullptr, nullptr);
         g.qualityCombo = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 136, 194, 240, 120, hwnd, reinterpret_cast<HMENU>(ID_QUALITY), nullptr, nullptr);
         InitCombo(g.modeCombo, {L"Auto", L"Relief Surface", L"Silhouette Volume", L"Hybrid Volume"}, 3);
@@ -463,9 +481,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         g.previewButton = CreateButton(hwnd, L"Preview 3D", ID_PREVIEW, 136, 246, 160, 34);
         g.saveButton = CreateButton(hwnd, L"Save OBJ/glTF", ID_SAVE, 310, 246, 160, 34);
         g.openButton = CreateButton(hwnd, L"Open output", ID_OPEN, 484, 246, 150, 34);
-        g.status = CreateWindowW(L"STATIC", L"Ready. Press Preview 3D first; files are saved only after Save OBJ/glTF.", WS_CHILD | WS_VISIBLE, 16, 300, 620, 44, hwnd, reinterpret_cast<HMENU>(ID_STATUS), nullptr, nullptr);
+        g.status = CreateWindowW(L"STATIC", L"Ready. Choose a PNG, or press Use sample PNG. Preview does not save files.", WS_CHILD | WS_VISIBLE, 16, 300, 620, 52, hwnd, reinterpret_cast<HMENU>(ID_STATUS), nullptr, nullptr);
         SetWindowTextW(g.outputPath, DefaultOutputDir().wstring().c_str());
-        HWND controls[] = { g.colorPath, g.depthPath, g.outputPath, g.modeCombo, g.qualityCombo, g.previewButton, g.saveButton, g.openButton, g.status };
+        HWND controls[] = { g.colorPath, g.depthPath, g.outputPath, g.colorButton, g.depthButton, g.outputButton, g.sampleButton, g.modeCombo, g.qualityCombo, g.previewButton, g.saveButton, g.openButton, g.status };
         for (HWND c : controls) SendMessageW(c, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         EnableWindow(g.saveButton, FALSE);
         Layout(hwnd);
@@ -486,14 +504,33 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         int id = LOWORD(wParam);
         try {
             if (id == ID_COLOR) {
-                auto path = OpenImageDialog(hwnd, L"Choose color PNG image");
-                if (path) { SetWindowTextW(g.colorPath, path->wstring().c_str()); g.hasPreview = false; EnableUi(true); InvalidateRect(hwnd, nullptr, TRUE); }
+                std::string status;
+                auto path = OpenImageDialog(hwnd, L"Choose color PNG image", &status);
+                if (path) {
+                    SetWindowTextW(g.colorPath, path->wstring().c_str());
+                    SetStatus("Selected color image: " + SafePathString(*path));
+                    ClearPreview();
+                } else if (!status.empty()) {
+                    SetStatus(status);
+                }
+            } else if (id == ID_SAMPLE) {
+                fs::path sample = FindBundledSamplePng();
+                SetWindowTextW(g.colorPath, sample.wstring().c_str());
+                SetStatus("Selected bundled sample: " + SafePathString(sample));
+                ClearPreview();
             } else if (id == ID_DEPTH) {
-                auto path = OpenImageDialog(hwnd, L"Choose optional depth image");
-                if (path) { SetWindowTextW(g.depthPath, path->wstring().c_str()); g.hasPreview = false; EnableUi(true); InvalidateRect(hwnd, nullptr, TRUE); }
+                std::string status;
+                auto path = OpenImageDialog(hwnd, L"Choose optional depth image", &status);
+                if (path) {
+                    SetWindowTextW(g.depthPath, path->wstring().c_str());
+                    SetStatus("Selected depth image: " + SafePathString(*path));
+                    ClearPreview();
+                } else if (!status.empty()) {
+                    SetStatus(status);
+                }
             } else if (id == ID_OUTPUT) {
                 auto path = BrowseFolder(hwnd);
-                if (path) SetWindowTextW(g.outputPath, path->wstring().c_str());
+                if (path) { SetWindowTextW(g.outputPath, path->wstring().c_str()); SetStatus("Selected output folder: " + SafePathString(*path)); }
             } else if (id == ID_PREVIEW) {
                 DoPreview();
             } else if (id == ID_SAVE) {
@@ -523,7 +560,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     icc.dwSize = sizeof(icc);
     icc.dwICC = ICC_STANDARD_CLASSES;
     InitCommonControlsEx(&icc);
-
     const wchar_t* kClassName = L"Make3DAdvancedGuiWindow";
     WNDCLASSW wc{};
     wc.lpfnWndProc = WndProc;
@@ -532,25 +568,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     RegisterClassW(&wc);
-
-    HWND hwnd = CreateWindowExW(
-        0,
-        kClassName,
-        L"Make3D Advanced Engine",
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT,
-        CW_USEDEFAULT,
-        920,
-        720,
-        nullptr,
-        nullptr,
-        hInstance,
-        nullptr);
-
+    HWND hwnd = CreateWindowExW(0, kClassName, L"Make3D Advanced Engine", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 980, 740, nullptr, nullptr, hInstance, nullptr);
     if (!hwnd) return 1;
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
-
     MSG msg{};
     while (GetMessageW(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
