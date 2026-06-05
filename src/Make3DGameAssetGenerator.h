@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Make3DAdvancedCore.h"
+#include "Make3DAssetAnalysis.h"
+#include "Make3DAssetPlan.h"
 #include "Make3DAssetTypes.h"
 #include "Make3DMeshQualityGate.h"
 
@@ -16,12 +18,15 @@ struct GameAssetGeneratorOptions {
     bool addBuildingDetails = true;
     bool addPropDetailBands = true;
     bool enforceSafeMeshQuality = true;
+    bool useAssetAnalysisPlan = true;
     int radialSegments = 24;
     int gridResolution = 96;
     float targetHeight = 2.0f;
     float extrusionDepth = 0.42f;
     float buildingDepth = 0.72f;
     MeshQualityGateOptions qualityGate;
+    AssetAnalysisOptions analysis;
+    AssetPlanOptions plan;
 };
 
 struct GameAssetValidationReport {
@@ -70,6 +75,8 @@ struct GameAssetMetadata {
 struct GameAssetGenerationResult {
     bool ok = false;
     std::string message;
+    AssetAnalysisResult analysis;
+    AssetPlanResult plan;
     AssetClassificationResult classification;
     MeshData mesh;
     MeshData colliderMesh;
