@@ -18,6 +18,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DAssetTypes.cpp
     src/Make3DGameAssetGenerator.cpp
     src/Make3DStructuredAssetBuilder.cpp
+    src/Make3DImageFittedStructuredAssetBuilder.cpp
     src/Make3DMeshRepairAndTexture.cpp
     src/Make3DMeshQualityGate.cpp
     src/Make3DCompleteGameAssetPipeline.cpp
