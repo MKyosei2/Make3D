@@ -1,14 +1,14 @@
 # Make3D
 
-**Make3D** is a C++17 / Win32 image-to-3D asset generation pipeline for producing inspectable game-development proxy / hero assets from 2D character or prop images.
+**Make3D** は、2D のキャラクター画像やプロップ画像から、ゲーム開発用の確認可能な proxy / hero asset を生成するための **C++17 / Win32 asset generation pipeline** です。
 
-This repository is positioned as a **Technical Artist / Tools Programmer portfolio project**. The focus is not to claim perfect single-image reconstruction. The focus is an explainable local pipeline: foreground extraction, mask refinement, pseudo-depth / learned-shape style inference, geometry generation, semantic coloring, reports, debug images, regression tests, and reproducible build artifacts.
+このリポジトリは、**Technical Artist / Tools Programmer 向けのポートフォリオ作品** として設計しています。目的は、単一画像から完璧な 3D モデルを自動生成できると主張することではありません。前景抽出、mask refinement、疑似 depth、shape inference、local learned-shape inference、geometry generation、semantic coloring、report、debug image、regression test、CI artifact を含む、検証可能な local pipeline を示すことです。
 
-> Scope note: Make3D is not a Blender, ZBrush, photogrammetry, or neural reconstruction replacement. The defensible claim is an inspectable C++ game-asset generation pipeline with deterministic outputs and reviewable intermediate data.
+> スコープ注記: Make3D は Blender、ZBrush、photogrammetry、neural reconstruction の代替ではありません。主張できる範囲は、deterministic output と reviewable intermediate data を持つ、inspectable な C++ game-asset generation pipeline です。
 
 ---
 
-## Portfolio summary
+## ポートフォリオ要約
 
 ```text
 2D character / prop image
@@ -24,37 +24,37 @@ This repository is positioned as a **Technical Artist / Tools Programmer portfol
   -> CI-generated review artifact
 ```
 
-The strongest current path is the **hero character / game asset review pipeline**. It produces reviewable OBJ / glTF outputs, debug masks, depth images, reports, and artifacts rather than hiding the result behind an opaque model.
+現在もっとも強く見せられる path は、**hero character / game asset review pipeline** です。出力結果だけでなく、debug mask、depth image、Markdown / JSON report、CI artifact を確認できるようにしています。
 
 ---
 
-## Problem / user / output
+## 課題 / 利用者 / 出力
 
-| Item | Description |
+| 項目 | 内容 |
 |---|---|
-| Problem | Early game-asset exploration often needs quick, reviewable 3D proxy output from 2D concept inputs. |
-| Primary user | Technical Artist, Tools Programmer, prototype developer, asset pipeline reviewer. |
-| Input | 2D character / prop image, optional depth input, optional learned-shape weights. |
-| Output | Hero OBJ, material glTF, semantic vertex-color glTF, debug masks/depth images, Markdown/JSON reports, CI artifacts. |
-| Safety goal | Show intermediate data and limitations clearly instead of claiming perfect hidden-geometry reconstruction. |
+| 課題 | 初期の game asset exploration では、2D concept input から素早く確認できる 3D proxy output が必要になることがあります。 |
+| 主な利用者 | Technical Artist、Tools Programmer、Prototype Developer、Asset Pipeline Reviewer。 |
+| 入力 | 2D character / prop image、optional depth input、optional learned-shape weights。 |
+| 出力 | Hero OBJ、material glTF、semantic vertex-color glTF、debug masks / depth images、Markdown / JSON reports、CI artifacts。 |
+| 安全性の方針 | 完璧な自動生成を主張せず、intermediate data と limitations を明示します。 |
 
 ---
 
-## Reviewer path
+## レビュー手順
 
-For the shortest review path, open:
+最短で確認する場合は、まず以下を開きます。
 
 ```text
 docs/REVIEWER_BRIEF.md
 ```
 
-If using GitHub Actions artifacts, inspect:
+GitHub Actions artifacts を使う場合は、以下を確認します。
 
 ```text
 make3d-production-pipeline-sample
 ```
 
-Recommended artifact review order:
+推奨確認順:
 
 ```text
 1. production_pipeline/OPEN_THIS_FIRST.txt
@@ -67,11 +67,11 @@ Recommended artifact review order:
 8. production_pipeline/output/debug_depth_learned.ppm
 ```
 
-The standard production sample is intentionally focused on the hero path. Raw / polished / voxel fallback outputs are secondary and should not be the first reviewer experience.
+standard production sample は、意図的に hero path に集中しています。fallback output は secondary であり、最初の reviewer experience として見せる対象ではありません。
 
 ---
 
-## Current hero pipeline
+## 現在の hero pipeline
 
 ```text
 input character image
@@ -111,9 +111,9 @@ input character image
 
 ---
 
-## Main outputs
+## 主な出力
 
-Standard production sample output:
+standard production sample output:
 
 ```text
 OPEN_THIS_FIRST.txt
@@ -130,43 +130,33 @@ output/production_report.md
 output/production_report.json
 ```
 
-Recommended review order:
-
-```text
-1. OPEN_THIS_FIRST.txt
-2. output/hero/make3d_hero_character_vertex_color.gltf
-3. output/hero/make3d_hero_character_material.gltf
-4. output/production_report.md
-5. output/debug_depth_learned.ppm
-```
-
 ---
 
-## Implemented feature status
+## 実装済み機能
 
-| Area | Status | Notes |
+| 領域 | 状態 | 内容 |
 |---|---:|---|
-| C++17 reconstruction backend | Implemented | `Make3DAdvancedCore`. |
-| Win32 advanced GUI | Implemented | `Make3DAdvancedGui`. |
-| CLI path | Implemented | `Make3DAdvancedCLI`. |
-| Production pipeline | Implemented | Hero-only review sample / artifact path. |
-| Foreground mask extraction | Implemented | Alpha / background estimation. |
-| Mask refinement | Implemented | Component removal, hole fill, smoothing. |
-| Pseudo-depth generation | Implemented | Silhouette / luminance / depth bias. |
-| Shape inference | Implemented | Character / prop / flat classification and depth adjustment. |
-| Local learned shape model | Implemented | Built-in weights plus load/save external weights. |
-| Synthetic trainer | Implemented | Generates `learned_shape.weights` and training reports. |
-| Hero character base mesh | Implemented | Head, torso, arms, legs. |
-| Hero detail enhancer | Implemented | Hair volume, clothing shell, neck/shoulder, hands, feet. |
-| Hero fine detail pass | Implemented | Eyes, nose, mouth, hair strand hints, clothing folds, finger hints, shoe soles. |
-| Hero semantic glTF exporter | Implemented | `COLOR_0` semantic vertex colors for body-part coloring. |
-| Hero-only regression guard | Implemented | Prevents fallback meshes from becoming the standard review output. |
-| OBJ / glTF export | Implemented | Geometry, material, vertex-color, semantic hero glTF. |
-| Markdown / JSON reports | Implemented | Production, reconstruction, mesh quality, and training reports. |
-| CI workflow | Implemented | Build / test / package / sample / training artifact upload. |
-| Preview/final mesh separation | Active work | Stage profiler branch separates interactive preview mesh from final export mesh. |
-| Stage benchmark output | Active work | Planned output: `make3d_benchmark.json` / `make3d_benchmark.md`. |
-| Blender/ZBrush-grade final quality | Not claimed | Needs true UVs, texture projection, retopology, and stronger models. |
+| C++17 backend | 実装済み | `Make3DAdvancedCore`。 |
+| Win32 GUI | 実装済み | `Make3DAdvancedGui`。 |
+| CLI path | 実装済み | `Make3DAdvancedCLI`。 |
+| Production pipeline | 実装済み | hero-only review sample / artifact path。 |
+| Foreground mask extraction | 実装済み | alpha / background estimation。 |
+| Mask refinement | 実装済み | component removal、hole fill、smoothing。 |
+| Pseudo-depth generation | 実装済み | silhouette / luminance / depth bias。 |
+| Shape inference | 実装済み | character / prop / flat classification と depth adjustment。 |
+| Local learned shape model | 実装済み | built-in weights と external weights の load / save。 |
+| Synthetic trainer | 実装済み | `learned_shape.weights` と training reports を生成。 |
+| Hero character base mesh | 実装済み | head、torso、arms、legs。 |
+| Hero detail enhancer | 実装済み | hair volume、clothing shell、neck / shoulder、hands、feet。 |
+| Hero fine detail pass | 実装済み | face、hair、clothing、fingers、shoes の detail hints。 |
+| Semantic glTF exporter | 実装済み | `COLOR_0` semantic vertex colors。 |
+| Regression guard | 実装済み | fallback mesh が main review artifact にならないようにします。 |
+| OBJ / glTF export | 実装済み | geometry、material、vertex-color glTF。 |
+| Markdown / JSON reports | 実装済み | production、reconstruction、mesh quality、training reports。 |
+| CI workflow | 実装済み | build / test / package / sample / training artifact upload。 |
+| Preview / final mesh separation | 作業中 | interactive preview mesh と final export mesh を分離します。 |
+| Stage benchmark output | 作業中 | `make3d_benchmark.json` / `make3d_benchmark.md` を予定。 |
+| Final quality | 主張しない | true UV、texture projection、retopology などが今後の課題です。 |
 
 ---
 
@@ -178,7 +168,7 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-Important targets:
+重要な target:
 
 ```text
 Make3DAdvancedGui
@@ -195,13 +185,13 @@ Make3DMeshQualityGateTest
 
 ---
 
-## Generate the portfolio sample
+## Portfolio sample の生成
 
 ```bash
 Make3DGenerateProductionPipelineSample output/production_pipeline
 ```
 
-With trained weights:
+trained weights を使う場合:
 
 ```bash
 Make3DTrainLearnedShapeModel output/learned_shape_training
@@ -212,9 +202,7 @@ Make3DGenerateProductionPipelineSample output/production_pipeline output/learned
 
 ## GitHub Actions artifacts
 
-The workflow builds, tests, generates training weights, generates samples, stages a portable package, and uploads artifacts.
-
-Artifacts:
+workflow は build、test、training weights generation、sample generation、portable package staging、artifact upload を行います。
 
 ```text
 make3d-advanced-portable-package
@@ -225,7 +213,7 @@ make3d-learned-shape-training
 make3d-production-pipeline-sample
 ```
 
-The most important artifact for review is:
+review で最も重要な artifact:
 
 ```text
 make3d-production-pipeline-sample
@@ -235,24 +223,21 @@ make3d-production-pipeline-sample
 
 ## Technical highlights
 
-- C++17 standalone reconstruction and character-generation backend.
-- Deterministic, inspectable pipeline rather than opaque external service calls.
-- Local learned-shape inference stage with weight save/load.
-- Synthetic trainer for local `learned_shape.weights` generation.
-- Character-specialized hero mesh path for stronger review output.
-- Fine detail pass for face, hair strand hints, clothing folds, fingers, and shoe soles.
-- Semantic hero glTF exporter with `COLOR_0` body-part coloring.
-- Hero-only regression test to keep fallback meshes out of the main review artifact.
-- Debug mask/depth images and Markdown/JSON reports.
-- CI-generated artifacts for reproducible evaluation.
+- C++17 standalone backend。
+- external service call に依存しない deterministic / inspectable pipeline。
+- weight save / load を持つ local learned-shape inference stage。
+- local `learned_shape.weights` generation 用の synthetic trainer。
+- review output を強くする character-specialized hero mesh path。
+- semantic hero glTF exporter と `COLOR_0` vertex coloring。
+- main review artifact を固定する regression test。
+- debug mask / depth images と Markdown / JSON reports。
+- 再現性のある評価用 CI-generated artifacts。
 
 ---
 
 ## Active performance work
 
-The active engineering target is a profiled build path that separates preview mesh generation from final export mesh generation.
-
-Target design:
+現在の engineering target は、preview mesh generation と final export mesh generation を分ける profiled build path です。
 
 ```text
 Preview button / interactive view
@@ -285,22 +270,13 @@ debug_images
 total
 ```
 
-Planned benchmark output:
-
-```text
-make3d_benchmark.json
-make3d_benchmark.md
-```
-
-This exists to make the tool reviewable as an engineering project, not only as a visual demo.
-
 ---
 
-## Current limitations
+## 現在の制限
 
-Make3D intentionally does **not** claim to perfectly reconstruct hidden 3D geometry from a single image.
+Make3D は、単一画像から完全な 3D モデルを自動生成できるとは主張しません。
 
-Remaining high-end work:
+残っている high-end work:
 
 ```text
 true UV unwrapping
@@ -314,55 +290,55 @@ Blender screenshot / turntable artifact generation
 
 ---
 
-## Next improvements
+## 次の改善
 
 ### Short term
 
-- Merge stage profiler / preview-final separation branch.
-- Register and run benchmark smoke test in CMake.
-- Route GUI preview through preview mesh generation.
-- Route save/export through final mesh generation.
-- Commit sample benchmark reports under `docs/reports/`.
-- Add turntable screenshots or animated GIFs.
+- stage profiler / preview-final separation branch を merge する。
+- benchmark smoke test を CMake に登録して実行する。
+- GUI preview を preview mesh generation に通す。
+- save / export を final mesh generation に通す。
+- sample benchmark reports を `docs/reports/` に commit する。
+- turntable screenshots または animated GIF を追加する。
 
 ### Mid term
 
-- Improve texture projection path.
-- Add true UV unwrapping or export-friendly UV generation.
-- Add more typed samples: prop, vehicle, machine, furniture.
-- Add mesh quality thresholds to CI.
-- Generate reviewer-friendly comparison pages.
+- texture projection path を改善する。
+- true UV unwrapping または export-friendly UV generation を追加する。
+- prop、vehicle、machine、furniture など typed samples を増やす。
+- mesh quality thresholds を CI に追加する。
+- reviewer-friendly comparison pages を生成する。
 
 ### Long term
 
-- Better local learned model quality.
-- Character part detection.
-- Retopology / remeshing pass.
-- Integration with AssetUtility and Unity validation workflow.
+- local learned model quality を改善する。
+- character part detection を追加する。
+- retopology / remeshing pass を追加する。
+- AssetUtility と Unity validation workflow へ integration する。
 
 ---
 
-## Portfolio wording
+## ポートフォリオ用説明文
 
-> Make3D is an inspectable C++17 image-to-3D asset generation pipeline. It converts a 2D character image into a hero-style OBJ / glTF asset using foreground extraction, mask refinement, pseudo-depth and local learned-shape style inference, character-specific geometric priors, semantic vertex coloring, debug images, reports, CI artifacts, and regression tests. The goal is not perfect reconstruction, but a reproducible tool pipeline for generating editable game-development proxy assets.
+> C++17 / Win32 で、2D キャラクター画像から hero-style OBJ / glTF asset を生成する inspectable な asset generation pipeline を開発しました。foreground extraction、mask refinement、pseudo-depth、local learned-shape inference、character-specific geometric priors、semantic vertex coloring、debug images、reports、CI artifacts、regression tests を実装し、完璧な自動生成ではなく、editable game-development proxy asset を生成する再現可能な tool pipeline として設計しています。
 
-Japanese resume wording:
+日本語履歴書向け:
 
-> C++17 / Win32で、2Dキャラクター画像からhero-style 3Dアセットを生成するMake3Dを開発。前景抽出、mask refinement、疑似depth、shape inference、local learned-shape inference、キャラクター専用の頭・胴体・腕・脚・髪・服・手足・顔パーツ生成、semantic vertex-color glTF出力、debug image、Markdown/JSON report、CI artifact生成、hero-only regression testまで実装し、生成過程と出力品質を検証可能にした。
+> C++17 / Win32 で、2D キャラクター画像から hero-style 3D アセットを生成する Make3D を開発。前景抽出、mask refinement、疑似 depth、shape inference、local learned-shape inference、キャラクター専用 geometry、semantic vertex-color glTF 出力、debug image、Markdown / JSON report、CI artifact 生成、hero-only regression test まで実装し、生成過程と出力品質を検証可能にした。
 
-Avoid these claims:
+避けるべき主張:
 
 ```text
 perfect single-image 3D reconstruction
 Blender/ZBrush replacement
 production-ready automatic character sculpting
-accurate hidden geometry recovery
+accurate automatic reconstruction for every image
 ```
 
-Use these claims:
+使うべき主張:
 
 ```text
-Inspectable C++ image-to-3D pipeline
+Inspectable C++ asset generation pipeline
 Game asset proxy generator
 Hero character glTF generation path
 Semantic vertex-color exporter
