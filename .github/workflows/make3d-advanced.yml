@@ -40,7 +40,7 @@ jobs:
           }
 
           if (-not [string]::IsNullOrWhiteSpace($base)) {
-            git cat-file -e "$base^{{commit}}" 2>$null
+            git cat-file -e "$base^{commit}" 2>$null
             if ($LASTEXITCODE -eq 0) {
               git diff --name-only $base $head | Out-File -FilePath changed_files.txt -Encoding utf8
             } else {
