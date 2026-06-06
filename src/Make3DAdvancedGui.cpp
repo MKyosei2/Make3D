@@ -21,10 +21,7 @@
 
 #include "Make3DStructuredAssetBuilder.cpp"
 #include "Make3DImageFittedStructuredAssetBuilder.cpp"
-#include "Make3DHeroFittedStructuredAssetBuilder.cpp"
-#define BuildImageFittedStructuredAssetMesh BuildHeroFittedStructuredAssetMesh
 #include "Make3DAdvancedGuiStructured.cpp"
-#undef BuildImageFittedStructuredAssetMesh
 
 #ifdef _MSC_VER
 #pragma warning(pop)
