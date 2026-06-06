@@ -117,6 +117,10 @@ int main() {
             std::cerr << "Expected fitted character report to mention skeleton-like side anchors.\n" << fitted.ToMarkdown() << "\n";
             return 8;
         }
+        if (!ContainsWarning(fitted, "Projection UVs")) {
+            std::cerr << "Expected fitted character report to mention projection UV generation.\n" << fitted.ToMarkdown() << "\n";
+            return 9;
+        }
     }
 
     {
