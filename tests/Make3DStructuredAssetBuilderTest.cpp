@@ -1,5 +1,7 @@
 #include "Make3DStructuredAssetBuilder.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <vector>
