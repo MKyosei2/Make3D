@@ -47,9 +47,13 @@ make3d::DepthImage MakeDepth(int w, int h, const std::vector<std::uint8_t>& mask
     return depth;
 }
 
-bool ValidateResult(const char* name, const make3d::StructuredAssetBuildResult& result) {
+bool ValidateResult(const char* name, const make3d::StructuredAssetBuildResult& result, make3d::GameAssetType expected) {
     if (!result.ok) {
         std::cerr << name << " failed: " << result.message << "\n" << result.ToMarkdown() << "\n";
+        return false;
+    }
+    if (result.plan.assetType != expected) {
+        std::cerr << name << " expected auto type " << make3d::ToString(expected) << " but got " << make3d::ToString(result.plan.assetType) << "\n" << result.ToMarkdown() << "\n";
         return false;
     }
     if (result.mesh.positions.empty() || result.mesh.indices.empty()) {
@@ -81,19 +85,19 @@ int main() {
         PaintRect(image, mask, 68, 110, 82, 182, 80, 80, 80);
         auto depth = MakeDepth(image.width, image.height, mask);
         auto result = make3d::BuildStructuredAssetMesh(image, depth, mask, options);
-        if (!ValidateResult("character", result)) return 1;
+        if (!ValidateResult("character", result, make3d::GameAssetType::Character)) return 1;
     }
 
     {
-        auto image = MakeImage(160, 160);
+        auto image = MakeImage(200, 130);
         std::vector<std::uint8_t> mask(static_cast<size_t>(image.width) * image.height, 0);
-        PaintRect(image, mask, 30, 58, 130, 76, 130, 90, 60);   // tabletop/seat
-        PaintRect(image, mask, 35, 35, 125, 58, 120, 80, 50);   // back
-        PaintRect(image, mask, 35, 76, 45, 145, 90, 70, 55);    // legs
-        PaintRect(image, mask, 115, 76, 125, 145, 90, 70, 55);
+        PaintRect(image, mask, 28, 48, 172, 65, 130, 90, 60);   // tabletop/seat
+        PaintRect(image, mask, 40, 25, 160, 47, 120, 80, 50);   // back
+        PaintRect(image, mask, 38, 66, 48, 124, 90, 70, 55);    // legs
+        PaintRect(image, mask, 152, 66, 162, 124, 90, 70, 55);
         auto depth = MakeDepth(image.width, image.height, mask);
         auto result = make3d::BuildStructuredAssetMesh(image, depth, mask, options);
-        if (!ValidateResult("furniture", result)) return 2;
+        if (!ValidateResult("furniture", result, make3d::GameAssetType::Furniture)) return 2;
     }
 
     {
@@ -102,8 +106,8 @@ int main() {
         PaintRect(image, mask, 35, 30, 125, 165, 160, 170, 180); // facade
         PaintRect(image, mask, 28, 12, 132, 35, 100, 100, 110);  // roof
         auto depth = MakeDepth(image.width, image.height, mask);
-        auto result = make3d::BuildStructuredAssetMesh(image, depth, mask, options);
-        if (!ValidateResult("building", result)) return 3;
+        auto result = make3D::BuildStructuredAssetMesh(image, depth, mask, options);
+        if (!ValidateResult("building", result, make3d::GameAssetType::Building)) return 3;
     }
 
     return 0;
