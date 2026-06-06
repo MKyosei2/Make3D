@@ -14,6 +14,12 @@ struct StructuredAssetOptions {
     bool addDetailParts = true;
     bool preferSmoothCharacters = true;
     bool normalizeOutput = true;
+
+    // Unknown means auto-classify from the image. Any other value forces the structured
+    // builder to use that category template. This is important because single-image
+    // classification is ambiguous: a front-facing chibi character can look box-like to
+    // purely geometric heuristics, and furniture can look character-like when viewed head-on.
+    GameAssetType forcedAssetType = GameAssetType::Unknown;
 };
 
 struct StructuredAssetBuildResult {
