@@ -9,11 +9,28 @@ namespace {
 
 constexpr float Pi = 3.14159265358979323846f;
 
+struct Vec3 {
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+};
+
 static int VertexCount(const MeshData& mesh) { return static_cast<int>(mesh.positions.size() / 3); }
 static int MaxInt(int a, int b) { return a > b ? a : b; }
 static float MaxFloat(float a, float b) { return a > b ? a : b; }
 static float MinFloat(float a, float b) { return a < b ? a : b; }
 static float ClampFloat(float value, float lo, float hi) { return MaxFloat(lo, MinFloat(hi, value)); }
+static float Dot(Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+static Vec3 Add(Vec3 a, Vec3 b) { return {a.x + b.x, a.y + b.y, a.z + b.z}; }
+static Vec3 Sub(Vec3 a, Vec3 b) { return {a.x - b.x, a.y - b.y, a.z - b.z}; }
+static Vec3 Mul(Vec3 a, float s) { return {a.x * s, a.y * s, a.z * s}; }
+static Vec3 Cross(Vec3 a, Vec3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
+static float Length(Vec3 v) { return std::sqrt(MaxFloat(0.0f, Dot(v, v))); }
+static Vec3 Normalize(Vec3 v) {
+    const float len = Length(v);
+    if (len <= 1.0e-6f) return {0.0f, 1.0f, 0.0f};
+    return Mul(v, 1.0f / len);
+}
 
 static std::string EscapeJson(const std::string& s) {
     std::ostringstream o;
@@ -33,6 +50,8 @@ static void AddVertex(MeshData& mesh, float x, float y, float z, float u, float 
     mesh.normals.push_back(0.0f); mesh.normals.push_back(1.0f); mesh.normals.push_back(0.0f);
     mesh.uvs.push_back(u); mesh.uvs.push_back(v);
 }
+
+static void AddVertex(MeshData& mesh, Vec3 p, float u, float v) { AddVertex(mesh, p.x, p.y, p.z, u, v); }
 
 static void AddTri(MeshData& mesh, int a, int b, int c) {
     if (a < 0 || b < 0 || c < 0 || a == b || b == c || c == a) return;
@@ -112,33 +131,98 @@ static void AddCylinder(MeshData& mesh, float cx, float cy0, float cy1, float cz
     }
 }
 
+static void AddOrientedCylinder(MeshData& mesh, Vec3 a, Vec3 b, float radiusX, float radiusZ, int segments) {
+    segments = MaxInt(8, segments);
+    const Vec3 axis = Normalize(Sub(b, a));
+    Vec3 ref = std::fabs(axis.y) < 0.88f ? Vec3{0.0f, 1.0f, 0.0f} : Vec3{1.0f, 0.0f, 0.0f};
+    const Vec3 right = Normalize(Cross(ref, axis));
+    const Vec3 forward = Normalize(Cross(axis, right));
+    const int base = VertexCount(mesh);
+    for (int ring = 0; ring < 2; ++ring) {
+        const Vec3 center = ring == 0 ? a : b;
+        for (int s = 0; s < segments; ++s) {
+            const float t = static_cast<float>(s) / static_cast<float>(segments);
+            const float angle = t * 2.0f * Pi;
+            Vec3 offset = Add(Mul(right, std::cos(angle) * radiusX), Mul(forward, std::sin(angle) * radiusZ));
+            AddVertex(mesh, Add(center, offset), t, static_cast<float>(ring));
+        }
+    }
+    for (int s = 0; s < segments; ++s) {
+        const int n = (s + 1) % segments;
+        AddQuad(mesh, base + s, base + n, base + segments + n, base + segments + s);
+    }
+    const int capA = VertexCount(mesh); AddVertex(mesh, a, 0.5f, 0.0f);
+    const int capB = VertexCount(mesh); AddVertex(mesh, b, 0.5f, 1.0f);
+    for (int s = 0; s < segments; ++s) {
+        const int n = (s + 1) % segments;
+        AddTri(mesh, capA, base + n, base + s);
+        AddTri(mesh, capB, base + segments + s, base + segments + n);
+    }
+}
+
+static void AddCapsuleSegment(MeshData& mesh, Vec3 a, Vec3 b, float radiusX, float radiusY, float radiusZ, int segments) {
+    AddOrientedCylinder(mesh, a, b, radiusX, radiusZ, segments);
+    AddEllipsoid(mesh, a.x, a.y, a.z, radiusX, radiusY, radiusZ, segments, 6);
+    AddEllipsoid(mesh, b.x, b.y, b.z, radiusX, radiusY, radiusZ, segments, 6);
+}
+
 static void AddFoot(MeshData& mesh, float x, float y, float z, float sx, float sy, float sz, int segments) {
     AddEllipsoid(mesh, x, y, z + sz * 0.18f, sx * 0.55f, sy * 0.38f, sz * 0.58f, segments, 6);
 }
 
 static void BuildCharacterStructured(MeshData& mesh, const AssetPlanResult& plan, const StructuredAssetOptions& options) {
     const float h = plan.targetHeight;
-    const float w = ClampFloat(plan.targetWidth, 0.72f, 1.35f);
-    const float d = MaxFloat(0.42f, plan.targetDepth);
-    const int seg = MaxInt(18, options.radialSegments);
+    const float w = ClampFloat(plan.targetWidth, 0.76f, 1.34f);
+    const float d = MaxFloat(0.50f, plan.targetDepth);
+    const int seg = MaxInt(28, options.radialSegments);
+    const int limbSeg = MaxInt(16, seg / 2);
 
-    AddEllipsoid(mesh, 0.0f, h * 0.78f, 0.0f, w * 0.26f, h * 0.18f, d * 0.28f, seg, 10);
-    AddEllipsoid(mesh, 0.0f, h * 0.95f, 0.0f, w * 0.19f, h * 0.08f, d * 0.20f, seg, 6);
-    AddEllipsoid(mesh, 0.0f, h * 1.15f, 0.0f, w * 0.31f, h * 0.21f, d * 0.34f, seg, 12);
-    AddEllipsoid(mesh, 0.0f, h * 1.28f, -d * 0.04f, w * 0.34f, h * 0.09f, d * 0.36f, seg, 6);
-    AddBox(mesh, 0.0f, h * 0.63f, d * 0.25f, w * 0.56f, h * 0.06f, d * 0.06f);
+    // Body volumes: chibi/proxy proportions, rounded instead of raw boxes.
+    AddEllipsoid(mesh, 0.0f, h * 0.88f, 0.0f, w * 0.255f, h * 0.210f, d * 0.265f, seg, 10); // upper torso
+    AddEllipsoid(mesh, 0.0f, h * 0.66f, 0.0f, w * 0.275f, h * 0.145f, d * 0.255f, seg, 8);  // pelvis / lower body
+    AddEllipsoid(mesh, 0.0f, h * 1.07f, 0.0f, w * 0.310f, h * 0.065f, d * 0.235f, seg, 5); // shoulders
+    AddEllipsoid(mesh, 0.0f, h * 1.135f, 0.0f, w * 0.115f, h * 0.070f, d * 0.115f, limbSeg, 5); // neck
 
-    const int limbSeg = MaxInt(10, seg / 2);
+    // Head, back-of-head, hair cap, and bangs.
+    AddEllipsoid(mesh, 0.0f, h * 1.36f, 0.0f, w * 0.330f, h * 0.235f, d * 0.360f, seg, 14);
+    AddEllipsoid(mesh, 0.0f, h * 1.49f, -d * 0.030f, w * 0.350f, h * 0.105f, d * 0.385f, seg, 7);
+    AddEllipsoid(mesh, -w * 0.140f, h * 1.405f, d * 0.300f, w * 0.075f, h * 0.085f, d * 0.040f, limbSeg, 5);
+    AddEllipsoid(mesh,  0.000f, h * 1.400f, d * 0.315f, w * 0.085f, h * 0.095f, d * 0.045f, limbSeg, 5);
+    AddEllipsoid(mesh,  w * 0.140f, h * 1.405f, d * 0.300f, w * 0.075f, h * 0.085f, d * 0.040f, limbSeg, 5);
+    AddEllipsoid(mesh, -w * 0.325f, h * 1.330f, -d * 0.030f, w * 0.045f, h * 0.135f, d * 0.115f, limbSeg, 5);
+    AddEllipsoid(mesh,  w * 0.325f, h * 1.330f, -d * 0.030f, w * 0.045f, h * 0.135f, d * 0.115f, limbSeg, 5);
+
+    // Clothes / belt / front panel.
+    AddEllipsoid(mesh, 0.0f, h * 0.610f, d * 0.205f, w * 0.315f, h * 0.045f, d * 0.050f, limbSeg, 4);
+    AddBox(mesh, -w * 0.145f, h * 0.615f, d * 0.240f, w * 0.250f, h * 0.050f, d * 0.035f);
+    AddBox(mesh,  w * 0.145f, h * 0.615f, d * 0.240f, w * 0.250f, h * 0.050f, d * 0.035f);
+    AddEllipsoid(mesh, 0.0f, h * 0.875f, d * 0.245f, w * 0.190f, h * 0.025f, d * 0.030f, limbSeg, 4);
+
+    // Arms as angled capsules, not vertical sticks.
     for (float side : {-1.0f, 1.0f}) {
-        AddCylinder(mesh, side * w * 0.39f, h * 0.56f, h * 0.89f, 0.0f, w * 0.045f, d * 0.065f, limbSeg);
-        AddEllipsoid(mesh, side * w * 0.43f, h * 0.52f, 0.0f, w * 0.075f, h * 0.045f, d * 0.085f, limbSeg, 5);
-        AddCylinder(mesh, side * w * 0.13f, h * 0.15f, h * 0.53f, 0.0f, w * 0.055f, d * 0.070f, limbSeg);
-        AddFoot(mesh, side * w * 0.13f, h * 0.07f, d * 0.08f, w * 0.18f, h * 0.055f, d * 0.22f, limbSeg);
+        Vec3 shoulder{side * w * 0.295f, h * 1.020f, 0.0f};
+        Vec3 elbow{side * w * 0.410f, h * 0.785f, d * 0.020f};
+        Vec3 hand{side * w * 0.455f, h * 0.585f, d * 0.060f};
+        AddCapsuleSegment(mesh, shoulder, elbow, w * 0.045f, h * 0.040f, d * 0.058f, limbSeg);
+        AddCapsuleSegment(mesh, elbow, hand, w * 0.043f, h * 0.038f, d * 0.054f, limbSeg);
+        AddEllipsoid(mesh, hand.x, hand.y, hand.z, w * 0.083f, h * 0.060f, d * 0.090f, limbSeg, 6);
     }
 
-    AddEllipsoid(mesh, -w * 0.08f, h * 1.17f, d * 0.32f, w * 0.025f, h * 0.026f, d * 0.012f, 8, 4);
-    AddEllipsoid(mesh,  w * 0.08f, h * 1.17f, d * 0.32f, w * 0.025f, h * 0.026f, d * 0.012f, 8, 4);
-    AddBox(mesh, 0.0f, h * 1.10f, d * 0.335f, w * 0.16f, h * 0.012f, d * 0.010f);
+    // Legs and shoes with visible feet instead of thin rods.
+    for (float side : {-1.0f, 1.0f}) {
+        Vec3 hip{side * w * 0.120f, h * 0.540f, 0.0f};
+        Vec3 knee{side * w * 0.135f, h * 0.345f, 0.0f};
+        Vec3 ankle{side * w * 0.140f, h * 0.150f, d * 0.010f};
+        AddCapsuleSegment(mesh, hip, knee, w * 0.052f, h * 0.045f, d * 0.065f, limbSeg);
+        AddCapsuleSegment(mesh, knee, ankle, w * 0.049f, h * 0.043f, d * 0.060f, limbSeg);
+        AddFoot(mesh, side * w * 0.145f, h * 0.070f, d * 0.115f, w * 0.215f, h * 0.075f, d * 0.260f, limbSeg);
+    }
+
+    // Face details are raised geometry so the clay preview reads as a model, not a silhouette.
+    AddEllipsoid(mesh, -w * 0.095f, h * 1.390f, d * 0.355f, w * 0.030f, h * 0.034f, d * 0.014f, 10, 5);
+    AddEllipsoid(mesh,  w * 0.095f, h * 1.390f, d * 0.355f, w * 0.030f, h * 0.034f, d * 0.014f, 10, 5);
+    AddEllipsoid(mesh, 0.0f, h * 1.320f, d * 0.365f, w * 0.020f, h * 0.020f, d * 0.012f, 8, 4);
+    AddBox(mesh, 0.0f, h * 1.265f, d * 0.370f, w * 0.155f, h * 0.012f, d * 0.012f);
 }
 
 static void BuildBuildingStructured(MeshData& mesh, const AssetPlanResult& plan, const StructuredAssetOptions& options) {
@@ -295,8 +379,6 @@ static AutoTypeDecision ResolveStructuredAssetType(const AssetAnalysisResult& an
     if (d.vehicleScore > best) { best = d.vehicleScore; d.type = GameAssetType::Vehicle; }
     if (d.furnitureScore > best) { best = d.furnitureScore; d.type = GameAssetType::Furniture; }
     if (d.buildingScore > best) { best = d.buildingScore; d.type = GameAssetType::Building; }
-
-    // For ambiguous front-facing stylized objects, prefer character only when the shape is rounded/articulated.
     if (d.characterScore >= best - 0.06f && roundedOrArticulated && centeredMass && !wideLow) {
         best = d.characterScore;
         d.type = GameAssetType::Character;
