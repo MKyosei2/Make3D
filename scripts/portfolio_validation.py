@@ -4,6 +4,9 @@
 This script complements the real CMake build/ctest workflow. It checks reviewer-critical
 files, inspects generated sample outputs when present, writes a dry-run rollback plan,
 and stores Markdown/JSON reports with stage timings.
+
+The README check accepts both the older English headings and the refreshed
+portfolio-review headings.
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ import json
 import sys
 import time
 import traceback
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, List
 
@@ -55,7 +58,7 @@ class ValidationContext:
         errors: List[str] = []
         try:
             warnings, errors = fn()
-        except Exception as exc:
+        except Exception as exc:  # pragma: no cover - CI diagnostic path
             errors.append(f"Unhandled exception: {exc}")
             errors.append(traceback.format_exc())
         elapsed = (time.perf_counter() - start) * 1000.0
@@ -96,17 +99,19 @@ def check_readme(ctx: ValidationContext) -> tuple[list[str], list[str]]:
     errors: List[str] = []
     readme = ctx.root / "README.md"
     text = readme.read_text(encoding="utf-8") if readme.exists() else ""
-    required_phrases = [
-        "30-second overview",
-        "Reviewer path",
-        "Current limitations",
-        "Roadmap",
-        "Portfolio wording",
-        "not a Blender",
+    lower = text.lower()
+
+    required_groups = [
+        ("portfolio summary", ["portfolio summary", "30-second overview", "ポートフォリオ要約"]),
+        ("reviewer path", ["reviewer path", "レビュー手順"]),
+        ("limitations", ["current limitations", "現在の制限"]),
+        ("roadmap / next improvements", ["roadmap", "next improvements", "次の改善"]),
+        ("portfolio wording", ["portfolio wording", "ポートフォリオ用説明文"]),
+        ("honest scope note", ["scope note", "not a blender", "not a blender, zbrush", "not a blender, zbrush, photogrammetry", "代替ではありません"]),
     ]
-    for phrase in required_phrases:
-        if phrase.lower() not in text.lower():
-            errors.append(f"README is missing reviewer/limitation phrase: {phrase}")
+    for label, alternatives in required_groups:
+        if not any(token.lower() in lower for token in alternatives):
+            errors.append(f"README is missing reviewer/limitation section: {label}; accepted tokens={alternatives}")
     ctx.limitations_status = "README includes explicit limitations" if not errors else "README limitation coverage incomplete"
     return warnings, errors
 
@@ -133,18 +138,20 @@ def inspect_generated_samples(ctx: ValidationContext) -> tuple[list[str], list[s
     errors: List[str] = []
     candidates = [
         ctx.build_dir / "production_pipeline",
+        ctx.build_dir / "portfolio_sample",
         ctx.build_dir / "generic_asset",
         ctx.build_dir / "complete_game_asset_suite",
         ctx.build_dir / "typed_assets",
+        ctx.build_dir / "cli_benchmark",
     ]
     found_files: List[str] = []
     for directory in candidates:
         if directory.exists():
             for path in directory.rglob("*"):
-                if path.is_file() and path.suffix.lower() in {".obj", ".gltf", ".json", ".md", ".ppm", ".bin", ".txt"}:
+                if path.is_file() and path.suffix.lower() in {".obj", ".gltf", ".json", ".md", ".ppm", ".bin", ".txt", ".csv"}:
                     found_files.append(rel(ctx, path))
     if not found_files:
-        warnings.append("No generated sample artifacts found yet. The workflow should run ctest/sample generation before this script for artifact inspection.")
+        warnings.append("No generated sample artifacts found yet. This is acceptable for documentation-only CI runs.")
     manifest = {
         "tool": "Make3D",
         "generatedBy": "scripts/portfolio_validation.py",
@@ -165,7 +172,7 @@ def generate_dry_run_plan(ctx: ValidationContext) -> tuple[list[str], list[str]]
     ctx.rollback_plan.extend([
         "Validation script is dry-run: it only reads repository/build artifacts and writes docs/reports outputs.",
         "CMake build outputs are isolated under the build directory and can be rolled back by deleting that directory.",
-        "Generated sample artifacts are isolated under build/production_pipeline, build/generic_asset, build/complete_game_asset_suite, and build/typed_assets.",
+        "Generated sample artifacts are isolated under build/production_pipeline, build/generic_asset, build/complete_game_asset_suite, build/typed_assets, and build/cli_benchmark.",
         "Repository source files are not modified by the validation script.",
     ])
     return warnings, errors
@@ -203,9 +210,9 @@ def write_reports(ctx: ValidationContext) -> Report:
     lines.extend(["", "## Generated sample/report artifacts", ""])
     lines.extend([f"- `{p}`" for p in report.generated_samples] or ["- none"])
     lines.extend(["", "## Rollback / dry-run plan", ""])
-    lines.extend([f"- {item}" for item in report.rollback_plan])
+    lines.extend([f"- {item}" for item in ctx.rollback_plan])
     lines.extend(["", "## Errors and warnings", ""])
-    for stage in report.stages:
+    for stage in ctx.stages:
         for warning in stage.warnings:
             lines.append(f"- WARNING [{stage.name}] {warning}")
         for error in stage.errors:
