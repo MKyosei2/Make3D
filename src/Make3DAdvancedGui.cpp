@@ -9,9 +9,9 @@
 // Route it to the structured multi-asset GUI so Visual Studio launches the same
 // behavior as the CMake Make3DAdvancedGui target.
 //
-// The current .vcxproj does not list Make3DStructuredAssetBuilder.cpp yet, so include
-// the implementation here for Visual Studio builds. CMake builds compile the builder
-// as part of Make3DAdvancedCore and do not use this legacy wrapper.
+// The current .vcxproj does not list all new builder .cpp files yet, so include the
+// implementations here for Visual Studio builds. CMake builds compile the structured
+// builder as part of Make3DAdvancedCore.
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -20,7 +20,10 @@
 #endif
 
 #include "Make3DStructuredAssetBuilder.cpp"
+#include "Make3DImageFittedStructuredAssetBuilder.cpp"
+#define BuildStructuredAssetMesh BuildImageFittedStructuredAssetMesh
 #include "Make3DAdvancedGuiStructured.cpp"
+#undef BuildStructuredAssetMesh
 
 #ifdef _MSC_VER
 #pragma warning(pop)
