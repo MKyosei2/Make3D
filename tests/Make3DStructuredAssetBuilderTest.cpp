@@ -67,6 +67,9 @@ bool ValidateResult(const char* name, const make3d::StructuredAssetBuildResult& 
     return true;
 }
 
+int VertexCount(const make3d::MeshData& mesh) { return static_cast<int>(mesh.positions.size() / 3); }
+int TriangleCount(const make3d::MeshData& mesh) { return static_cast<int>(mesh.indices.size() / 3); }
+
 } // namespace
 
 int main() {
@@ -84,8 +87,20 @@ int main() {
         PaintRect(image, mask, 46, 110, 60, 182, 80, 80, 80);   // legs
         PaintRect(image, mask, 68, 110, 82, 182, 80, 80, 80);
         auto depth = MakeDepth(image.width, image.height, mask);
-        auto result = make3d::BuildStructuredAssetMesh(image, depth, mask, options);
-        if (!ValidateResult("character", result, make3d::GameAssetType::Character)) return 1;
+        auto base = make3d::BuildStructuredAssetMesh(image, depth, mask, options);
+        if (!ValidateResult("character", base, make3d::GameAssetType::Character)) return 1;
+        auto fitted = make3d::BuildImageFittedStructuredAssetMesh(image, depth, mask, options);
+        if (!ValidateResult("image-fitted character", fitted, make3d::GameAssetType::Character)) return 4;
+        if (VertexCount(fitted.mesh) <= VertexCount(base.mesh)) {
+            std::cerr << "Expected image-fitted character to be at least as detailed as base character. base vertices="
+                      << VertexCount(base.mesh) << " fitted vertices=" << VertexCount(fitted.mesh) << "\n";
+            return 5;
+        }
+        if (TriangleCount(fitted.mesh) <= TriangleCount(base.mesh)) {
+            std::cerr << "Expected image-fitted character to have more triangles than base character. base triangles="
+                      << TriangleCount(base.mesh) << " fitted triangles=" << TriangleCount(fitted.mesh) << "\n";
+            return 6;
+        }
     }
 
     {
