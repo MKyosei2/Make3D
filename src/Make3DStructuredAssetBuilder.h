@@ -52,4 +52,13 @@ StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
     const std::vector<std::uint8_t>& mask,
     const StructuredAssetOptions& options = StructuredAssetOptions{});
 
+// Hero route for GUI/portfolio presentation. It keeps the image-fitted procedural
+// support parts, then adds a closed silhouette-driven body shell with front/back faces
+// and side walls so the source outline is the main visible form.
+StructuredAssetBuildResult BuildHeroFittedStructuredAssetMesh(
+    const ImageRGBA& image,
+    const DepthImage& depth,
+    const std::vector<std::uint8_t>& mask,
+    const StructuredAssetOptions& options = StructuredAssetOptions{});
+
 } // namespace make3d
