@@ -9,6 +9,7 @@
 
 #include "Make3DStructuredAssetBuilder.h"
 #include "Make3DGltfMaterialExporter.h"
+#include "Make3DVertexColorGltfExporter.h"
 
 #include <cmath>
 #include <cstdint>
@@ -301,6 +302,7 @@ void DoSave() {
         fs::create_directories(output, ec);
         fs::path objPath = output / L"make3d_structured_asset.obj";
         fs::path gltfPath = output / L"make3d_structured_asset.gltf";
+        fs::path vertexColorGltfPath = output / L"make3d_structured_asset_vertex_color.gltf";
         fs::path reportPath = output / L"make3d_structured_asset_report.md";
         fs::path reportJsonPath = output / L"make3d_structured_asset_report.json";
         fs::path texturePath = output / L"make3d_source_image.png";
@@ -315,11 +317,18 @@ void DoSave() {
         material.doubleSided = true;
         if (fs::exists(texturePath, ec)) material.textureUri = texturePath;
         if (!make3d::ExportGLTFWithMaterial(g.mesh, gltfPath, material, &error)) throw std::runtime_error(error);
+
+        make3d::VertexColorGltfOptions vertexColorOptions;
+        vertexColorOptions.materialName = "Make3DImageFittedVertexColorMaterial";
+        vertexColorOptions.roughnessFactor = 0.78f;
+        vertexColorOptions.doubleSided = true;
+        if (!make3d::ExportGLTFWithVertexColors(g.mesh, g.image, vertexColorGltfPath, vertexColorOptions, &error)) throw std::runtime_error(error);
+
         std::ofstream md(reportPath, std::ios::binary); md << g.structured.ToMarkdown();
         std::ofstream js(reportJsonPath, std::ios::binary); js << g.structured.ToJson();
         g.lastOutput = output;
-        SetStatus("Saved image-fitted structured OBJ/glTF: " + SafePathString(objPath));
-        MessageBoxW(g.hwnd, Widen("Saved image-fitted structured model.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
+        SetStatus("Saved OBJ/glTF plus vertex-color glTF: " + SafePathString(vertexColorGltfPath));
+        MessageBoxW(g.hwnd, Widen("Saved image-fitted structured model.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nVertex-color glTF: " + SafePathString(vertexColorGltfPath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
     } catch (const std::exception& e) {
         MessageBoxW(g.hwnd, Widen(e.what()).c_str(), L"Save failed", MB_OK | MB_ICONERROR);
     }
