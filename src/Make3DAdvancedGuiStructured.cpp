@@ -10,7 +10,6 @@
 #include "Make3DStructuredAssetBuilder.h"
 #include "Make3DGltfMaterialExporter.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <exception>
@@ -38,6 +37,10 @@ constexpr int ID_COLOR_PATH = 1010;
 constexpr int ID_DEPTH_PATH = 1011;
 constexpr int ID_OUTPUT_PATH = 1012;
 constexpr int ID_STATUS = 1013;
+
+LONG MaxLong(LONG a, LONG b) { return a > b ? a : b; }
+LONG MinLong(LONG a, LONG b) { return a < b ? a : b; }
+float MaxFloat(float a, float b) { return a > b ? a : b; }
 
 struct GuiState {
     HWND hwnd = nullptr;
@@ -201,6 +204,7 @@ bool BuildPreview(std::string& error) {
 }
 
 POINT Project(float x, float y, float z, const RECT& r, float scale, float cx, float cy) {
+    (void)r;
     float yaw = -0.68f, pitch = 0.34f;
     float cyaw = std::cos(yaw), syaw = std::sin(yaw);
     float cp = std::cos(pitch), sp = std::sin(pitch);
@@ -213,7 +217,7 @@ POINT Project(float x, float y, float z, const RECT& r, float scale, float cx, f
 void DrawPreview(HDC hdc, HWND hwnd) {
     RECT rc{};
     GetClientRect(hwnd, &rc);
-    RECT r{16, 300, std::max(180, rc.right - 16), std::max(420, rc.bottom - 16)};
+    RECT r{16, 300, MaxLong(180L, rc.right - 16L), MaxLong(420L, rc.bottom - 16L)};
     HBRUSH bg = CreateSolidBrush(RGB(250, 250, 250));
     FillRect(hdc, &r, bg);
     DeleteObject(bg);
@@ -229,7 +233,8 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     std::vector<POINT> pts(g.mesh.positions.size() / 3);
     float cx = (r.left + r.right) * 0.5f;
     float cy = (r.top + r.bottom) * 0.66f;
-    float scale = std::max(90.0f, static_cast<float>(std::min(r.right - r.left, r.bottom - r.top)) * 0.34f);
+    LONG previewMin = MinLong(r.right - r.left, r.bottom - r.top);
+    float scale = MaxFloat(90.0f, static_cast<float>(previewMin) * 0.34f);
     for (size_t i = 0; i < pts.size(); ++i) pts[i] = Project(g.mesh.positions[i * 3], g.mesh.positions[i * 3 + 1], g.mesh.positions[i * 3 + 2], r, scale, cx, cy);
 
     HPEN pen = CreatePen(PS_SOLID, 1, RGB(80, 92, 104));
