@@ -13,5 +13,15 @@
 // the implementation here for Visual Studio builds. CMake builds compile the builder
 // as part of Make3DAdvancedCore and do not use this legacy wrapper.
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4100) // unreferenced formal parameter from included GUI helpers
+#pragma warning(disable : 4505) // unreferenced internal helper functions removed by optimizer
+#endif
+
 #include "Make3DStructuredAssetBuilder.cpp"
 #include "Make3DAdvancedGuiStructured.cpp"
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
