@@ -19,10 +19,14 @@ struct SilhouetteProfile {
     float aspect = 1.0f;
     float massCenterY = 0.5f;
     std::vector<float> rowWidth;
+    std::vector<float> rowLeft;
+    std::vector<float> rowRight;
+    std::vector<float> rowCenter;
 };
 
 static int FitVertexCount(const MeshData& mesh) { return static_cast<int>(mesh.positions.size() / 3); }
 static int FitMaxInt(int a, int b) { return a > b ? a : b; }
+static int FitMinInt(int a, int b) { return a < b ? a : b; }
 static float FitMax(float a, float b) { return a > b ? a : b; }
 static float FitMin(float a, float b) { return a < b ? a : b; }
 static float FitClamp(float v, float lo, float hi) { return FitMax(lo, FitMin(hi, v)); }
@@ -33,19 +37,6 @@ static float FitDot(FitVec3 a, FitVec3 b) { return a.x * b.x + a.y * b.y + a.z *
 static FitVec3 FitCross(FitVec3 a, FitVec3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
 static float FitLength(FitVec3 v) { return std::sqrt(FitMax(0.0f, FitDot(v, v))); }
 static FitVec3 FitNormalize(FitVec3 v) { float len = FitLength(v); return len <= 1e-6f ? FitVec3{0, 1, 0} : FitMul(v, 1.0f / len); }
-
-static std::string FitEscapeJson(const std::string& s) {
-    std::ostringstream o;
-    for (char c : s) {
-        if (c == '\\') o << "\\\\";
-        else if (c == '"') o << "\\\"";
-        else if (c == '\n') o << "\\n";
-        else if (c == '\r') o << "\\r";
-        else if (c == '\t') o << "\\t";
-        else o << c;
-    }
-    return o.str();
-}
 
 static void FitAddVertex(MeshData& mesh, float x, float y, float z, float u, float v) {
     mesh.positions.push_back(x); mesh.positions.push_back(y); mesh.positions.push_back(z);
@@ -69,8 +60,8 @@ static SilhouetteProfile FitBuildProfile(const ImageRGBA& image, const std::vect
     double sumY = 0.0; int count = 0;
     for (int y = 0; y < image.height; ++y) for (int x = 0; x < image.width; ++x) {
         if (!mask[static_cast<size_t>(y) * image.width + x]) continue;
-        p.minX = FitMin(p.minX, x); p.maxX = FitMax(p.maxX, x);
-        p.minY = FitMin(p.minY, y); p.maxY = FitMax(p.maxY, y);
+        p.minX = FitMinInt(p.minX, x); p.maxX = FitMaxInt(p.maxX, x);
+        p.minY = FitMinInt(p.minY, y); p.maxY = FitMaxInt(p.maxY, y);
         sumY += y; ++count;
     }
     if (count <= 0 || p.maxX < p.minX || p.maxY < p.minY) return p;
@@ -79,25 +70,54 @@ static SilhouetteProfile FitBuildProfile(const ImageRGBA& image, const std::vect
     p.aspect = static_cast<float>(bh) / static_cast<float>(bw);
     p.massCenterY = static_cast<float>(sumY / static_cast<double>(count) / static_cast<double>(FitMaxInt(1, image.height - 1)));
     p.rowWidth.assign(static_cast<size_t>(bh), 0.0f);
+    p.rowLeft.assign(static_cast<size_t>(bh), -0.5f);
+    p.rowRight.assign(static_cast<size_t>(bh), 0.5f);
+    p.rowCenter.assign(static_cast<size_t>(bh), 0.0f);
     for (int y = p.minY; y <= p.maxY; ++y) {
         int left = image.width, right = -1;
         for (int x = p.minX; x <= p.maxX; ++x) {
             if (!mask[static_cast<size_t>(y) * image.width + x]) continue;
-            left = FitMin(left, x); right = FitMax(right, x);
+            left = FitMinInt(left, x); right = FitMaxInt(right, x);
         }
-        if (right >= left) p.rowWidth[static_cast<size_t>(y - p.minY)] = static_cast<float>(right - left + 1) / static_cast<float>(bw);
+        if (right >= left) {
+            const size_t row = static_cast<size_t>(y - p.minY);
+            p.rowWidth[row] = static_cast<float>(right - left + 1) / static_cast<float>(bw);
+            p.rowLeft[row] = static_cast<float>(left - p.minX) / static_cast<float>(bw) - 0.5f;
+            p.rowRight[row] = static_cast<float>(right - p.minX) / static_cast<float>(bw) - 0.5f;
+            p.rowCenter[row] = (p.rowLeft[row] + p.rowRight[row]) * 0.5f;
+        }
     }
     p.ok = true;
     return p;
 }
 
-static float FitRowWidthAt(const SilhouetteProfile& p, float normalizedYFromTop) {
-    if (!p.ok || p.rowWidth.empty()) return 0.5f;
-    float y = FitClamp(normalizedYFromTop, 0.0f, 1.0f) * static_cast<float>(p.rowWidth.size() - 1);
+static float FitSampleRows(const std::vector<float>& rows, float normalizedYFromTop, float fallback) {
+    if (rows.empty()) return fallback;
+    float y = FitClamp(normalizedYFromTop, 0.0f, 1.0f) * static_cast<float>(rows.size() - 1);
     int y0 = static_cast<int>(std::floor(y));
-    int y1 = FitMin(static_cast<int>(p.rowWidth.size()) - 1, y0 + 1);
+    int y1 = FitMinInt(static_cast<int>(rows.size()) - 1, y0 + 1);
     float t = y - static_cast<float>(y0);
-    return p.rowWidth[static_cast<size_t>(y0)] * (1.0f - t) + p.rowWidth[static_cast<size_t>(y1)] * t;
+    return rows[static_cast<size_t>(y0)] * (1.0f - t) + rows[static_cast<size_t>(y1)] * t;
+}
+
+static float FitRowWidthAt(const SilhouetteProfile& p, float normalizedYFromTop) {
+    if (!p.ok) return 0.5f;
+    return FitSampleRows(p.rowWidth, normalizedYFromTop, 0.5f);
+}
+
+static float FitRowLeftAt(const SilhouetteProfile& p, float normalizedYFromTop) {
+    if (!p.ok) return -0.5f;
+    return FitSampleRows(p.rowLeft, normalizedYFromTop, -0.5f);
+}
+
+static float FitRowRightAt(const SilhouetteProfile& p, float normalizedYFromTop) {
+    if (!p.ok) return 0.5f;
+    return FitSampleRows(p.rowRight, normalizedYFromTop, 0.5f);
+}
+
+static float FitRowCenterAt(const SilhouetteProfile& p, float normalizedYFromTop) {
+    if (!p.ok) return 0.0f;
+    return FitSampleRows(p.rowCenter, normalizedYFromTop, 0.0f);
 }
 
 static float FitMaxRowWidth(const SilhouetteProfile& p, float a, float b) {
@@ -108,6 +128,14 @@ static float FitMaxRowWidth(const SilhouetteProfile& p, float a, float b) {
     float best = 0.0f;
     for (int y = y0; y <= y1; ++y) best = FitMax(best, p.rowWidth[static_cast<size_t>(y)]);
     return best;
+}
+
+static float FitSideX(const SilhouetteProfile& p, float normalizedYFromTop, float side, float baseW, float fallbackAbs) {
+    const float edge = side < 0.0f ? FitRowLeftAt(p, normalizedYFromTop) : FitRowRightAt(p, normalizedYFromTop);
+    const float fallback = side * fallbackAbs;
+    const float modelX = edge * baseW * 1.18f;
+    if (std::fabs(modelX) < std::fabs(fallback) * 0.35f) return fallback;
+    return FitClamp(modelX, -baseW * 0.68f, baseW * 0.68f);
 }
 
 static void FitEllipsoid(MeshData& mesh, float cx, float cy, float cz, float rx, float ry, float rz, int segments, int rings) {
@@ -175,8 +203,8 @@ static MeshData BuildFittedCharacterMesh(const AssetPlanResult& plan, const Silh
     const float h = plan.targetHeight;
     const float baseW = FitClamp(plan.targetWidth, 0.74f, 1.42f);
     const float d = FitMax(0.52f, plan.targetDepth);
-    const int seg = FitMaxInt(32, options.radialSegments + 8);
-    const int limbSeg = FitMaxInt(18, seg / 2);
+    const int seg = FitMaxInt(36, options.radialSegments + 10);
+    const int limbSeg = FitMaxInt(20, seg / 2);
 
     const float headRow = FitMaxRowWidth(profile, 0.02f, 0.27f);
     const float shoulderRow = FitMaxRowWidth(profile, 0.28f, 0.45f);
@@ -184,59 +212,62 @@ static MeshData BuildFittedCharacterMesh(const AssetPlanResult& plan, const Silh
     const float hipRow = FitMaxRowWidth(profile, 0.58f, 0.74f);
     const float legRow = FitMaxRowWidth(profile, 0.72f, 0.94f);
 
+    const float centerHead = FitRowCenterAt(profile, 0.16f) * baseW * 0.30f;
+    const float centerTorso = FitRowCenterAt(profile, 0.50f) * baseW * 0.24f;
     const float headW = baseW * FitClamp(headRow + 0.10f, 0.52f, 0.98f);
     const float shoulderW = baseW * FitClamp(shoulderRow + 0.12f, 0.52f, 0.96f);
     const float torsoW = baseW * FitClamp(torsoRow + 0.08f, 0.42f, 0.78f);
     const float hipW = baseW * FitClamp(hipRow + 0.08f, 0.40f, 0.78f);
-    const float legSpread = baseW * FitClamp(legRow * 0.34f, 0.10f, 0.22f);
+    const float legSpread = baseW * FitClamp(legRow * 0.34f, 0.10f, 0.24f);
     const float massShift = FitClamp((0.50f - profile.massCenterY) * 0.10f, -0.035f, 0.035f);
 
-    // Silhouette-fitted body masses.
-    FitEllipsoid(mesh, 0.0f, h * (0.88f + massShift), 0.0f, torsoW * 0.47f, h * 0.215f, d * 0.285f, seg, 12);
-    FitEllipsoid(mesh, 0.0f, h * 0.650f, 0.0f, hipW * 0.48f, h * 0.150f, d * 0.270f, seg, 9);
-    FitEllipsoid(mesh, 0.0f, h * 1.070f, 0.0f, shoulderW * 0.52f, h * 0.060f, d * 0.245f, seg, 5);
-    FitEllipsoid(mesh, 0.0f, h * 1.135f, 0.0f, baseW * 0.085f, h * 0.065f, d * 0.105f, limbSeg, 5);
+    FitEllipsoid(mesh, centerTorso, h * (0.88f + massShift), 0.0f, torsoW * 0.47f, h * 0.215f, d * 0.285f, seg, 12);
+    FitEllipsoid(mesh, centerTorso, h * 0.650f, 0.0f, hipW * 0.48f, h * 0.150f, d * 0.270f, seg, 9);
+    FitEllipsoid(mesh, centerTorso, h * 1.070f, 0.0f, shoulderW * 0.52f, h * 0.060f, d * 0.245f, seg, 5);
+    FitEllipsoid(mesh, centerTorso, h * 1.135f, 0.0f, baseW * 0.085f, h * 0.065f, d * 0.105f, limbSeg, 5);
 
-    // Head and hair volumes are based on the top silhouette width.
-    FitEllipsoid(mesh, 0.0f, h * 1.360f, 0.0f, headW * 0.500f, h * 0.240f, d * 0.382f, seg, 15);
-    FitEllipsoid(mesh, 0.0f, h * 1.505f, -d * 0.030f, headW * 0.535f, h * 0.110f, d * 0.410f, seg, 7);
+    FitEllipsoid(mesh, centerHead, h * 1.360f, 0.0f, headW * 0.500f, h * 0.240f, d * 0.382f, seg, 15);
+    FitEllipsoid(mesh, centerHead, h * 1.505f, -d * 0.030f, headW * 0.535f, h * 0.110f, d * 0.410f, seg, 7);
     for (float x : {-0.28f, -0.13f, 0.02f, 0.17f, 0.31f}) {
-        FitEllipsoid(mesh, x * headW, h * (1.405f - std::fabs(x) * 0.040f), d * 0.325f, headW * 0.085f, h * 0.100f, d * 0.052f, limbSeg, 5);
+        FitEllipsoid(mesh, centerHead + x * headW, h * (1.405f - std::fabs(x) * 0.040f), d * 0.325f, headW * 0.085f, h * 0.100f, d * 0.052f, limbSeg, 5);
     }
-    FitEllipsoid(mesh, -headW * 0.535f, h * 1.335f, -d * 0.030f, headW * 0.055f, h * 0.145f, d * 0.130f, limbSeg, 5);
-    FitEllipsoid(mesh,  headW * 0.535f, h * 1.335f, -d * 0.030f, headW * 0.055f, h * 0.145f, d * 0.130f, limbSeg, 5);
+    FitEllipsoid(mesh, centerHead - headW * 0.535f, h * 1.335f, -d * 0.030f, headW * 0.055f, h * 0.145f, d * 0.130f, limbSeg, 5);
+    FitEllipsoid(mesh, centerHead + headW * 0.535f, h * 1.335f, -d * 0.030f, headW * 0.055f, h * 0.145f, d * 0.130f, limbSeg, 5);
 
-    // Clothes, belt, panels.
-    FitEllipsoid(mesh, 0.0f, h * 0.610f, d * 0.220f, hipW * 0.55f, h * 0.045f, d * 0.055f, limbSeg, 4);
-    FitBox(mesh, -hipW * 0.165f, h * 0.617f, d * 0.260f, hipW * 0.310f, h * 0.052f, d * 0.040f);
-    FitBox(mesh,  hipW * 0.165f, h * 0.617f, d * 0.260f, hipW * 0.310f, h * 0.052f, d * 0.040f);
-    FitEllipsoid(mesh, 0.0f, h * 0.875f, d * 0.270f, torsoW * 0.260f, h * 0.024f, d * 0.035f, limbSeg, 4);
+    FitEllipsoid(mesh, centerTorso, h * 0.610f, d * 0.220f, hipW * 0.55f, h * 0.045f, d * 0.055f, limbSeg, 4);
+    FitBox(mesh, centerTorso - hipW * 0.165f, h * 0.617f, d * 0.260f, hipW * 0.310f, h * 0.052f, d * 0.040f);
+    FitBox(mesh, centerTorso + hipW * 0.165f, h * 0.617f, d * 0.260f, hipW * 0.310f, h * 0.052f, d * 0.040f);
+    FitEllipsoid(mesh, centerTorso, h * 0.875f, d * 0.270f, torsoW * 0.260f, h * 0.024f, d * 0.035f, limbSeg, 4);
 
-    // Arms follow the silhouette side, not vertical sticks.
     for (float side : {-1.0f, 1.0f}) {
-        FitVec3 shoulder{side * shoulderW * 0.49f, h * 1.020f, 0.0f};
-        FitVec3 elbow{side * baseW * 0.48f, h * 0.800f, d * 0.030f};
-        FitVec3 hand{side * baseW * 0.53f, h * 0.585f, d * 0.075f};
+        const float shoulderX = centerTorso + side * shoulderW * 0.49f;
+        const float elbowX = FitSideX(profile, 0.47f, side, baseW, baseW * 0.46f);
+        const float handX = FitSideX(profile, 0.61f, side, baseW, baseW * 0.54f);
+        FitVec3 shoulder{shoulderX, h * 1.020f, 0.0f};
+        FitVec3 elbow{elbowX, h * 0.800f, d * 0.030f};
+        FitVec3 hand{handX, h * 0.585f, d * 0.075f};
         FitCapsule(mesh, shoulder, elbow, baseW * 0.045f, h * 0.040f, d * 0.060f, limbSeg);
         FitCapsule(mesh, elbow, hand, baseW * 0.043f, h * 0.038f, d * 0.055f, limbSeg);
-        FitEllipsoid(mesh, hand.x, hand.y, hand.z, baseW * 0.087f, h * 0.062f, d * 0.096f, limbSeg, 6);
+        FitEllipsoid(mesh, hand.x, hand.y, hand.z, baseW * 0.090f, h * 0.064f, d * 0.100f, limbSeg, 6);
+        FitEllipsoid(mesh, shoulder.x, shoulder.y, d * 0.020f, baseW * 0.065f, h * 0.050f, d * 0.072f, limbSeg, 5);
     }
 
-    // Legs and feet fit lower silhouette spread.
     for (float side : {-1.0f, 1.0f}) {
-        FitVec3 hip{side * legSpread, h * 0.540f, 0.0f};
-        FitVec3 knee{side * legSpread * 1.05f, h * 0.335f, 0.0f};
-        FitVec3 ankle{side * legSpread * 1.10f, h * 0.150f, d * 0.015f};
+        const float hipX = centerTorso + side * legSpread;
+        const float kneeX = FitClamp(FitSideX(profile, 0.78f, side, baseW, legSpread * 1.05f), side < 0.0f ? -baseW * 0.30f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.30f);
+        const float ankleX = FitClamp(FitSideX(profile, 0.91f, side, baseW, legSpread * 1.12f), side < 0.0f ? -baseW * 0.36f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.36f);
+        FitVec3 hip{hipX, h * 0.540f, 0.0f};
+        FitVec3 knee{kneeX, h * 0.335f, 0.0f};
+        FitVec3 ankle{ankleX, h * 0.150f, d * 0.015f};
         FitCapsule(mesh, hip, knee, baseW * 0.056f, h * 0.045f, d * 0.065f, limbSeg);
         FitCapsule(mesh, knee, ankle, baseW * 0.052f, h * 0.043f, d * 0.060f, limbSeg);
-        FitEllipsoid(mesh, side * legSpread * 1.10f, h * 0.070f, d * 0.135f, baseW * 0.125f, h * 0.078f, d * 0.285f, limbSeg, 7);
+        FitEllipsoid(mesh, ankleX, h * 0.070f, d * 0.135f, baseW * 0.130f, h * 0.080f, d * 0.290f, limbSeg, 7);
     }
 
-    // Raised face details.
-    FitEllipsoid(mesh, -headW * 0.150f, h * 1.390f, d * 0.390f, headW * 0.045f, h * 0.036f, d * 0.016f, 12, 5);
-    FitEllipsoid(mesh,  headW * 0.150f, h * 1.390f, d * 0.390f, headW * 0.045f, h * 0.036f, d * 0.016f, 12, 5);
-    FitEllipsoid(mesh, 0.0f, h * 1.315f, d * 0.402f, headW * 0.024f, h * 0.020f, d * 0.012f, 8, 4);
-    FitBox(mesh, 0.0f, h * 1.260f, d * 0.410f, headW * 0.230f, h * 0.012f, d * 0.012f);
+    FitEllipsoid(mesh, centerHead - headW * 0.150f, h * 1.390f, d * 0.390f, headW * 0.045f, h * 0.036f, d * 0.016f, 12, 5);
+    FitEllipsoid(mesh, centerHead + headW * 0.150f, h * 1.390f, d * 0.390f, headW * 0.045f, h * 0.036f, d * 0.016f, 12, 5);
+    FitEllipsoid(mesh, centerHead, h * 1.315f, d * 0.402f, headW * 0.024f, h * 0.020f, d * 0.012f, 8, 4);
+    FitBox(mesh, centerHead, h * 1.260f, d * 0.410f, headW * 0.230f, h * 0.012f, d * 0.012f);
 
     return mesh;
 }
@@ -270,7 +301,7 @@ StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
     result.mesh = fitted;
     result.validation = validation;
     result.message = "Image-fitted structured character mesh generated.";
-    result.warnings.push_back("Character proportions fitted from foreground mask horizontal profile.");
+    result.warnings.push_back("Character proportions fitted from foreground mask horizontal profile and silhouette edge anchors.");
     result.warnings.push_back("This is still a procedural proxy mesh, not a learned neural reconstruction.");
     return result;
 }
