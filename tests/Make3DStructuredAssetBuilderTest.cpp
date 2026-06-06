@@ -113,6 +113,10 @@ int main() {
             std::cerr << "Expected fitted character report to mention silhouette edge anchors.\n" << fitted.ToMarkdown() << "\n";
             return 7;
         }
+        if (!ContainsWarning(fitted, "skeleton-like side anchors")) {
+            std::cerr << "Expected fitted character report to mention skeleton-like side anchors.\n" << fitted.ToMarkdown() << "\n";
+            return 8;
+        }
     }
 
     {
