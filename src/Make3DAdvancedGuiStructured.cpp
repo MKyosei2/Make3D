@@ -212,7 +212,8 @@ POINT Project(float x, float y, float z, const RECT& r, float scale, float cx, f
     float rz = x * syaw + z * cyaw;
     float ry = y * cp - rz * sp;
     return {static_cast<LONG>(cx + rx * scale), static_cast<LONG>(cy - ry * scale)};
-}\n
+}
+
 void DrawPreview(HDC hdc, HWND hwnd) {
     RECT rc{};
     GetClientRect(hwnd, &rc);
