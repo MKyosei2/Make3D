@@ -179,14 +179,16 @@ AssetClassificationResult InferGameAssetType(
     r.straightEdgeScore = fgSampleCount > 0 ? Clamp01(static_cast<float>(straightEdgeHits) / static_cast<float>(fgSampleCount) * 3.0f) : 0.0f;
 
     const bool tallSymmetric = r.aspectRatio > 1.20f && r.symmetryX > 0.50f && r.massCenterY > 0.30f && r.massCenterY < 0.72f;
+    const bool compactHumanoid = r.symmetryX > 0.42f && r.aspectRatio > 0.78f && r.aspectRatio < 1.70f && r.massCenterY > 0.28f && r.massCenterY < 0.78f && r.coverage > 0.045f;
     const bool boxy = r.rectangularity >= options.buildingRectangularityThreshold && r.rowStability > 0.45f && r.columnStability > 0.40f;
+    const bool strongArchitectural = boxy && r.straightEdgeScore > 0.22f && r.rowStability > 0.58f && r.columnStability > 0.58f;
     const bool wideLow = r.aspectRatio < 0.62f && r.rectangularity > 0.35f;
     const bool veryFlat = r.coverage < 0.035f || (r.aspectRatio < 0.25f && r.rectangularity < 0.45f);
     const bool complex = r.edgeDensity > options.complexEdgeDensityThreshold && r.rectangularity < 0.78f;
 
-    if (options.preferCharacterForTallSymmetricSilhouettes && tallSymmetric && !boxy) {
+    if (options.preferCharacterForTallSymmetricSilhouettes && (tallSymmetric || compactHumanoid) && !veryFlat && !wideLow && !strongArchitectural) {
         r.assetType = GameAssetType::Character;
-        AddReason(r, "Tall symmetric silhouette classified as character.");
+        AddReason(r, tallSymmetric ? "Tall symmetric silhouette classified as character." : "Compact symmetric humanoid-like silhouette classified as character.");
     } else if (options.preferBuildings && boxy && r.aspectRatio > 0.65f) {
         r.assetType = GameAssetType::Building;
         AddReason(r, "Boxy high-rectangularity silhouette classified as building.");
@@ -202,9 +204,9 @@ AssetClassificationResult InferGameAssetType(
     } else if (complex) {
         r.assetType = GameAssetType::ComplexObject;
         AddReason(r, "High internal edge density classified as complex object.");
-    } else if (r.symmetryX > 0.50f && r.aspectRatio > 0.80f && r.aspectRatio < 1.35f) {
+    } else if (r.symmetryX > 0.50f && r.aspectRatio > 0.80f && r.aspectRatio < 1.25f && r.rowStability > 0.35f) {
         r.assetType = GameAssetType::Furniture;
-        AddReason(r, "Medium box-like symmetric silhouette classified as furniture-like prop.");
+        AddReason(r, "Medium box-like symmetric stable silhouette classified as furniture-like prop.");
     } else {
         r.assetType = GameAssetType::GenericProp;
         AddReason(r, "Fallback to generic prop reconstruction.");
