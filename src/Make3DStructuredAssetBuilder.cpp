@@ -249,6 +249,12 @@ StructuredAssetBuildResult BuildStructuredAssetMesh(
         return result;
     }
 
+    if (options.forcedAssetType != GameAssetType::Unknown) {
+        result.plan.assetType = options.forcedAssetType;
+        result.plan.assetName = std::string("Make3D_Forced_") + ToString(options.forcedAssetType);
+        result.plan.warnings.push_back(std::string("Asset type overridden by GUI/user option: ") + ToString(options.forcedAssetType));
+    }
+
     BuildFromPlanParts(result.mesh, result.plan, options);
     if (result.mesh.positions.empty() || result.mesh.indices.empty()) {
         result.message = "Structured asset builder produced empty mesh.";
