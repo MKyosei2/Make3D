@@ -220,6 +220,103 @@ static void BuildFromPlanParts(MeshData& mesh, const AssetPlanResult& plan, cons
     }
 }
 
+struct AutoTypeDecision {
+    GameAssetType type = GameAssetType::GenericProp;
+    std::string reason;
+    float characterScore = 0.0f;
+    float buildingScore = 0.0f;
+    float furnitureScore = 0.0f;
+    float vehicleScore = 0.0f;
+    float genericScore = 0.0f;
+};
+
+static void AddIf(float& score, bool condition, float value) {
+    if (condition) score += value;
+}
+
+static AutoTypeDecision ResolveStructuredAssetType(const AssetAnalysisResult& analysis) {
+    AutoTypeDecision d;
+    const ShapeDescriptorReport& s = analysis.shape;
+    const GameAssetType base = analysis.classification.assetType;
+
+    d.characterScore = 0.10f;
+    d.buildingScore = 0.05f;
+    d.furnitureScore = 0.05f;
+    d.vehicleScore = 0.05f;
+    d.genericScore = 0.18f;
+
+    AddIf(d.characterScore, base == GameAssetType::Character || base == GameAssetType::Creature, 0.35f);
+    AddIf(d.buildingScore, base == GameAssetType::Building || base == GameAssetType::ArchitecturalPart, 0.35f);
+    AddIf(d.furnitureScore, base == GameAssetType::Furniture, 0.22f);
+    AddIf(d.vehicleScore, base == GameAssetType::Vehicle, 0.32f);
+    AddIf(d.genericScore, base == GameAssetType::GenericProp || base == GameAssetType::ComplexObject, 0.12f);
+
+    const bool upright = s.aspectRatio > 0.72f && s.aspectRatio < 1.95f;
+    const bool tall = s.aspectRatio >= 1.20f && s.aspectRatio < 2.35f;
+    const bool compactHumanoid = s.aspectRatio > 0.78f && s.aspectRatio < 1.65f && s.symmetryX > 0.34f;
+    const bool centeredMass = s.massCenterY > 0.25f && s.massCenterY < 0.82f;
+    const bool roundedOrArticulated = s.straightEdgeScore < 0.52f || s.rowStability < 0.50f || s.columnStability < 0.50f || s.contourComplexity > 0.30f;
+    const bool strongBox = s.rectangularity > 0.72f && s.rowStability > 0.55f && s.columnStability > 0.50f && s.straightEdgeScore > 0.28f;
+    const bool wideLow = s.aspectRatio < 0.68f && s.rectangularity > 0.34f;
+
+    AddIf(d.characterScore, upright, 0.16f);
+    AddIf(d.characterScore, tall, 0.12f);
+    AddIf(d.characterScore, compactHumanoid, 0.20f);
+    AddIf(d.characterScore, s.symmetryX > 0.38f, 0.16f);
+    AddIf(d.characterScore, centeredMass, 0.12f);
+    AddIf(d.characterScore, roundedOrArticulated, 0.22f);
+    AddIf(d.characterScore, s.coverage > 0.040f && s.coverage < 0.78f, 0.08f);
+    AddIf(d.characterScore, strongBox, -0.18f);
+
+    AddIf(d.buildingScore, strongBox, 0.34f);
+    AddIf(d.buildingScore, s.aspectRatio > 0.80f, 0.12f);
+    AddIf(d.buildingScore, s.rectangularity > 0.62f, 0.16f);
+    AddIf(d.buildingScore, s.rowStability > 0.55f, 0.15f);
+    AddIf(d.buildingScore, s.columnStability > 0.55f, 0.15f);
+    AddIf(d.buildingScore, s.straightEdgeScore > 0.32f, 0.15f);
+
+    AddIf(d.furnitureScore, s.aspectRatio > 0.45f && s.aspectRatio < 1.35f, 0.14f);
+    AddIf(d.furnitureScore, s.rectangularity > 0.42f, 0.12f);
+    AddIf(d.furnitureScore, s.rowStability > 0.42f, 0.12f);
+    AddIf(d.furnitureScore, s.columnStability > 0.30f, 0.10f);
+    AddIf(d.furnitureScore, s.straightEdgeScore > 0.22f, 0.12f);
+    AddIf(d.furnitureScore, roundedOrArticulated && compactHumanoid, -0.22f);
+
+    AddIf(d.vehicleScore, wideLow, 0.38f);
+    AddIf(d.vehicleScore, s.aspectRatio < 0.72f, 0.16f);
+    AddIf(d.vehicleScore, s.symmetryX > 0.34f, 0.10f);
+    AddIf(d.vehicleScore, s.massCenterY > 0.46f, 0.08f);
+
+    AddIf(d.genericScore, s.contourComplexity > 0.58f, 0.14f);
+    AddIf(d.genericScore, s.edgeDensity > 0.45f, 0.10f);
+
+    float best = d.genericScore;
+    d.type = GameAssetType::GenericProp;
+    if (d.vehicleScore > best) { best = d.vehicleScore; d.type = GameAssetType::Vehicle; }
+    if (d.furnitureScore > best) { best = d.furnitureScore; d.type = GameAssetType::Furniture; }
+    if (d.buildingScore > best) { best = d.buildingScore; d.type = GameAssetType::Building; }
+
+    // For ambiguous front-facing stylized objects, prefer character only when the shape is rounded/articulated.
+    if (d.characterScore >= best - 0.06f && roundedOrArticulated && centeredMass && !wideLow) {
+        best = d.characterScore;
+        d.type = GameAssetType::Character;
+    } else if (d.characterScore > best) {
+        best = d.characterScore;
+        d.type = GameAssetType::Character;
+    }
+
+    std::ostringstream reason;
+    reason << "Auto structured resolver selected " << ToString(d.type)
+           << " from shape scores: character=" << d.characterScore
+           << ", building=" << d.buildingScore
+           << ", furniture=" << d.furnitureScore
+           << ", vehicle=" << d.vehicleScore
+           << ", generic=" << d.genericScore
+           << ".";
+    d.reason = reason.str();
+    return d;
+}
+
 } // namespace
 
 StructuredAssetBuildResult BuildStructuredAssetMesh(
@@ -238,6 +335,22 @@ StructuredAssetBuildResult BuildStructuredAssetMesh(
         return result;
     }
 
+    AutoTypeDecision decision = ResolveStructuredAssetType(result.analysis);
+    if (options.forcedAssetType != GameAssetType::Unknown) {
+        decision.type = options.forcedAssetType;
+        decision.reason = std::string("Asset type overridden by caller: ") + ToString(options.forcedAssetType);
+    }
+
+    AssetAnalysisResult plannedAnalysis = result.analysis;
+    if (plannedAnalysis.classification.assetType != decision.type) {
+        plannedAnalysis.classification.assetType = decision.type;
+        plannedAnalysis.classification.reasons.push_back(decision.reason);
+        plannedAnalysis.partHints.clear();
+    } else {
+        plannedAnalysis.classification.reasons.push_back(decision.reason);
+    }
+    result.analysis = plannedAnalysis;
+
     AssetPlanOptions planOptions;
     planOptions.targetHeight = MaxFloat(0.25f, options.targetHeight);
     planOptions.defaultDepth = MaxFloat(0.12f, options.defaultDepth);
@@ -247,12 +360,6 @@ StructuredAssetBuildResult BuildStructuredAssetMesh(
         result.message = "Structured asset plan failed.";
         result.warnings = result.plan.warnings;
         return result;
-    }
-
-    if (options.forcedAssetType != GameAssetType::Unknown) {
-        result.plan.assetType = options.forcedAssetType;
-        result.plan.assetName = std::string("Make3D_Forced_") + ToString(options.forcedAssetType);
-        result.plan.warnings.push_back(std::string("Asset type overridden by GUI/user option: ") + ToString(options.forcedAssetType));
     }
 
     BuildFromPlanParts(result.mesh, result.plan, options);
@@ -267,7 +374,7 @@ StructuredAssetBuildResult BuildStructuredAssetMesh(
     result.ok = result.validation.ok;
     result.message = result.ok ? "Structured asset mesh generated." : "Structured asset mesh failed validation.";
     result.warnings = result.validation.warnings;
-    result.validation.warnings.push_back("Generated with structured multi-asset builder instead of raw silhouette extrusion.");
+    result.validation.warnings.push_back("Generated with auto structured multi-asset resolver instead of raw silhouette extrusion.");
     return result;
 }
 
