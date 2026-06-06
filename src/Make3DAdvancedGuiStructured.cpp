@@ -42,6 +42,8 @@ constexpr int ID_STATUS = 1013;
 LONG MaxLong(LONG a, LONG b) { return a > b ? a : b; }
 LONG MinLong(LONG a, LONG b) { return a < b ? a : b; }
 float MaxFloat(float a, float b) { return a > b ? a : b; }
+float ClampFloat(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
+int ClampInt(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
 struct GuiState {
     HWND hwnd = nullptr;
@@ -215,6 +217,34 @@ POINT Project(float x, float y, float z, const RECT& r, float scale, float cx, f
     return {static_cast<LONG>(cx + rx * scale), static_cast<LONG>(cy - ry * scale)};
 }
 
+float MeshUv(std::uint32_t vertex, int component) {
+    const size_t idx = static_cast<size_t>(vertex) * 2 + static_cast<size_t>(component);
+    if (idx < g.mesh.uvs.size()) return ClampFloat(g.mesh.uvs[idx], 0.0f, 1.0f);
+    return 0.5f;
+}
+
+COLORREF SampleSourceColor(float u, float v) {
+    if (g.image.width <= 0 || g.image.height <= 0 || g.image.pixels.size() < static_cast<size_t>(g.image.width * g.image.height * 4)) {
+        return RGB(160, 170, 180);
+    }
+    u = ClampFloat(u, 0.0f, 1.0f);
+    v = ClampFloat(v, 0.0f, 1.0f);
+    const int x = ClampInt(static_cast<int>(u * static_cast<float>(g.image.width - 1) + 0.5f), 0, g.image.width - 1);
+    const int y = ClampInt(static_cast<int>((1.0f - v) * static_cast<float>(g.image.height - 1) + 0.5f), 0, g.image.height - 1);
+    const size_t p = (static_cast<size_t>(y) * static_cast<size_t>(g.image.width) + static_cast<size_t>(x)) * 4;
+    return RGB(g.image.pixels[p + 0], g.image.pixels[p + 1], g.image.pixels[p + 2]);
+}
+
+COLORREF TrianglePreviewColor(std::uint32_t ia, std::uint32_t ib, std::uint32_t ic) {
+    const COLORREF ca = SampleSourceColor(MeshUv(ia, 0), MeshUv(ia, 1));
+    const COLORREF cb = SampleSourceColor(MeshUv(ib, 0), MeshUv(ib, 1));
+    const COLORREF cc = SampleSourceColor(MeshUv(ic, 0), MeshUv(ic, 1));
+    int r = (GetRValue(ca) + GetRValue(cb) + GetRValue(cc)) / 3;
+    int gch = (GetGValue(ca) + GetGValue(cb) + GetGValue(cc)) / 3;
+    int b = (GetBValue(ca) + GetBValue(cb) + GetBValue(cc)) / 3;
+    return RGB(r, gch, b);
+}
+
 void DrawPreview(HDC hdc, HWND hwnd) {
     RECT rc{};
     GetClientRect(hwnd, &rc);
@@ -229,7 +259,7 @@ void DrawPreview(HDC hdc, HWND hwnd) {
         DrawTextW(hdc, L"High-quality fitted preview: choose an image, then press Preview 3D.", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
         return;
     }
-    DrawTextW(hdc, L"Image-fitted Structured 3D Preview - category + silhouette profile + procedural parts", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    DrawTextW(hdc, L"Color Image-Fitted 3D Preview - procedural parts + hybrid silhouette shell + source-color sampling", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
 
     std::vector<POINT> pts(g.mesh.positions.size() / 3);
     float cx = (r.left + r.right) * 0.5f;
@@ -238,17 +268,18 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     float scale = MaxFloat(90.0f, static_cast<float>(previewMin) * 0.34f);
     for (size_t i = 0; i < pts.size(); ++i) pts[i] = Project(g.mesh.positions[i * 3], g.mesh.positions[i * 3 + 1], g.mesh.positions[i * 3 + 2], r, scale, cx, cy);
 
-    HPEN pen = CreatePen(PS_SOLID, 1, RGB(80, 92, 104));
+    HPEN pen = CreatePen(PS_NULL, 0, RGB(0, 0, 0));
     HGDIOBJ oldPen = SelectObject(hdc, pen);
-    HBRUSH brush = CreateSolidBrush(RGB(160, 170, 180));
-    HGDIOBJ oldBrush = SelectObject(hdc, brush);
     for (size_t i = 0; i + 2 < g.mesh.indices.size(); i += 3) {
         std::uint32_t ia = g.mesh.indices[i], ib = g.mesh.indices[i + 1], ic = g.mesh.indices[i + 2];
         if (ia >= pts.size() || ib >= pts.size() || ic >= pts.size()) continue;
+        HBRUSH brush = CreateSolidBrush(TrianglePreviewColor(ia, ib, ic));
+        HGDIOBJ oldBrush = SelectObject(hdc, brush);
         POINT poly[3] = {pts[ia], pts[ib], pts[ic]};
         Polygon(hdc, poly, 3);
+        SelectObject(hdc, oldBrush);
+        DeleteObject(brush);
     }
-    SelectObject(hdc, oldBrush); DeleteObject(brush);
     SelectObject(hdc, oldPen); DeleteObject(pen);
 
     RECT footer = r; footer.left += 10; footer.top = r.bottom - 30;
@@ -257,7 +288,7 @@ void DrawPreview(HDC hdc, HWND hwnd) {
          << "  vertices=" << (g.mesh.positions.size() / 3)
          << "  triangles=" << (g.mesh.indices.size() / 3)
          << "  parts=" << g.structured.plan.parts.size()
-         << "  path=image-fitted";
+         << "  path=image-fitted+color";
     DrawTextW(hdc, Widen(info.str()).c_str(), -1, &footer, DT_LEFT | DT_TOP | DT_SINGLELINE);
 }
 
@@ -279,7 +310,7 @@ void DoPreview() {
             << ", vertices=" << (g.mesh.positions.size() / 3)
             << ", triangles=" << (g.mesh.indices.size() / 3)
             << ", parts=" << g.structured.plan.parts.size()
-            << ". Path=image-fitted structured builder.";
+            << ". Path=image-fitted color preview.";
         SetStatus(oss.str());
         EnableUi(true);
         InvalidateRect(g.hwnd, nullptr, TRUE);
