@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
@@ -14,35 +15,98 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect native build changes
+        id: changes
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            "run_native=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "Manual run: native build enabled."
+            exit 0
+          }
+
+          $head = '${{ github.sha }}'
+          if ('${{ github.event_name }}' -eq 'pull_request') {
+            $base = '${{ github.event.pull_request.base.sha }}'
+          } else {
+            $base = '${{ github.event.before }}'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($base) -or $base -match '^0+$') {
+            $base = (git rev-parse HEAD~1 2>$null)
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($base)) {
+            git cat-file -e "$base^{{commit}}" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              git diff --name-only $base $head | Out-File -FilePath changed_files.txt -Encoding utf8
+            } else {
+              git show --name-only --format='' $head | Out-File -FilePath changed_files.txt -Encoding utf8
+            }
+          } else {
+            git show --name-only --format='' $head | Out-File -FilePath changed_files.txt -Encoding utf8
+          }
+
+          Write-Host "Changed files:"
+          Get-Content changed_files.txt
+          $changed = Get-Content changed_files.txt
+          $needsNative = $false
+          foreach ($file in $changed) {
+            if ($file -match '^(CMakeLists\.txt|cmake/|src/|tools/|tests/)') {
+              $needsNative = $true
+              break
+            }
+          }
+
+          if ($needsNative) {
+            "run_native=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "Native build required."
+          } else {
+            "run_native=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "Documentation/script/workflow-only change; native build skipped."
+          }
 
       - name: Configure
+        if: steps.changes.outputs.run_native == 'true'
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
+        if: steps.changes.outputs.run_native == 'true'
         run: cmake --build build --config Release
 
       - name: Test
+        if: steps.changes.outputs.run_native == 'true'
         run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Train learned shape model
+        if: steps.changes.outputs.run_native == 'true'
         run: build/Release/Make3DTrainLearnedShapeModel.exe build/learned_shape_training
 
       - name: Generate portfolio samples
+        if: steps.changes.outputs.run_native == 'true'
         run: build/Release/Make3DGenerateAdvancedSamples.exe build/generated_samples
 
       - name: Generate mesh quality report
+        if: steps.changes.outputs.run_native == 'true'
         run: build/Release/Make3DGenerateMeshQualityReport.exe build/mesh_quality
 
       - name: Generate production pipeline sample
+        if: steps.changes.outputs.run_native == 'true'
         run: build/Release/Make3DGenerateProductionPipelineSample.exe build/production_pipeline
 
       - name: Generate generic asset sample
+        if: steps.changes.outputs.run_native == 'true'
         run: build/Release/Make3DGenerateGenericAssetSample.exe build/generic_asset
 
       - name: Generate complete game asset suite
+        if: steps.changes.outputs.run_native == 'true'
         run: build/Release/Make3DGenerateCompleteGameAssetSuite.exe build/complete_game_asset_suite
 
       - name: Generate typed procedural assets
+        if: steps.changes.outputs.run_native == 'true'
         shell: pwsh
         run: |
           build/Release/Make3DTypedAssetCLI.exe --type furniture --output build/typed_assets/furniture
@@ -51,6 +115,7 @@ jobs:
           build/Release/Make3DTypedAssetCLI.exe --type terrain --output build/typed_assets/terrain
 
       - name: Stage portable package
+        if: steps.changes.outputs.run_native == 'true'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path package/bin | Out-Null
@@ -74,8 +139,14 @@ jobs:
           Copy-Item build/typed_assets package/typed_assets -Recurse -ErrorAction SilentlyContinue
           Copy-Item build/learned_shape_training package/learned_shape_training -Recurse -ErrorAction SilentlyContinue
 
+      - name: Native build skipped
+        if: steps.changes.outputs.run_native != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "No C++/CMake source changes detected. Skipping native package build."
+
       - name: Upload portable package
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-advanced-portable-package
@@ -83,7 +154,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload smoke-test output
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-smoke-test-output
@@ -91,7 +162,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload generated advanced samples
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-generated-advanced-samples
@@ -99,7 +170,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload mesh quality report
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-mesh-quality-report
@@ -107,7 +178,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload learned shape training artifact
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-learned-shape-training
@@ -115,7 +186,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload production pipeline sample
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-production-pipeline-sample
@@ -123,7 +194,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload generic asset sample
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-generic-asset-sample
@@ -131,7 +202,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload complete game asset suite
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-complete-game-asset-suite
@@ -139,7 +210,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload typed procedural assets
-        if: always()
+        if: always() && steps.changes.outputs.run_native == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: make3d-typed-procedural-assets
