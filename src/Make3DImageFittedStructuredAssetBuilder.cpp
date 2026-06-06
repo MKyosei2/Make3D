@@ -193,6 +193,51 @@ static void FitApplyProjectionUVs(MeshData& mesh) {
     }
 }
 
+static bool FitMaskAt(const ImageRGBA& image, const std::vector<std::uint8_t>& mask, int x, int y) {
+    if (x < 0 || y < 0 || x >= image.width || y >= image.height) return false;
+    const size_t id = static_cast<size_t>(y) * image.width + x;
+    return id < mask.size() && mask[id] != 0;
+}
+
+static void FitAddHybridSilhouetteShell(MeshData& mesh, const ImageRGBA& image, const std::vector<std::uint8_t>& mask, const SilhouetteProfile& profile, float targetHeight, float targetDepth) {
+    if (!profile.ok || image.width <= 0 || image.height <= 0 || mask.size() != static_cast<size_t>(image.width * image.height)) return;
+    const int bw = FitMaxInt(1, profile.maxX - profile.minX + 1);
+    const int bh = FitMaxInt(1, profile.maxY - profile.minY + 1);
+    const int cols = FitClamp(bw / 3, 28, 72);
+    const int rows = FitClamp(bh / 3, 32, 84);
+    const float shellWidth = FitClamp(targetHeight / FitMax(0.75f, profile.aspect), targetHeight * 0.46f, targetHeight * 0.92f);
+    const float shellHeight = targetHeight * 1.44f;
+    const float z = targetDepth * 0.54f;
+
+    std::vector<int> grid(static_cast<size_t>(cols + 1) * static_cast<size_t>(rows + 1), -1);
+    for (int gy = 0; gy <= rows; ++gy) {
+        const float vy = rows > 0 ? static_cast<float>(gy) / static_cast<float>(rows) : 0.0f;
+        const int py = profile.minY + static_cast<int>(vy * static_cast<float>(bh - 1) + 0.5f);
+        for (int gx = 0; gx <= cols; ++gx) {
+            const float ux = cols > 0 ? static_cast<float>(gx) / static_cast<float>(cols) : 0.0f;
+            const int px = profile.minX + static_cast<int>(ux * static_cast<float>(bw - 1) + 0.5f);
+            bool inside = false;
+            for (int oy = -1; oy <= 1 && !inside; ++oy) for (int ox = -1; ox <= 1 && !inside; ++ox) inside = FitMaskAt(image, mask, px + ox, py + oy);
+            if (!inside) continue;
+            const float mx = (ux - 0.5f) * shellWidth;
+            const float my = targetHeight * 1.48f - vy * shellHeight;
+            grid[static_cast<size_t>(gy) * static_cast<size_t>(cols + 1) + static_cast<size_t>(gx)] = FitVertexCount(mesh);
+            FitAddVertex(mesh, mx, my, z, ux, 1.0f - vy);
+        }
+    }
+
+    for (int gy = 0; gy < rows; ++gy) {
+        for (int gx = 0; gx < cols; ++gx) {
+            const int a = grid[static_cast<size_t>(gy) * static_cast<size_t>(cols + 1) + static_cast<size_t>(gx)];
+            const int b = grid[static_cast<size_t>(gy) * static_cast<size_t>(cols + 1) + static_cast<size_t>(gx + 1)];
+            const int c = grid[static_cast<size_t>(gy + 1) * static_cast<size_t>(cols + 1) + static_cast<size_t>(gx + 1)];
+            const int d = grid[static_cast<size_t>(gy + 1) * static_cast<size_t>(cols + 1) + static_cast<size_t>(gx)];
+            if (a >= 0 && b >= 0 && c >= 0) FitTri(mesh, a, b, c);
+            if (a >= 0 && c >= 0 && d >= 0) FitTri(mesh, a, c, d);
+        }
+    }
+}
+
 static void FitEllipsoid(MeshData& mesh, float cx, float cy, float cz, float rx, float ry, float rz, int segments, int rings) {
     segments = FitMaxInt(10, segments); rings = FitMaxInt(5, rings);
     const int base = FitVertexCount(mesh);
@@ -356,6 +401,7 @@ StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
     MeshData fitted = BuildFittedCharacterMesh(result.plan, profile, options);
     if (fitted.positions.empty() || fitted.indices.empty()) return result;
 
+    FitAddHybridSilhouetteShell(fitted, image, mask, profile, result.plan.targetHeight, FitMax(0.52f, result.plan.targetDepth));
     RecomputeNormals(fitted);
     if (options.normalizeOutput) NormalizeMesh(fitted, options.targetHeight);
     FitApplyProjectionUVs(fitted);
@@ -364,8 +410,9 @@ StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
 
     result.mesh = fitted;
     result.validation = validation;
-    result.message = "Image-fitted structured character mesh generated.";
+    result.message = "Image-fitted hybrid structured character mesh generated.";
     result.warnings.push_back("Character limbs fitted from silhouette edge anchors and skeleton-like side anchors.");
+    result.warnings.push_back("Hybrid silhouette shell added from the foreground mask to preserve the source image outline.");
     result.warnings.push_back("Projection UVs generated from fitted model bounds for source-image texturing.");
     result.warnings.push_back("This is still a procedural proxy mesh, not a learned neural reconstruction.");
     return result;
