@@ -17,6 +17,7 @@ add_library(Make3DAdvancedCore STATIC
     src/Make3DMaskRefiner.cpp
     src/Make3DAssetTypes.cpp
     src/Make3DGameAssetGenerator.cpp
+    src/Make3DStructuredAssetBuilder.cpp
     src/Make3DMeshRepairAndTexture.cpp
     src/Make3DMeshQualityGate.cpp
     src/Make3DCompleteGameAssetPipeline.cpp
@@ -53,6 +54,7 @@ make3d_exe(Make3DLearnedShapeTrainerTest tests/Make3DLearnedShapeTrainerTest.cpp
 make3d_exe(Make3DMaskRefinerTest tests/Make3DMaskRefinerTest.cpp)
 make3d_exe(Make3DMeshQualityGateTest tests/Make3DMeshQualityGateTest.cpp)
 make3d_exe(Make3DBenchmarkTest tests/Make3DBenchmarkTest.cpp)
+make3d_exe(Make3DStructuredAssetBuilderTest tests/Make3DStructuredAssetBuilderTest.cpp)
 
 add_executable(Make3DGameAssetCLI
     src/Make3DGameAssetCLI.cpp
@@ -90,7 +92,8 @@ foreach(test_name IN ITEMS
     Make3DLearnedShapeTrainerTest
     Make3DMaskRefinerTest
     Make3DMeshQualityGateTest
-    Make3DBenchmarkTest)
+    Make3DBenchmarkTest
+    Make3DStructuredAssetBuilderTest)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
 
