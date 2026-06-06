@@ -191,9 +191,9 @@ bool BuildPreview(std::string& error) {
     make3d::StructuredAssetOptions options;
     options.targetHeight = 2.0f;
     options.defaultDepth = 0.70f;
-    options.radialSegments = 28;
+    options.radialSegments = 40;
     options.addDetailParts = true;
-    g.structured = make3d::BuildStructuredAssetMesh(*color, depth, mask, options);
+    g.structured = make3d::BuildImageFittedStructuredAssetMesh(*color, depth, mask, options);
     if (!g.structured.ok) { error = g.structured.message; return false; }
 
     g.image = *color;
@@ -212,8 +212,7 @@ POINT Project(float x, float y, float z, const RECT& r, float scale, float cx, f
     float rz = x * syaw + z * cyaw;
     float ry = y * cp - rz * sp;
     return {static_cast<LONG>(cx + rx * scale), static_cast<LONG>(cy - ry * scale)};
-}
-
+}\n
 void DrawPreview(HDC hdc, HWND hwnd) {
     RECT rc{};
     GetClientRect(hwnd, &rc);
@@ -225,10 +224,10 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     SetBkMode(hdc, TRANSPARENT);
     RECT title = r; title.left += 10; title.top += 8;
     if (!g.hasPreview) {
-        DrawTextW(hdc, L"Structured preview: choose an image, then press Preview 3D.", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
+        DrawTextW(hdc, L"High-quality fitted preview: choose an image, then press Preview 3D.", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
         return;
     }
-    DrawTextW(hdc, L"Structured 3D Preview - object is rebuilt from asset type + parts, not raw silhouette extrusion", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    DrawTextW(hdc, L"Image-fitted Structured 3D Preview - category + silhouette profile + procedural parts", -1, &title, DT_LEFT | DT_TOP | DT_SINGLELINE);
 
     std::vector<POINT> pts(g.mesh.positions.size() / 3);
     float cx = (r.left + r.right) * 0.5f;
@@ -255,14 +254,15 @@ void DrawPreview(HDC hdc, HWND hwnd) {
     info << "type=" << make3d::ToString(g.structured.plan.assetType)
          << "  vertices=" << (g.mesh.positions.size() / 3)
          << "  triangles=" << (g.mesh.indices.size() / 3)
-         << "  parts=" << g.structured.plan.parts.size();
+         << "  parts=" << g.structured.plan.parts.size()
+         << "  path=image-fitted";
     DrawTextW(hdc, Widen(info.str()).c_str(), -1, &footer, DT_LEFT | DT_TOP | DT_SINGLELINE);
 }
 
 void DoPreview() {
     try {
         EnableUi(false);
-        SetStatus("Generating structured multi-asset preview...");
+        SetStatus("Generating image-fitted structured preview...");
         std::string error;
         if (!BuildPreview(error)) {
             g.hasPreview = false;
@@ -277,7 +277,7 @@ void DoPreview() {
             << ", vertices=" << (g.mesh.positions.size() / 3)
             << ", triangles=" << (g.mesh.indices.size() / 3)
             << ", parts=" << g.structured.plan.parts.size()
-            << ". Press Save OBJ/glTF to export structured model.";
+            << ". Path=image-fitted structured builder.";
         SetStatus(oss.str());
         EnableUi(true);
         InvalidateRect(g.hwnd, nullptr, TRUE);
@@ -317,8 +317,8 @@ void DoSave() {
         std::ofstream md(reportPath, std::ios::binary); md << g.structured.ToMarkdown();
         std::ofstream js(reportJsonPath, std::ios::binary); js << g.structured.ToJson();
         g.lastOutput = output;
-        SetStatus("Saved structured OBJ/glTF: " + SafePathString(objPath));
-        MessageBoxW(g.hwnd, Widen("Saved structured model.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
+        SetStatus("Saved image-fitted structured OBJ/glTF: " + SafePathString(objPath));
+        MessageBoxW(g.hwnd, Widen("Saved image-fitted structured model.\n\nOBJ: " + SafePathString(objPath) + "\nglTF: " + SafePathString(gltfPath) + "\nReport: " + SafePathString(reportPath)).c_str(), L"Save finished", MB_OK | MB_ICONINFORMATION);
     } catch (const std::exception& e) {
         MessageBoxW(g.hwnd, Widen(e.what()).c_str(), L"Save failed", MB_OK | MB_ICONERROR);
     }
@@ -347,7 +347,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         g.previewButton = Button(hwnd, L"Preview 3D", ID_PREVIEW, 136, 150, 160, 34);
         g.saveButton = Button(hwnd, L"Save OBJ/glTF", ID_SAVE, 310, 150, 160, 34);
         g.openButton = Button(hwnd, L"Open output", ID_OPEN, 484, 150, 150, 34);
-        g.status = CreateWindowW(L"STATIC", L"Ready. Structured mode supports characters, furniture, buildings, vehicles, and generic props.", WS_CHILD | WS_VISIBLE, 16, 205, 900, 64, hwnd, ControlId(ID_STATUS), nullptr, nullptr);
+        g.status = CreateWindowW(L"STATIC", L"Ready. High-quality path uses auto classification + silhouette-profile fitting.", WS_CHILD | WS_VISIBLE, 16, 205, 900, 64, hwnd, ControlId(ID_STATUS), nullptr, nullptr);
         SetWindowTextW(g.outputPath, DefaultOutputDir().wstring().c_str());
         HWND controls[] = {g.colorPath, g.depthPath, g.outputPath, g.previewButton, g.saveButton, g.openButton, g.status};
         for (HWND c : controls) SendMessageW(c, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
@@ -403,7 +403,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow) {
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     RegisterClassW(&wc);
-    HWND hwnd = CreateWindowExW(0, kClassName, L"Make3D Advanced Engine - Structured Asset Builder", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 980, 740, nullptr, nullptr, hInstance, nullptr);
+    HWND hwnd = CreateWindowExW(0, kClassName, L"Make3D Advanced Engine - Image-Fitted Structured Builder", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 980, 740, nullptr, nullptr, hInstance, nullptr);
     if (!hwnd) return 1;
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
