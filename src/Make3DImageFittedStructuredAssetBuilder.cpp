@@ -169,6 +169,30 @@ static FitAnchor FitFindSideAnchor(const SilhouetteProfile& p, float y0, float y
     return out;
 }
 
+static void FitApplyProjectionUVs(MeshData& mesh) {
+    const int count = FitVertexCount(mesh);
+    if (count <= 0 || mesh.positions.size() < static_cast<size_t>(count) * 3) return;
+    float minX = mesh.positions[0], maxX = mesh.positions[0];
+    float minY = mesh.positions[1], maxY = mesh.positions[1];
+    for (int i = 0; i < count; ++i) {
+        const size_t p = static_cast<size_t>(i) * 3;
+        minX = FitMin(minX, mesh.positions[p + 0]);
+        maxX = FitMax(maxX, mesh.positions[p + 0]);
+        minY = FitMin(minY, mesh.positions[p + 1]);
+        maxY = FitMax(maxY, mesh.positions[p + 1]);
+    }
+    const float rangeX = FitMax(0.0001f, maxX - minX);
+    const float rangeY = FitMax(0.0001f, maxY - minY);
+    mesh.uvs.assign(static_cast<size_t>(count) * 2, 0.0f);
+    for (int i = 0; i < count; ++i) {
+        const size_t p = static_cast<size_t>(i) * 3;
+        const float u = FitClamp((mesh.positions[p + 0] - minX) / rangeX, 0.0f, 1.0f);
+        const float v = FitClamp((mesh.positions[p + 1] - minY) / rangeY, 0.0f, 1.0f);
+        mesh.uvs[static_cast<size_t>(i) * 2 + 0] = u;
+        mesh.uvs[static_cast<size_t>(i) * 2 + 1] = v;
+    }
+}
+
 static void FitEllipsoid(MeshData& mesh, float cx, float cy, float cz, float rx, float ry, float rz, int segments, int rings) {
     segments = FitMaxInt(10, segments); rings = FitMaxInt(5, rings);
     const int base = FitVertexCount(mesh);
@@ -334,6 +358,7 @@ StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
 
     RecomputeNormals(fitted);
     if (options.normalizeOutput) NormalizeMesh(fitted, options.targetHeight);
+    FitApplyProjectionUVs(fitted);
     GameAssetValidationReport validation = ValidateGameAssetMesh(fitted);
     if (!validation.ok) return result;
 
@@ -341,6 +366,7 @@ StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
     result.validation = validation;
     result.message = "Image-fitted structured character mesh generated.";
     result.warnings.push_back("Character limbs fitted from silhouette edge anchors and skeleton-like side anchors.");
+    result.warnings.push_back("Projection UVs generated from fitted model bounds for source-image texturing.");
     result.warnings.push_back("This is still a procedural proxy mesh, not a learned neural reconstruction.");
     return result;
 }
