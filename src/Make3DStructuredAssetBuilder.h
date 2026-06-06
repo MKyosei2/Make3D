@@ -35,7 +35,18 @@ struct StructuredAssetBuildResult {
     std::string ToJson() const;
 };
 
+// Base structured route. It auto-classifies the image and generates a category-specific
+// edit-friendly proxy mesh from procedural parts.
 StructuredAssetBuildResult BuildStructuredAssetMesh(
+    const ImageRGBA& image,
+    const DepthImage& depth,
+    const std::vector<std::uint8_t>& mask,
+    const StructuredAssetOptions& options = StructuredAssetOptions{});
+
+// High-quality route for portfolio/reviewer-facing output. It first runs the base
+// structured route, then fits character proportions to the input mask's horizontal
+// silhouette profile when the image resolves to a character-like object.
+StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
     const ImageRGBA& image,
     const DepthImage& depth,
     const std::vector<std::uint8_t>& mask,
