@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <string>
 #include <vector>
 
 namespace {
@@ -67,6 +68,13 @@ bool ValidateResult(const char* name, const make3d::StructuredAssetBuildResult& 
     return true;
 }
 
+bool ContainsWarning(const make3d::StructuredAssetBuildResult& result, const std::string& token) {
+    for (const auto& warning : result.warnings) {
+        if (warning.find(token) != std::string::npos) return true;
+    }
+    return false;
+}
+
 int VertexCount(const make3d::MeshData& mesh) { return static_cast<int>(mesh.positions.size() / 3); }
 int TriangleCount(const make3d::MeshData& mesh) { return static_cast<int>(mesh.indices.size() / 3); }
 
@@ -100,6 +108,10 @@ int main() {
             std::cerr << "Expected image-fitted character to have more triangles than base character. base triangles="
                       << TriangleCount(base.mesh) << " fitted triangles=" << TriangleCount(fitted.mesh) << "\n";
             return 6;
+        }
+        if (!ContainsWarning(fitted, "silhouette edge anchors")) {
+            std::cerr << "Expected fitted character report to mention silhouette edge anchors.\n" << fitted.ToMarkdown() << "\n";
+            return 7;
         }
     }
 
