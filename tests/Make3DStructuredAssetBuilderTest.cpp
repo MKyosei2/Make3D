@@ -125,6 +125,18 @@ int main() {
             std::cerr << "Expected fitted character report to mention hybrid silhouette shell generation.\n" << fitted.ToMarkdown() << "\n";
             return 10;
         }
+
+        auto hero = make3d::BuildHeroFittedStructuredAssetMesh(image, depth, mask, options);
+        if (!ValidateResult("hero-fitted character", hero, make3d::GameAssetType::Character)) return 11;
+        if (TriangleCount(hero.mesh) <= TriangleCount(fitted.mesh)) {
+            std::cerr << "Expected hero-fitted character to have more triangles than fitted character. fitted triangles="
+                      << TriangleCount(fitted.mesh) << " hero triangles=" << TriangleCount(hero.mesh) << "\n";
+            return 12;
+        }
+        if (!ContainsWarning(hero, "Solid hero silhouette shell")) {
+            std::cerr << "Expected hero-fitted character report to mention solid hero silhouette shell.\n" << hero.ToMarkdown() << "\n";
+            return 13;
+        }
     }
 
     {
