@@ -106,7 +106,7 @@ int main() {
         PaintRect(image, mask, 35, 30, 125, 165, 160, 170, 180); // facade
         PaintRect(image, mask, 28, 12, 132, 35, 100, 100, 110);  // roof
         auto depth = MakeDepth(image.width, image.height, mask);
-        auto result = make3D::BuildStructuredAssetMesh(image, depth, mask, options);
+        auto result = make3d::BuildStructuredAssetMesh(image, depth, mask, options);
         if (!ValidateResult("building", result, make3d::GameAssetType::Building)) return 3;
     }
 
