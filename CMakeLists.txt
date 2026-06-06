@@ -73,6 +73,7 @@ target_link_libraries(Make3DTypedAssetCLI PRIVATE Make3DAdvancedCore)
 if (WIN32)
     make3d_exe(Make3DAdvancedGui src/Make3DAdvancedGuiStructured.cpp)
     set_target_properties(Make3DAdvancedGui PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_compile_definitions(Make3DAdvancedGui PRIVATE BuildImageFittedStructuredAssetMesh=BuildHeroFittedStructuredAssetMesh)
     target_link_libraries(Make3DAdvancedGui PRIVATE comctl32 comdlg32 shell32 ole32)
 endif()
 
