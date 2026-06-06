@@ -12,6 +12,12 @@ constexpr float FitPi = 3.14159265358979323846f;
 
 struct FitVec3 { float x = 0.0f; float y = 0.0f; float z = 0.0f; };
 
+struct FitAnchor {
+    float x = 0.0f;
+    float yNorm = 0.5f;
+    float confidence = 0.0f;
+};
+
 struct SilhouetteProfile {
     bool ok = false;
     int minX = 0, minY = 0, maxX = -1, maxY = -1;
@@ -100,11 +106,6 @@ static float FitSampleRows(const std::vector<float>& rows, float normalizedYFrom
     return rows[static_cast<size_t>(y0)] * (1.0f - t) + rows[static_cast<size_t>(y1)] * t;
 }
 
-static float FitRowWidthAt(const SilhouetteProfile& p, float normalizedYFromTop) {
-    if (!p.ok) return 0.5f;
-    return FitSampleRows(p.rowWidth, normalizedYFromTop, 0.5f);
-}
-
 static float FitRowLeftAt(const SilhouetteProfile& p, float normalizedYFromTop) {
     if (!p.ok) return -0.5f;
     return FitSampleRows(p.rowLeft, normalizedYFromTop, -0.5f);
@@ -136,6 +137,36 @@ static float FitSideX(const SilhouetteProfile& p, float normalizedYFromTop, floa
     const float modelX = edge * baseW * 1.18f;
     if (std::fabs(modelX) < std::fabs(fallback) * 0.35f) return fallback;
     return FitClamp(modelX, -baseW * 0.68f, baseW * 0.68f);
+}
+
+static float FitModelYFromTop(float yNorm, float h) {
+    return h * FitClamp(1.50f - FitClamp(yNorm, 0.0f, 1.0f) * 1.47f, 0.06f, 1.50f);
+}
+
+static FitAnchor FitFindSideAnchor(const SilhouetteProfile& p, float y0, float y1, float side, float baseW, float fallbackAbs, float fallbackY) {
+    FitAnchor out{side * fallbackAbs, fallbackY, 0.0f};
+    if (!p.ok || p.rowWidth.empty()) return out;
+    int i0 = static_cast<int>(FitClamp(y0, 0.0f, 1.0f) * static_cast<float>(p.rowWidth.size() - 1));
+    int i1 = static_cast<int>(FitClamp(y1, 0.0f, 1.0f) * static_cast<float>(p.rowWidth.size() - 1));
+    if (i1 < i0) { int tmp = i0; i0 = i1; i1 = tmp; }
+    float bestScore = -1.0e9f;
+    for (int i = i0; i <= i1; ++i) {
+        const float edge = side < 0.0f ? p.rowLeft[static_cast<size_t>(i)] : p.rowRight[static_cast<size_t>(i)];
+        const float outward = side < 0.0f ? -edge : edge;
+        const float width = p.rowWidth[static_cast<size_t>(i)];
+        const float yNorm = p.rowWidth.size() > 1 ? static_cast<float>(i) / static_cast<float>(p.rowWidth.size() - 1) : fallbackY;
+        const float bandCenter = (y0 + y1) * 0.5f;
+        const float centerPenalty = std::fabs(yNorm - bandCenter) * 0.08f;
+        const float score = outward + width * 0.18f - centerPenalty;
+        if (score > bestScore) {
+            bestScore = score;
+            out.x = FitClamp(edge * baseW * 1.18f, -baseW * 0.74f, baseW * 0.74f);
+            out.yNorm = yNorm;
+            out.confidence = FitClamp(score, 0.0f, 1.0f);
+        }
+    }
+    if (std::fabs(out.x) < fallbackAbs * 0.30f) out.x = side * fallbackAbs;
+    return out;
 }
 
 static void FitEllipsoid(MeshData& mesh, float cx, float cy, float cz, float rx, float ry, float rz, int segments, int rings) {
@@ -240,12 +271,16 @@ static MeshData BuildFittedCharacterMesh(const AssetPlanResult& plan, const Silh
     FitEllipsoid(mesh, centerTorso, h * 0.875f, d * 0.270f, torsoW * 0.260f, h * 0.024f, d * 0.035f, limbSeg, 4);
 
     for (float side : {-1.0f, 1.0f}) {
+        const FitAnchor elbowAnchor = FitFindSideAnchor(profile, 0.38f, 0.55f, side, baseW, baseW * 0.46f, 0.47f);
+        const FitAnchor handAnchor = FitFindSideAnchor(profile, 0.54f, 0.72f, side, baseW, baseW * 0.54f, 0.61f);
         const float shoulderX = centerTorso + side * shoulderW * 0.49f;
-        const float elbowX = FitSideX(profile, 0.47f, side, baseW, baseW * 0.46f);
-        const float handX = FitSideX(profile, 0.61f, side, baseW, baseW * 0.54f);
+        const float elbowX = FitClamp(elbowAnchor.x, side < 0.0f ? -baseW * 0.70f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.70f);
+        const float handX = FitClamp(handAnchor.x, side < 0.0f ? -baseW * 0.76f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.76f);
+        const float elbowY = FitClamp(FitModelYFromTop(elbowAnchor.yNorm, h), h * 0.70f, h * 0.94f);
+        const float handY = FitClamp(FitModelYFromTop(handAnchor.yNorm, h), h * 0.46f, h * 0.72f);
         FitVec3 shoulder{shoulderX, h * 1.020f, 0.0f};
-        FitVec3 elbow{elbowX, h * 0.800f, d * 0.030f};
-        FitVec3 hand{handX, h * 0.585f, d * 0.075f};
+        FitVec3 elbow{elbowX, elbowY, d * 0.030f};
+        FitVec3 hand{handX, handY, d * 0.075f};
         FitCapsule(mesh, shoulder, elbow, baseW * 0.045f, h * 0.040f, d * 0.060f, limbSeg);
         FitCapsule(mesh, elbow, hand, baseW * 0.043f, h * 0.038f, d * 0.055f, limbSeg);
         FitEllipsoid(mesh, hand.x, hand.y, hand.z, baseW * 0.090f, h * 0.064f, d * 0.100f, limbSeg, 6);
@@ -253,12 +288,16 @@ static MeshData BuildFittedCharacterMesh(const AssetPlanResult& plan, const Silh
     }
 
     for (float side : {-1.0f, 1.0f}) {
+        const FitAnchor kneeAnchor = FitFindSideAnchor(profile, 0.70f, 0.84f, side, baseW, legSpread * 1.05f, 0.78f);
+        const FitAnchor ankleAnchor = FitFindSideAnchor(profile, 0.84f, 0.98f, side, baseW, legSpread * 1.12f, 0.91f);
         const float hipX = centerTorso + side * legSpread;
-        const float kneeX = FitClamp(FitSideX(profile, 0.78f, side, baseW, legSpread * 1.05f), side < 0.0f ? -baseW * 0.30f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.30f);
-        const float ankleX = FitClamp(FitSideX(profile, 0.91f, side, baseW, legSpread * 1.12f), side < 0.0f ? -baseW * 0.36f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.36f);
+        const float kneeX = FitClamp(kneeAnchor.x, side < 0.0f ? -baseW * 0.32f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.32f);
+        const float ankleX = FitClamp(ankleAnchor.x, side < 0.0f ? -baseW * 0.40f : 0.0f, side < 0.0f ? 0.0f : baseW * 0.40f);
+        const float kneeY = FitClamp(FitModelYFromTop(kneeAnchor.yNorm, h), h * 0.27f, h * 0.44f);
+        const float ankleY = FitClamp(FitModelYFromTop(ankleAnchor.yNorm, h), h * 0.10f, h * 0.23f);
         FitVec3 hip{hipX, h * 0.540f, 0.0f};
-        FitVec3 knee{kneeX, h * 0.335f, 0.0f};
-        FitVec3 ankle{ankleX, h * 0.150f, d * 0.015f};
+        FitVec3 knee{kneeX, kneeY, 0.0f};
+        FitVec3 ankle{ankleX, ankleY, d * 0.015f};
         FitCapsule(mesh, hip, knee, baseW * 0.056f, h * 0.045f, d * 0.065f, limbSeg);
         FitCapsule(mesh, knee, ankle, baseW * 0.052f, h * 0.043f, d * 0.060f, limbSeg);
         FitEllipsoid(mesh, ankleX, h * 0.070f, d * 0.135f, baseW * 0.130f, h * 0.080f, d * 0.290f, limbSeg, 7);
@@ -301,7 +340,7 @@ StructuredAssetBuildResult BuildImageFittedStructuredAssetMesh(
     result.mesh = fitted;
     result.validation = validation;
     result.message = "Image-fitted structured character mesh generated.";
-    result.warnings.push_back("Character proportions fitted from foreground mask horizontal profile and silhouette edge anchors.");
+    result.warnings.push_back("Character limbs fitted from silhouette edge anchors and skeleton-like side anchors.");
     result.warnings.push_back("This is still a procedural proxy mesh, not a learned neural reconstruction.");
     return result;
 }
