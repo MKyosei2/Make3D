@@ -121,6 +121,10 @@ int main() {
             std::cerr << "Expected fitted character report to mention projection UV generation.\n" << fitted.ToMarkdown() << "\n";
             return 9;
         }
+        if (!ContainsWarning(fitted, "Hybrid silhouette shell")) {
+            std::cerr << "Expected fitted character report to mention hybrid silhouette shell generation.\n" << fitted.ToMarkdown() << "\n";
+            return 10;
+        }
     }
 
     {
