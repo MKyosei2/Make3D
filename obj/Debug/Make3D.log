@@ -1,5 +1,6 @@
 ﻿  Make3DAdvancedGui.cpp
   Make3DAdvancedCore.cpp
+  Make3DBenchmark.cpp
   Make3DAssetTypes.cpp
   Make3DCompleteGameAssetPipeline.cpp
   Make3DGameAssetGenerator.cpp

@@ -3,3 +3,4 @@ Kd 0.72 0.74 0.76
 Ka 0.05 0.05 0.05
 Ks 0.15 0.15 0.15
 Ns 24
+map_Kd make3d_source_image.png

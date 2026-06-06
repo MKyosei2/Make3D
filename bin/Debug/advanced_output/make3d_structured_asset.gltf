@@ -1,0 +1,32 @@
+{
+  "asset": { "version": "2.0", "generator": "Make3DAdvanced" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0] }],
+  "nodes": [{ "mesh": 0, "name": "Make3DAdvancedModel" }],
+  "meshes": [{ "primitives": [{ "attributes": { "POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2 }, "indices": 3, "material": 0, "mode": 4 }] }],
+  "materials": [{
+    "name": "Make3DStructuredAssetMaterial",
+    "doubleSided": true,
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [0.720000, 0.740000, 0.760000, 1.000000],
+      "metallicFactor": 0.000000,
+      "roughnessFactor": 0.820000,
+      "baseColorTexture": { "index": 0 }
+    }
+  }],
+  "textures": [{ "source": 0 }],
+  "images": [{ "uri": "make3d_source_image.png" }],
+  "buffers": [{ "uri": "make3d_structured_asset.bin", "byteLength": 461328 }],
+  "bufferViews": [
+    { "buffer": 0, "byteOffset": 0, "byteLength": 106956, "target": 34962 },
+    { "buffer": 0, "byteOffset": 106956, "byteLength": 106956, "target": 34962 },
+    { "buffer": 0, "byteOffset": 213912, "byteLength": 71304, "target": 34962 },
+    { "buffer": 0, "byteOffset": 285216, "byteLength": 176112, "target": 34963 }
+  ],
+  "accessors": [
+    { "bufferView": 0, "componentType": 5126, "count": 8913, "type": "VEC3", "min": [-0.588801, 0.000000, -0.182238], "max": [0.588801, 2.000000, 0.182238] },
+    { "bufferView": 1, "componentType": 5126, "count": 8913, "type": "VEC3" },
+    { "bufferView": 2, "componentType": 5126, "count": 8913, "type": "VEC2" },
+    { "bufferView": 3, "componentType": 5125, "count": 44028, "type": "SCALAR" }
+  ]
+}
